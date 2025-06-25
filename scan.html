@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scan Answers</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            width: 100%;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        h1 {
+            color: #222;
+            margin-bottom: 1rem;
+        }
+
+        #student-info {
+            font-size: 1.1rem;
+            margin-bottom: 1.5rem;
+            color: #555;
+        }
+
+        #camera-feed {
+            width: 100%;
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            background-color: #000;
+            display: block;
+            margin-bottom: 1rem;
+        }
+
+        button {
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            background-color: #007bff;
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin: 0.5rem;
+        }
+
+            button:hover {
+                background-color: #0056b3;
+            }
+
+            button:disabled {
+                background-color: #a0a0a0;
+                cursor: not-allowed;
+            }
+
+        #capture-button {
+            background-color: #28a745;
+        }
+
+            #capture-button:hover {
+                background-color: #218838;
+            }
+
+        #finish-button {
+            background-color: #6f42c1;
+        }
+
+            #finish-button:hover {
+                background-color: #5a349b;
+            }
+
+        #image-previews {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 1rem;
+        }
+
+        .preview-item {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #eee;
+        }
+
+            .preview-item img {
+                max-width: 100%;
+                max-height: 100%;
+                object-fit: contain;
+            }
+
+            .preview-item .remove-btn {
+                position: absolute;
+                top: 2px;
+                right: 2px;
+                background-color: rgba(255, 0, 0, 0.7);
+                color: white;
+                border: none;
+                border-radius: 50%;
+                width: 20px;
+                height: 20px;
+                font-size: 0.8rem;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                cursor: pointer;
+                padding: 0;
+            }
+
+        #status-message {
+            margin-top: 1rem;
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Scan Student Answers</h1>
+        <p id="student-info">Loading student info...</p>
+        <video id="camera-feed" autoplay playsinline></video>
+        <canvas id="canvas" class="hidden"></canvas>
+        <button id="capture-button">Take Photo</button>
+        <button id="finish-button">Finish Scanning</button>
+        <p id="status-message"></p>
+    </div>
+
+    <div class="container">
+        <h2>Uploaded Images</h2>
+        <div id="image-previews">
+            <p id="no-images-message">No images uploaded yet.</p>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const SUPABASE_URL = 'https://uagiatfoiwusxafxskvp.supabase.co'; // Your Supabase URL
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhZ2lhdGZvaXd1c3hhZnhza3ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyODc0NjYsImV4cCI6MjA2NDg2MzQ2Nn0.b0wIEHgENkhzkp3qHAotqbLTq7BwsqgM7b0ksAl3h1U'; // Your Supabase Anon Key
+        const STORAGE_BUCKET = 'exam-visuals'; // Your Supabase Storage Bucket name
+
+        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const cameraFeed = document.getElementById('camera-feed');
+        const canvas = document.getElementById('canvas');
+        const captureButton = document.getElementById('capture-button');
+        const finishButton = document.getElementById('finish-button');
+        const imagePreviews = document.getElementById('image-previews');
+        const statusMessage = document.getElementById('status-message');
+        const studentInfo = document.getElementById('student-info');
+        const noImagesMessage = document.getElementById('no-images-message');
+
+        let stream;
+        let sessionToken;
+        let scanSessionId; // To store the ID of the scan_session record
+        let uploadedImagePaths = []; // Array to store paths of images uploaded in this session
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            sessionToken = urlParams.get('token');
+
+            if (!sessionToken) {
+                statusMessage.textContent = 'Error: No session token provided.';
+                captureButton.disabled = true;
+                finishButton.disabled = true;
+                return;
+            }
+
+            try {
+                // Fetch session details to get student info and existing uploads
+                const { data, error } = await sb
+                    .from('scan_sessions')
+                    .select('id, student_name, student_number, uploaded_image_paths')
+                    .eq('session_token', sessionToken)
+                    .single();
+
+                if (error || !data) {
+                    throw new Error(`Session not found or expired: ${error?.message || 'Unknown error'}`);
+                }
+
+                scanSessionId = data.id;
+                studentInfo.textContent = `Student: ${data.student_name || 'N/A'} (ID: ${data.student_number || 'N/A'})`;
+                uploadedImagePaths = data.uploaded_image_paths || [];
+                renderPreviews();
+
+                await startCamera();
+            } catch (error) {
+                statusMessage.textContent = `Error: ${error.message}`;
+                console.error('Initialization error:', error);
+                captureButton.disabled = true;
+                finishButton.disabled = true;
+            }
+        });
+
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }); // Prefer rear camera
+                cameraFeed.srcObject = stream;
+                cameraFeed.play();
+                captureButton.disabled = false;
+                statusMessage.textContent = '';
+            } catch (err) {
+                statusMessage.textContent = 'Error accessing camera. Please ensure camera permissions are granted.';
+                console.error('Error accessing camera:', err);
+                captureButton.disabled = true;
+            }
+        }
+
+        captureButton.addEventListener('click', async () => {
+            if (!stream) {
+                statusMessage.textContent = 'Camera not active.';
+                return;
+            }
+
+            captureButton.disabled = true;
+            statusMessage.textContent = 'Capturing and uploading...';
+
+            const context = canvas.getContext('2d');
+            canvas.width = cameraFeed.videoWidth;
+            canvas.height = cameraFeed.videoHeight;
+            context.drawImage(cameraFeed, 0, 0, canvas.width, canvas.height);
+
+            canvas.toBlob(async (blob) => {
+                const filename = `${sessionToken}_${Date.now()}.jpeg`;
+                const filePath = `temp_scans/${sessionToken}/${filename}`;
+
+                try {
+                    const { data, error } = await sb.storage.from(STORAGE_BUCKET).upload(filePath, blob, {
+                        cacheControl: '3600',
+                        upsert: false // Do not overwrite if file exists (unlikely with timestamp)
+                    });
+
+                    if (error) throw error;
+
+                    const { data: publicUrlData } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(filePath);
+                    const publicUrl = publicUrlData.publicUrl;
+
+                    uploadedImagePaths.push(publicUrl);
+
+                    // Update the scan_sessions table with the new image path
+                    const { error: updateError } = await sb
+                        .from('scan_sessions')
+                        .update({ uploaded_image_paths: uploadedImagePaths })
+                        .eq('id', scanSessionId);
+
+                    if (updateError) throw updateError;
+
+                    statusMessage.textContent = 'Image uploaded successfully!';
+                    renderPreviews();
+
+                } catch (error) {
+                    statusMessage.textContent = `Upload failed: ${error.message}`;
+                    console.error('Upload error:', error);
+                } finally {
+                    captureButton.disabled = false;
+                }
+            }, 'image/jpeg', 0.8); // Adjust quality as needed
+        });
+
+        finishButton.addEventListener('click', () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            statusMessage.textContent = 'Scanning session finished. You can close this page.';
+            captureButton.disabled = true;
+            finishButton.disabled = true;
+            // Optionally, redirect back to the main exam page or show a success message
+            // window.location.href = `/exam-details.html?id=${examId}`; // If you know examId
+        });
+
+        function renderPreviews() {
+            imagePreviews.innerHTML = '';
+            if (uploadedImagePaths.length === 0) {
+                noImagesMessage.classList.remove('hidden');
+                return;
+            }
+            noImagesMessage.classList.add('hidden');
+
+            uploadedImagePaths.forEach((url, index) => {
+                const previewItem = document.createElement('div');
+                previewItem.className = 'preview-item';
+                const img = document.createElement('img');
+                img.src = url;
+                img.alt = `Scanned Image ${index + 1}`;
+                previewItem.appendChild(img);
+
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'remove-btn';
+                removeBtn.textContent = 'x';
+                removeBtn.onclick = () => removeImage(index);
+                previewItem.appendChild(removeBtn);
+
+                imagePreviews.appendChild(previewItem);
+            });
+        }
+
+        async function removeImage(indexToRemove) {
+            const urlToRemove = uploadedImagePaths[indexToRemove];
+            const filename = urlToRemove.split('/').pop(); // Get filename from URL
+            const filePath = `temp_scans/${sessionToken}/${filename}`;
+
+            try {
+                // Delete from Supabase Storage
+                const { error: deleteError } = await sb.storage.from(STORAGE_BUCKET).remove([filePath]);
+                if (deleteError) throw deleteError;
+
+                // Remove from local array
+                uploadedImagePaths.splice(indexToRemove, 1);
+
+                // Update the scan_sessions table
+                const { error: updateError } = await sb
+                    .from('scan_sessions')
+                    .update({ uploaded_image_paths: uploadedImagePaths })
+                    .eq('id', scanSessionId);
+
+                if (updateError) throw updateError;
+
+                statusMessage.textContent = 'Image removed successfully.';
+                renderPreviews();
+            } catch (error) {
+                statusMessage.textContent = `Failed to remove image: ${error.message}`;
+                console.error('Remove image error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

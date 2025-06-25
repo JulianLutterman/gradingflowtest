@@ -1,0 +1,568 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Uploader</title>
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- JSZip for handling zip files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            display: flex;
+            flex-direction: column; /* Allow multiple containers */
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 2rem 0; /* Add padding for spacing */
+        }
+
+        .container {
+            background: white;
+            padding: 2rem 3rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px;
+            margin-bottom: 2rem; /* Space between containers */
+        }
+
+        h1, h2 {
+            text-align: center;
+            color: #222;
+        }
+
+        .auth-forms, .app-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        label {
+            font-weight: 600;
+        }
+
+        input[type="text"], input[type="email"], input[type="password"], input[type="file"] {
+            padding: 0.8rem;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        button {
+            padding: 0.9rem;
+            border: none;
+            border-radius: 6px;
+            background-color: #007bff;
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+            button:hover {
+                background-color: #0056b3;
+            }
+
+            button:disabled {
+                background-color: #a0a0a0;
+                cursor: not-allowed;
+            }
+
+        .auth-toggle {
+            text-align: center;
+            margin-top: 1rem;
+        }
+
+            .auth-toggle a {
+                color: #007bff;
+                cursor: pointer;
+                text-decoration: none;
+            }
+
+                .auth-toggle a:hover {
+                    text-decoration: underline;
+                }
+
+        #app-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        #logout-button {
+            background-color: #dc3545;
+        }
+
+            #logout-button:hover {
+                background-color: #c82333;
+            }
+
+        .hidden {
+            display: none !important;
+        }
+
+        #status-log {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            min-height: 100px;
+            font-family: "Courier New", Courier, monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #007bff;
+            animation: spin 1s ease infinite;
+            margin: 1rem auto;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* --- NEW STYLES FOR EXAM CARDS --- */
+        #exam-cards-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .exam-card {
+            display: block;
+            padding: 1.5rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #333;
+            transition: box-shadow 0.2s ease, transform 0.2s ease;
+        }
+
+            .exam-card:hover {
+                box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+                transform: translateY(-2px);
+            }
+
+            .exam-card h3 {
+                margin: 0 0 0.5rem 0;
+                color: #007bff;
+            }
+
+            .exam-card p {
+                margin: 0;
+                font-size: 0.9rem;
+                color: #666;
+            }
+    </style>
+</head>
+<body>
+
+    <div class="container" id="main-container">
+        <!-- Authentication Section -->
+        <div id="auth-section">
+            <!-- Login and Signup forms remain the same -->
+            <div id="login-view">
+                <h2>Teacher Login</h2>
+                <form id="login-form" class="auth-forms">
+                    <div class="form-group">
+                        <label for="login-email">Email</label>
+                        <input type="email" id="login-email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">Password</label>
+                        <input type="password" id="login-password" required>
+                    </div>
+                    <button type="submit">Login</button>
+                </form>
+                <p class="auth-toggle">Don't have an account? <a id="show-signup">Sign Up</a></p>
+            </div>
+
+            <div id="signup-view" class="hidden">
+                <h2>Teacher Sign Up</h2>
+                <form id="signup-form" class="auth-forms">
+                    <div class="form-group">
+                        <label for="signup-name">Full Name</label>
+                        <input type="text" id="signup-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="signup-email">Email</label>
+                        <input type="email" id="signup-email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="signup-password">Password</label>
+                        <input type="password" id="signup-password" required minlength="6">
+                    </div>
+                    <button type="submit">Sign Up</button>
+                </form>
+                <p class="auth-toggle">Already have an account? <a id="show-login">Log In</a></p>
+            </div>
+        </div>
+
+        <!-- Main Application Section -->
+        <div id="app-section" class="app-section hidden">
+            <div id="app-header">
+                <span id="user-email"></span>
+                <button id="logout-button">Logout</button>
+            </div>
+            <h2>Upload New Exam</h2>
+            <form id="exam-form">
+                <div class="form-group">
+                    <label for="exam-name">Exam Name</label>
+                    <input type="text" id="exam-name" placeholder="e.g., Physics Midterm 2024" required>
+                </div>
+                <div class="form-group">
+                    <label for="exam-files">Exam File (PDF) or Images</label>
+                    <input type="file" id="exam-files" accept=".pdf,image/*" multiple required>
+                </div>
+                <button type="submit" id="submit-exam-button">Process and Upload Exam</button>
+            </form>
+            <div id="spinner" class="spinner hidden"></div>
+            <div id="status-log">
+                Welcome! Upload an exam to begin.
+            </div>
+        </div>
+    </div>
+
+    <!-- NEW: Exam List Section -->
+    <div id="exam-list-section" class="container hidden">
+        <h2>Your Exams</h2>
+        <div id="exam-cards-container">
+            <p>Loading exams...</p>
+        </div>
+    </div>
+
+
+    <script>
+        // --- CONFIGURATION ---
+        const SUPABASE_URL = 'https://uagiatfoiwusxafxskvp.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhZ2lhdGZvaXd1c3hhZnhza3ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyODc0NjYsImV4cCI6MjA2NDg2MzQ2Nn0.b0wIEHgENkhzkp3qHAotqbLTq7BwsqgM7b0ksAl3h1U';
+        const GCF_URL = 'https://exam-structurer-232485517114.europe-west1.run.app';
+        const STORAGE_BUCKET = 'exam-visuals';
+
+        // --- SUPABASE CLIENT ---
+        const { createClient } = supabase;
+        const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // --- DOM ELEMENTS ---
+        const authSection = document.getElementById('auth-section');
+        const appSection = document.getElementById('app-section');
+        const loginView = document.getElementById('login-view');
+        const signupView = document.getElementById('signup-view');
+        const showSignup = document.getElementById('show-signup');
+        const showLogin = document.getElementById('show-login');
+        const loginForm = document.getElementById('login-form');
+        const signupForm = document.getElementById('signup-form');
+        const logoutButton = document.getElementById('logout-button');
+        const userEmailSpan = document.getElementById('user-email');
+        const examForm = document.getElementById('exam-form');
+        const submitExamButton = document.getElementById('submit-exam-button');
+        const statusLog = document.getElementById('status-log');
+        const spinner = document.getElementById('spinner');
+        // NEW DOM ELEMENTS
+        const examListSection = document.getElementById('exam-list-section');
+        const examCardsContainer = document.getElementById('exam-cards-container');
+
+
+        // --- HELPER FUNCTIONS ---
+        const log = (message) => {
+            console.log(message);
+            statusLog.textContent += `\n> ${message}`;
+            statusLog.scrollTop = statusLog.scrollHeight;
+        };
+
+        const clearLog = (message) => {
+            statusLog.textContent = `> ${message}`;
+        };
+
+        const showSpinner = (show) => {
+            spinner.classList.toggle('hidden', !show);
+        };
+
+        // --- NEW: EXAM LISTING FUNCTION ---
+        async function loadExams() {
+            examCardsContainer.innerHTML = '<p>Loading exams...</p>';
+            const { data: { user } } = await sb.auth.getUser();
+            if (!user) return;
+
+            const { data: exams, error } = await sb
+                .from('exams')
+                .select('id, exam_name, created_at')
+                .eq('teacher_id', user.id)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                examCardsContainer.innerHTML = `<p style="color: red;">Error loading exams: ${error.message}</p>`;
+                return;
+            }
+
+            if (exams.length === 0) {
+                examCardsContainer.innerHTML = '<p>You have not uploaded any exams yet.</p>';
+                return;
+            }
+
+            examCardsContainer.innerHTML = ''; // Clear loading message
+            exams.forEach(exam => {
+                const card = document.createElement('a');
+                card.href = `exam.html?id=${exam.id}`;
+                card.className = 'exam-card';
+                card.innerHTML = `
+                            <h3>${exam.exam_name}</h3>
+                            <p>Uploaded on: ${new Date(exam.created_at).toLocaleDateString()}</p>
+                        `;
+                examCardsContainer.appendChild(card);
+            });
+        }
+
+
+        // --- AUTHENTICATION LOGIC ---
+        showSignup.addEventListener('click', () => {
+            loginView.classList.add('hidden');
+            signupView.classList.remove('hidden');
+        });
+
+        showLogin.addEventListener('click', () => {
+            signupView.classList.add('hidden');
+            loginView.classList.remove('hidden');
+        });
+
+        signupForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fullName = document.getElementById('signup-name').value;
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+
+            const { data, error } = await sb.auth.signUp({
+                email,
+                password,
+                options: { data: { full_name: fullName } }
+            });
+
+            if (error) {
+                alert(`Signup Error: ${error.message}`);
+            } else {
+                alert('Signup successful! Please check your email to verify your account.');
+                signupForm.reset();
+                showLogin.click();
+            }
+        });
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const { error } = await sb.auth.signInWithPassword({ email, password });
+            if (error) alert(`Login Error: ${error.message}`);
+            else loginForm.reset();
+        });
+
+        logoutButton.addEventListener('click', async () => {
+            await sb.auth.signOut();
+        });
+
+        // Listen for auth state changes
+        sb.auth.onAuthStateChange((event, session) => {
+            if (session) {
+                authSection.classList.add('hidden');
+                appSection.classList.remove('hidden');
+                examListSection.classList.remove('hidden'); // Show exam list
+                userEmailSpan.textContent = `Logged in as: ${session.user.email}`;
+                loadExams(); // Load exams on login
+            } else {
+                authSection.classList.remove('hidden');
+                appSection.classList.add('hidden');
+                examListSection.classList.add('hidden'); // Hide exam list
+                userEmailSpan.textContent = '';
+                examCardsContainer.innerHTML = ''; // Clear exams on logout
+            }
+        });
+
+        // --- EXAM PROCESSING LOGIC ---
+        examForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            submitExamButton.disabled = true;
+            showSpinner(true);
+            clearLog('Starting exam processing...');
+
+            const examName = document.getElementById('exam-name').value;
+            const files = document.getElementById('exam-files').files;
+
+            if (!examName || files.length === 0) {
+                alert('Please provide an exam name and at least one file.');
+                submitExamButton.disabled = false;
+                showSpinner(false);
+                return;
+            }
+
+            try {
+                const { data: { user } } = await sb.auth.getUser();
+                if (!user) throw new Error("User not authenticated.");
+                log(`Authenticated as teacher: ${user.email}`);
+
+                log('Uploading files to processing service...');
+                const formData = new FormData();
+                for (const file of files) {
+                    formData.append('files', file);
+                }
+
+                const gcfResponse = await fetch(GCF_URL, {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!gcfResponse.ok) {
+                    throw new Error(`Cloud function failed with status: ${gcfResponse.statusText}`);
+                }
+
+                log('Processing service returned success. Unzipping results...');
+                const zipBlob = await gcfResponse.blob();
+                const jszip = new JSZip();
+                const zip = await jszip.loadAsync(zipBlob);
+
+                const jsonFile = Object.values(zip.files).find(file => file.name.endsWith('.json'));
+                if (!jsonFile) throw new Error("No JSON file found in the returned zip.");
+
+                const jsonContent = await jsonFile.async('string');
+                const examData = JSON.parse(jsonContent);
+                log('Successfully parsed exam structure from JSON.');
+
+                await uploadExamToSupabase(user.id, examName, examData, zip);
+
+                log('✅ Exam successfully uploaded and saved to the database!');
+                examForm.reset();
+                await loadExams(); // Refresh the exam list
+
+            } catch (error) {
+                log(`❌ An error occurred: ${error.message}`);
+                console.error(error);
+            } finally {
+                submitExamButton.disabled = false;
+                showSpinner(false);
+            }
+        });
+
+        async function uploadExamToSupabase(teacherId, examName, examData, zip) {
+            // This function remains the same as in your original file
+            const maxTotalPoints = examData.exam.questions.reduce((sum, q) => sum + (q.max_total_points || 0), 0);
+            log(`Calculated max total points for exam: ${maxTotalPoints}`);
+
+            log(`Creating exam entry: "${examName}"`);
+            const { data: exam, error: examError } = await sb
+                .from('exams')
+                .insert({
+                    teacher_id: teacherId,
+                    exam_name: examName,
+                    max_total_points: maxTotalPoints
+                })
+                .select('id')
+                .single();
+
+            if (examError) throw new Error(`Failed to create exam record: ${examError.message}`);
+            const examId = exam.id;
+            log(`Exam created with ID: ${examId}`);
+
+            for (const q of examData.exam.questions) {
+                let contextVisualUrl = null;
+
+                if (q.context_visual) {
+                    const visualFile = zip.file(q.context_visual);
+                    if (visualFile) {
+                        log(`Uploading visual: ${q.context_visual}`);
+                        const filePath = `public/${examId}/${Date.now()}_${q.context_visual}`;
+                        const fileBlob = await visualFile.async('blob');
+                        const fileExtension = q.context_visual.split('.').pop().toLowerCase();
+                        const mimeType = `image/${fileExtension === 'jpg' ? 'jpeg' : fileExtension}`;
+                        const fileToUpload = new File([fileBlob], q.context_visual, { type: mimeType });
+
+                        const { error: uploadError } = await sb.storage
+                            .from(STORAGE_BUCKET)
+                            .upload(filePath, fileToUpload);
+
+                        if (uploadError) throw new Error(`Failed to upload ${q.context_visual}: ${uploadError.message}`);
+
+                        const { data: urlData } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(filePath);
+                        contextVisualUrl = urlData.publicUrl;
+                        log(`Visual uploaded to: ${contextVisualUrl}`);
+                    } else {
+                        log(`Warning: Visual file ${q.context_visual} not found in zip.`);
+                    }
+                }
+
+                log(`Inserting question: ${q.question_number}`);
+                const { data: question, error: questionError } = await sb
+                    .from('questions')
+                    .insert({
+                        exam_id: examId,
+                        question_number: q.question_number,
+                        max_total_points: q.max_total_points,
+                        context_text: q.context_text,
+                        context_visual: contextVisualUrl,
+                        extra_comment: q.extra_comment
+                    })
+                    .select('id')
+                    .single();
+
+                if (questionError) throw new Error(`Failed to insert question ${q.question_number}: ${questionError.message}`);
+                const questionId = question.id;
+
+                if (q.sub_questions) {
+                    for (const sq of q.sub_questions) {
+                        log(`  - Inserting sub-question...`);
+                        const { data: subQuestion, error: subQError } = await sb
+                            .from('sub_questions')
+                            .insert({
+                                question_id: questionId,
+                                sub_q_text_content: sq.sub_q_text_content,
+                                max_sub_points: sq.max_sub_points,
+                            })
+                            .select('id')
+                            .single();
+
+                        if (subQError) throw new Error(`Failed to insert sub-question: ${subQError.message}`);
+                        const subQuestionId = subQuestion.id;
+
+                        if (sq.mcq_options) {
+                            const mcqOptionsToInsert = sq.mcq_options.map(opt => ({
+                                sub_question_id: subQuestionId,
+                                mcq_letter: opt.mcq_letter,
+                                mcq_content: opt.mcq_content
+                            }));
+
+                            log(`    - Inserting ${mcqOptionsToInsert.length} MCQ options...`);
+                            const { error: mcqError } = await sb.from('mcq_options').insert(mcqOptionsToInsert);
+                            if (mcqError) throw new Error(`Failed to insert MCQ options: ${mcqError.message}`);
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+</body>
+</html>
