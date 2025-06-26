@@ -47,6 +47,16 @@
             border-color: #007bff;
             background-color: #f0f8ff;
         }
+        .camera-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        .camera-controls .upload-btn {
+            flex: 1;
+            max-width: 200px;
+        }
         #fileInput {
             display: none;
         }
@@ -128,12 +138,21 @@
         <h1>Scan Student Answers</h1>
         <div id="studentInfo" class="student-info">Loading...</div>
         
+        <div class="camera-controls">
+            <button id="cameraBtn" class="upload-btn" onclick="openCamera()">
+                📷 Take Photo
+            </button>
+            <button id="galleryBtn" class="upload-btn" onclick="openGallery()">
+                📁 Choose from Gallery
+            </button>
+        </div>
+        
         <div class="upload-area" onclick="document.getElementById('fileInput').click()">
-            <p>📷 Click here or drag and drop images</p>
+            <p>📷 Or drag and drop images here</p>
             <p>Supported formats: JPG, PNG, HEIC</p>
         </div>
         
-        <input type="file" id="fileInput" multiple accept="image/*" capture="environment">
+        <input type="file" id="fileInput" multiple accept="image/*">
         
         <div id="statusMessage" class="status-message hidden"></div>
         
@@ -213,6 +232,26 @@
             }
         });
 
+        // Camera and gallery functions
+        function openCamera() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.capture = 'environment'; // Use rear camera
+            input.multiple = true;
+            input.onchange = handleFiles;
+            input.click();
+        }
+
+        function openGallery() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.multiple = true;
+            input.onchange = handleFiles;
+            input.click();
+        }
+
         // File input change handler
         fileInput.addEventListener('change', handleFiles);
 
@@ -257,7 +296,9 @@
             });
 
             // Clear the file input
-            fileInput.value = '';
+            if (event.target) {
+                event.target.value = '';
+            }
         }
 
         function addImagePreview(src, file) {
@@ -416,14 +457,13 @@
 
                 if (updateError) throw updateError;
 
-                statusMessage.textContent = 'Image removed successfully.';
+                showStatus('Image removed successfully.', 'success');
                 renderPreviews();
             } catch (error) {
-                statusMessage.textContent = `Failed to remove image: ${error.message}`;
+                showStatus(`Failed to remove image: ${error.message}`, 'error');
                 console.error('Remove image error:', error);
             }
         }
     </script>
 </body>
 </html>
-
