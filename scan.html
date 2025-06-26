@@ -167,6 +167,8 @@
         const SUPABASE_URL = 'https://uagiatfoiwusxafxskvp.supabase.co'; // Your Supabase URL
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhZ2lhdGZvaXd1c3hhZnhza3ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyODc0NjYsImV4cCI6MjA2NDg2MzQ2Nn0.b0wIEHgENkhzkp3qHAotqbLTq7BwsqgM7b0ksAl3h1U'; // Your Supabase Anon Key
         const STORAGE_BUCKET = 'exam-visuals'; // Your Supabase Storage Bucket name
+        const GET_SCAN_SESSION_URL = `${SUPABASE_URL}/functions/v1/get-scan-session`;
+
 
         const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -184,42 +186,46 @@
         let scanSessionId; // To store the ID of the scan_session record
         let uploadedImagePaths = []; // Array to store paths of images uploaded in this session
 
+        // In scan.html, replace the initialization code:
         document.addEventListener('DOMContentLoaded', async () => {
             const urlParams = new URLSearchParams(window.location.search);
-            sessionToken = urlParams.get('token');
-
+            const sessionToken = urlParams.get('token');
+        
             if (!sessionToken) {
-                statusMessage.textContent = 'Error: No session token provided.';
-                captureButton.disabled = true;
-                finishButton.disabled = true;
+                studentInfo.textContent = 'Error: No session token provided.';
                 return;
             }
-
+        
             try {
-                // Fetch session details to get student info and existing uploads
-                const { data, error } = await sb
-                    .from('scan_sessions')
-                    .select('id, student_name, student_number, uploaded_image_paths')
-                    .eq('session_token', sessionToken)
-                    .single();
-
-                if (error || !data) {
-                    throw new Error(`Session not found or expired: ${error?.message || 'Unknown error'}`);
+                // Call the Edge Function instead of querying directly
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/get-scan-session?token=${sessionToken}`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    }
+                });
+        
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to load session');
                 }
-
-                scanSessionId = data.id;
-                studentInfo.textContent = `Student: ${data.student_name || 'N/A'} (ID: ${data.student_number || 'N/A'})`;
-                uploadedImagePaths = data.uploaded_image_paths || [];
+        
+                const session = await response.json();
+                
+                // Store session data globally
+                scanSessionId = session.id;
+                uploadedImagePaths = session.uploaded_image_paths || [];
+        
+                // Update UI
+                studentInfo.textContent = `Student: ${session.student_name || session.student_number || 'Unknown'}`;
                 renderPreviews();
-
-                await startCamera();
+        
             } catch (error) {
-                statusMessage.textContent = `Error: ${error.message}`;
                 console.error('Initialization error:', error);
-                captureButton.disabled = true;
-                finishButton.disabled = true;
+                studentInfo.textContent = `Error: ${error.message}`;
             }
         });
+
 
         async function startCamera() {
             try {
