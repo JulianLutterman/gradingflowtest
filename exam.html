@@ -178,7 +178,6 @@
                 background-color: #5a349b;
             }
 
-
         #grade-all-button {
             background-color: #fd7e14; /* Orange for grading */
             width: 100%;
@@ -510,7 +509,7 @@
         const appendixModalClose = document.getElementById('appendix-modal-close');
         // Student Answers Form (Modified)
         const studentAnswersForm = document.getElementById('student-answers-form');
-        const generateScanLinkButton = document.getElementById('generate-scan-link-button'); // Renamed
+        const generateScanLinkButton = document.getElementById('generate-scan-link-button');
         const scanLinkArea = document.getElementById('scan-link-area'); // New
         const qrcodeCanvas = document.getElementById('qrcode-canvas'); // New
         const scanUrlLink = document.getElementById('scan-url'); // New
@@ -523,6 +522,7 @@
 
         // Global variable to store the current scan session token
         let currentScanSessionToken = null;
+        let realtimeChannel = null; // NEW: To hold the realtime subscription
 
 
         // --- HELPER FUNCTIONS ---
@@ -573,43 +573,6 @@
             });
             [rulesModalClose, appendixModalClose].forEach(button => {
                 button.addEventListener('click', () => button.closest('.modal-overlay').classList.add('hidden'));
-            });
-
-            // --- NEW: Set up Supabase Realtime to auto-refresh on new submissions ---
-            console.log(`Setting up Realtime subscription for new student exams on exam_id: ${examId}`);
-            const channel = sb.channel(`student-exams-changes-for-exam-${examId}`)
-                .on(
-                    'postgres_changes',
-                    {
-                        event: 'INSERT',
-                        schema: 'public',
-                        table: 'student_exams',
-                        filter: `exam_id=eq.${examId}`
-                    },
-                    (payload) => {
-                        console.log('New student exam detected via Realtime!', payload.new);
-                        log('New student submission processed. Refreshing exam details...', statusLogStudent);
-
-                        // Add a small delay to ensure all related data (e.g., student_answers) 
-                        // is fully committed before reloading.
-                        setTimeout(() => {
-                            loadExamDetails(examId);
-                        }, 2000); // 2-second delay
-                    }
-                )
-                .subscribe((status, err) => {
-                    if (status === 'SUBSCRIBED') {
-                        console.log('Successfully subscribed to student_exams changes!');
-                    }
-                    if (status === 'CHANNEL_ERROR') {
-                        console.error('Realtime subscription error:', err);
-                        log(`⚠️ Realtime connection failed: ${err.message}`, statusLogStudent);
-                    }
-                });
-
-            // Cleanup subscription when the user navigates away to prevent memory leaks
-            window.addEventListener('beforeunload', () => {
-                sb.removeChannel(channel);
             });
         });
 
@@ -878,6 +841,12 @@
             showSpinner(true, spinnerStudent);
             clearLog('Generating scan link...', statusLogStudent);
 
+            // Clean up any previous lingering channel
+            if (realtimeChannel) {
+                sb.removeChannel(realtimeChannel);
+                realtimeChannel = null;
+            }
+
             const urlParams = new URLSearchParams(window.location.search);
             const examId = urlParams.get('id');
             const studentName = document.getElementById('student-name').value.trim();
@@ -902,7 +871,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}` // Or a service role key if function is protected
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
                     },
                     body: JSON.stringify({ examId, studentName, studentNumber })
                 });
@@ -912,8 +881,12 @@
                     throw new Error(`Failed to generate scan session: ${errorData.message || response.statusText}`);
                 }
 
-                const { session_token } = await response.json();
-                currentScanSessionToken = session_token; // Store the token globally
+                // The edge function should return the id as well for the filter
+                const { session_token, session_id } = await response.json();
+                if (!session_id) {
+                    throw new Error('The generate-scan-session function must return a session_id.');
+                }
+                currentScanSessionToken = session_token;
 
                 const scanUrl = `${SCAN_PAGE_BASE_URL}?token=${session_token}`;
 
@@ -927,15 +900,95 @@
                 scanUrlLink.href = scanUrl;
                 scanUrlLink.textContent = scanUrl;
                 scanLinkArea.classList.remove('hidden');
-                log('QR code and link generated. Waiting for student to scan and upload...', statusLogStudent);
+
+                log('QR code generated. Waiting for student to upload images...', statusLogStudent);
+
+                // --- NEW: Set up the Realtime listener ---
+                realtimeChannel = sb.channel(`scan-session-updates-${session_id}`)
+                    .on(
+                        'postgres_changes',
+                        {
+                            event: 'UPDATE',
+                            schema: 'public',
+                            table: 'scan_sessions',
+                            filter: `id=eq.${session_id}`
+                        },
+                        (payload) => {
+                            console.log('Change received!', payload);
+                            // Check if the status has been updated to 'uploaded'
+                            if (payload.new.status === 'uploaded') {
+                                log('Upload detected! Triggering automatic processing...', statusLogStudent);
+                                // Call the processing function
+                                processScannedSession(payload.new.token);
+                            }
+                        }
+                    )
+                    .subscribe();
+                // --- END NEW ---
 
             } catch (error) {
                 log(`❌ An error occurred: ${error.message}`, statusLogStudent);
                 console.error(error);
-                generateScanLinkButton.disabled = false;
+                generateScanLinkButton.disabled = false; // Re-enable on error
                 showSpinner(false, spinnerStudent);
             }
         });
+
+        async function processScannedSession(sessionToken) {
+            if (!sessionToken) {
+                alert('Error: No session token provided for processing.');
+                return;
+            }
+
+            // Disable form buttons to prevent new sessions during processing
+            generateScanLinkButton.disabled = true;
+            showSpinner(true, spinnerStudent);
+            clearLog('Scans uploaded. Now processing answers...', statusLogStudent);
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const examId = urlParams.get('id');
+
+            try {
+                log('Calling Edge Function to process scanned images...', statusLogStudent);
+                const response = await fetch(PROCESS_SCANNED_SESSION_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ sessionToken: sessionToken, examId })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`Failed to process scanned answers: ${errorData.message || response.statusText}`);
+                }
+
+                const result = await response.json();
+                log(`✅ Scanned answers processed successfully! Status: ${result.status}`, statusLogStudent);
+
+                // Cleanup UI
+                studentAnswersForm.reset();
+                scanLinkArea.classList.add('hidden');
+                currentScanSessionToken = null; // Clear the session token
+
+                // Unsubscribe from the realtime channel
+                if (realtimeChannel) {
+                    sb.removeChannel(realtimeChannel);
+                    realtimeChannel = null;
+                }
+
+                await loadExamDetails(examId); // Reload exam details to show new answers
+
+            } catch (error) {
+                log(`❌ An error occurred during processing: ${error.message}`, statusLogStudent);
+                console.error(error);
+            } finally {
+                // Re-enable the generate button for the next student
+                generateScanLinkButton.disabled = false;
+                showSpinner(false, spinnerStudent);
+            }
+        }
 
 
         // --- AUTOMATIC GRADING LOGIC (UNCHANGED) ---
