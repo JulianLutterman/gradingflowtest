@@ -56,7 +56,7 @@
             align-items: center; /* Center horizontally */
             justify-content: center; /* Center vertically */
             min-height: 500px; /* Ensure visibility even without stream, adjust as needed */
-            aspect-ratio: 4/3; /* Maintain a common aspect ratio for video */
+            /* REMOVED: aspect-ratio: 4/3; */
         }
 
         #cameraFeed {
@@ -64,7 +64,8 @@
             height: 100%; /* Take full height of container */
             display: block;
             background-color: #000;
-            object-fit: contain; /* Ensures entire video frame is visible */
+            /* CHANGED: from 'contain' to 'cover' */
+            object-fit: cover; /* Ensures video fills the container without distortion */
         }
 
         .camera-placeholder {
@@ -341,41 +342,38 @@
             // Status messages removed per user request
         }
 
-        /**
-         * Find the best rear-facing camera automatically
-         */
         async function findBestRearCamera() {
             try {
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 const videoDevices = devices.filter(device => device.kind === 'videoinput');
-                
+
                 const rearCameras = [];
-                
+
                 for (const device of videoDevices) {
                     try {
                         // Test each camera to get its capabilities
                         const stream = await navigator.mediaDevices.getUserMedia({
                             video: { deviceId: device.deviceId }
                         });
-                        
+
                         const track = stream.getVideoTracks()[0];
                         const capabilities = track.getCapabilities();
                         const settings = track.getSettings();
-                        
+
                         // Stop the test stream immediately
                         stream.getTracks().forEach(track => track.stop());
-                        
+
                         // Check if this is a rear camera
                         const label = device.label || '';
-                        const isRearCamera = label.toLowerCase().includes('back') || 
-                                           label.toLowerCase().includes('rear') || 
-                                           label.toLowerCase().includes('environment') ||
-                                           settings.facingMode === 'environment';
-                        
+                        const isRearCamera = label.toLowerCase().includes('back') ||
+                            label.toLowerCase().includes('rear') ||
+                            label.toLowerCase().includes('environment') ||
+                            settings.facingMode === 'environment';
+
                         if (isRearCamera) {
-                            const maxResolution = capabilities.width && capabilities.height ? 
-                                                 capabilities.width.max * capabilities.height.max : 0;
-                            
+                            const maxResolution = capabilities.width && capabilities.height ?
+                                capabilities.width.max * capabilities.height.max : 0;
+
                             rearCameras.push({
                                 deviceId: device.deviceId,
                                 label: label,
@@ -388,19 +386,19 @@
                         console.warn(`Could not test camera ${device.deviceId}:`, error);
                     }
                 }
-                
+
                 if (rearCameras.length === 0) {
                     console.log('No rear cameras found, will use default');
                     return null;
                 }
-                
+
                 // Sort by resolution (highest first) and pick the best one
                 rearCameras.sort((a, b) => b.maxResolution - a.maxResolution);
                 bestRearCamera = rearCameras[0];
-                
+
                 console.log('Selected rear camera:', bestRearCamera.label, 'Resolution:', bestRearCamera.maxResolution);
                 return bestRearCamera;
-                
+
             } catch (error) {
                 console.error('Error finding rear camera:', error);
                 return null;
@@ -412,7 +410,7 @@
          */
         function getOptimalConstraints(cameraInfo) {
             let constraints;
-            
+
             if (cameraInfo) {
                 // Use specific camera with high quality settings
                 constraints = {
@@ -423,28 +421,28 @@
                     exposureMode: 'continuous',
                     whiteBalanceMode: 'continuous'
                 };
-                
+
                 // Add advanced constraints if supported
                 if (cameraInfo.capabilities) {
                     const caps = cameraInfo.capabilities;
-                    
+
                     // Set focus distance for document scanning (typically 20-50cm)
                     if (caps.focusDistance) {
                         constraints.focusDistance = { ideal: 0.3 }; // 30cm
                     }
-                    
+
                     // Use highest available resolution
                     if (caps.width && caps.height) {
-                        constraints.width = { 
+                        constraints.width = {
                             ideal: Math.min(caps.width.max, 1920),
                             min: Math.min(caps.width.min || 640, 1280)
                         };
-                        constraints.height = { 
+                        constraints.height = {
                             ideal: Math.min(caps.height.max, 1080),
                             min: Math.min(caps.height.min || 480, 720)
                         };
                     }
-                    
+
                     // Set frame rate for stability
                     if (caps.frameRate) {
                         constraints.frameRate = { ideal: 30, max: 30 };
@@ -461,7 +459,7 @@
                     whiteBalanceMode: 'continuous'
                 };
             }
-            
+
             return constraints;
         }
 
@@ -524,7 +522,7 @@
         async function activateCamera() {
             cameraActivation.classList.add('hidden');
             cameraContainer.classList.remove('hidden');
-            
+
             // Find the best rear camera first
             await findBestRearCamera();
             await startCamera();
@@ -545,35 +543,47 @@
 
             try {
                 const constraints = getOptimalConstraints(bestRearCamera);
-                
+
                 console.log('Starting camera with constraints:', constraints);
-                
+
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: constraints
                 });
-                
+
                 cameraStream = stream;
                 cameraFeed.srcObject = stream;
-                
+
                 // Wait for video to load and get actual settings
                 cameraFeed.onloadedmetadata = () => {
+                    // --- START: NEW LOGIC TO SET CONTAINER ASPECT RATIO ---
+                    const videoWidth = cameraFeed.videoWidth;
+                    const videoHeight = cameraFeed.videoHeight;
+
+                    // Calculate the true aspect ratio of the video stream
+                    const aspectRatio = videoWidth / videoHeight;
+
+                    // Set the container's aspect ratio to match the video's
+                    cameraContainer.style.aspectRatio = aspectRatio;
+                    // --- END: NEW LOGIC ---
+
                     const track = stream.getVideoTracks()[0];
                     const settings = track.getSettings();
                     console.log('Camera settings:', settings);
-                    console.log('Video dimensions:', cameraFeed.videoWidth, 'x', cameraFeed.videoHeight);
-                    
+                    console.log('Video dimensions:', videoWidth, 'x', videoHeight);
+                    console.log('Applied aspect ratio to container:', aspectRatio);
+
                     cameraFeed.classList.remove('hidden');
                     cameraPlaceholder.classList.add('hidden');
                     takePhotoBtn.disabled = false;
                 };
-                
+
             } catch (error) {
                 console.error('Error accessing camera:', error);
                 cameraFeed.classList.add('hidden');
                 cameraPlaceholder.classList.remove('hidden');
                 cameraPlaceholder.textContent = `Camera access failed: ${error.message}`;
                 takePhotoBtn.disabled = true;
-                
+
                 // Try basic fallback
                 try {
                     const fallbackStream = await navigator.mediaDevices.getUserMedia({
@@ -583,13 +593,13 @@
                             height: { ideal: 720 }
                         }
                     });
-                    
+
                     cameraStream = fallbackStream;
                     cameraFeed.srcObject = fallbackStream;
                     cameraFeed.classList.remove('hidden');
                     cameraPlaceholder.classList.add('hidden');
                     takePhotoBtn.disabled = false;
-                    
+
                 } catch (fallbackError) {
                     console.error('Fallback camera failed:', fallbackError);
                 }
@@ -626,15 +636,15 @@
             }, 300);
 
             const context = cameraCanvas.getContext('2d');
-            
+
             // Use the actual video dimensions for maximum quality
             const videoWidth = cameraFeed.videoWidth;
             const videoHeight = cameraFeed.videoHeight;
-            
+
             // Set canvas to match video resolution exactly
             cameraCanvas.width = videoWidth;
             cameraCanvas.height = videoHeight;
-            
+
             // Draw the current video frame onto the canvas at full resolution
             context.drawImage(cameraFeed, 0, 0, videoWidth, videoHeight);
 
