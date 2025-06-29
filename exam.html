@@ -1129,12 +1129,11 @@
                 try {
                     pollCount++;
 
-                    // Check scan session status
-                    const { data: session, error } = await sb
+                    // Check scan session status - FIXED QUERY
+                    const { data: sessions, error } = await sb
                         .from('scan_sessions')
                         .select('status')
-                        .eq('session_token', sessionToken)
-                        .single();
+                        .eq('session_token', sessionToken);
 
                     if (error) {
                         console.error('Error checking scan session status:', error);
@@ -1144,6 +1143,18 @@
                         return;
                     }
 
+                    // Check if we found any sessions
+                    if (!sessions || sessions.length === 0) {
+                        console.log(`Poll ${pollCount}: No scan session found with token ${sessionToken}`);
+                        if (pollCount < maxPolls) {
+                            setTimeout(pollForCompletion, 5000);
+                        }
+                        return;
+                    }
+
+                    const session = sessions[0]; // Get the first (and should be only) result
+                    console.log(`Poll ${pollCount}: Session status is "${session.status}"`);
+
                     if (session.status === 'upload_complete') {
                         log('Upload completion detected! Processing automatically...', statusLogStudent);
                         processScannedAnswersAutomatically(sessionToken, examId);
@@ -1151,7 +1162,8 @@
                     }
 
                     // Continue polling if not complete and haven't exceeded max polls
-                    if (pollCount < maxPolls && session.status === 'pending') {
+                    if (pollCount < maxPolls && (session.status === 'pending' || session.status === 'active')) {
+                        log(`Poll ${pollCount}/${maxPolls}: Still waiting for upload completion...`, statusLogStudent);
                         setTimeout(pollForCompletion, 5000); // Poll every 5 seconds
                     } else if (pollCount >= maxPolls) {
                         log('⚠️ Polling timeout reached. Student may need to manually refresh or try again.', statusLogStudent);
