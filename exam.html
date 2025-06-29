@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -178,13 +178,6 @@
                 background-color: #5a349b;
             }
 
-        #finish-scan-button { /* New button */
-            background-color: #28a745; /* Green */
-        }
-
-            #finish-scan-button:hover {
-                background-color: #218838;
-            }
 
         #grade-all-button {
             background-color: #fd7e14; /* Orange for grading */
@@ -443,7 +436,6 @@
                 <p>Scan this QR code with your phone to upload answers:</p>
                 <canvas id="qrcode-canvas" style="width: 200px; height: 200px; margin: 1rem auto; display: block;"></canvas>
                 <p>Or open this link on your phone: <a id="scan-url" href="#" target="_blank"></a></p>
-                <button type="button" id="finish-scan-button" class="hidden" style="margin-top: 1rem;">Finish Scan & Process Answers</button>
             </div>
         </form>
         <div id="spinner-student" class="spinner hidden"></div>
@@ -519,7 +511,6 @@
         // Student Answers Form (Modified)
         const studentAnswersForm = document.getElementById('student-answers-form');
         const generateScanLinkButton = document.getElementById('generate-scan-link-button'); // Renamed
-        const finishScanButton = document.getElementById('finish-scan-button'); // New
         const scanLinkArea = document.getElementById('scan-link-area'); // New
         const qrcodeCanvas = document.getElementById('qrcode-canvas'); // New
         const scanUrlLink = document.getElementById('scan-url'); // New
@@ -582,6 +573,43 @@
             });
             [rulesModalClose, appendixModalClose].forEach(button => {
                 button.addEventListener('click', () => button.closest('.modal-overlay').classList.add('hidden'));
+            });
+
+            // --- NEW: Set up Supabase Realtime to auto-refresh on new submissions ---
+            console.log(`Setting up Realtime subscription for new student exams on exam_id: ${examId}`);
+            const channel = sb.channel(`student-exams-changes-for-exam-${examId}`)
+                .on(
+                    'postgres_changes',
+                    {
+                        event: 'INSERT',
+                        schema: 'public',
+                        table: 'student_exams',
+                        filter: `exam_id=eq.${examId}`
+                    },
+                    (payload) => {
+                        console.log('New student exam detected via Realtime!', payload.new);
+                        log('New student submission processed. Refreshing exam details...', statusLogStudent);
+
+                        // Add a small delay to ensure all related data (e.g., student_answers) 
+                        // is fully committed before reloading.
+                        setTimeout(() => {
+                            loadExamDetails(examId);
+                        }, 2000); // 2-second delay
+                    }
+                )
+                .subscribe((status, err) => {
+                    if (status === 'SUBSCRIBED') {
+                        console.log('Successfully subscribed to student_exams changes!');
+                    }
+                    if (status === 'CHANNEL_ERROR') {
+                        console.error('Realtime subscription error:', err);
+                        log(`⚠️ Realtime connection failed: ${err.message}`, statusLogStudent);
+                    }
+                });
+
+            // Cleanup subscription when the user navigates away to prevent memory leaks
+            window.addEventListener('beforeunload', () => {
+                sb.removeChannel(channel);
             });
         });
 
@@ -648,11 +676,11 @@
                             const alternativesHtml = sq.model_alternatives.map(alt => {
                                 if (alt.model_components) alt.model_components.sort((a, b) => a.component_order - b.component_order);
                                 const componentsHtml = alt.model_components.map(comp => `
-                                                <div class="model-component">
-                                                    ${comp.component_text ? `<p class="formatted-text">${comp.component_text}</p>` : ''}
-                                                    ${comp.component_visual ? `<img src="${comp.component_visual}" alt="Model component visual">` : ''}
-                                                    <span class="points-badge">Points: ${comp.component_points}</span>
-                                                </div>`).join('');
+                                                    <div class="model-component">
+                                                        ${comp.component_text ? `<p class="formatted-text">${comp.component_text}</p>` : ''}
+                                                        ${comp.component_visual ? `<img src="${comp.component_visual}" alt="Model component visual">` : ''}
+                                                        <span class="points-badge">Points: ${comp.component_points}</span>
+                                                    </div>`).join('');
                                 return `<div class="model-alternative"><h5>Alternative ${alt.alternative_number}</h5>${alt.extra_comment ? `<p class="formatted-text"><em>${alt.extra_comment}</em></p>` : ''}${componentsHtml}</div>`;
                             }).join('');
                             modelAnswerHtml = `<div class="model-answer-section">${alternativesHtml}</div>`;
@@ -680,12 +708,12 @@
                                     const pointsHtml = ans.sub_points_awarded !== null ? `<div class="points-awarded-badge">Points: ${ans.sub_points_awarded} / ${sq.max_sub_points || '?'}</div>` : '';
                                     const feedbackHtml = ans.feedback_comment ? `<div class="feedback-comment formatted-text">${ans.feedback_comment}</div>` : '';
                                     return `
-                                                    <div class="student-answer-item">
-                                                        ${correctedText ? `<p class="formatted-text">${correctedText}</p>` : ''}
-                                                        ${ans.answer_visual ? `<img src="${ans.answer_visual}" alt="Student answer visual" class="student-answer-visual">` : ''}
-                                                        ${pointsHtml}
-                                                        ${feedbackHtml}
-                                                    </div>`;
+                                                        <div class="student-answer-item">
+                                                            ${correctedText ? `<p class="formatted-text">${correctedText}</p>` : ''}
+                                                            ${ans.answer_visual ? `<img src="${ans.answer_visual}" alt="Student answer visual" class="student-answer-visual">` : ''}
+                                                            ${pointsHtml}
+                                                            ${feedbackHtml}
+                                                        </div>`;
                                 }).join('');
                                 return `<details class="student-answer-dropdown"><summary>${studentIdentifier}</summary>${answersContent}</details>`;
                             }).join('');
@@ -697,24 +725,24 @@
                     }).join('');
 
                     gridHtml = `
-                                    <div class="sub-question-grid">
-                                        <div class="grid-header">Sub-Question</div>
-                                        <div class="grid-header">Model Answer</div>
-                                        <div class="grid-header">Student Answers</div>
-                                        ${subQuestionCells}
-                                    </div>`;
+                                        <div class="sub-question-grid">
+                                            <div class="grid-header">Sub-Question</div>
+                                            <div class="grid-header">Model Answer</div>
+                                            <div class="grid-header">Student Answers</div>
+                                            ${subQuestionCells}
+                                        </div>`;
                 }
 
                 questionBlock.innerHTML = `
-                                <div class="question-header">
-                                    <span>Question ${q.question_number}</span>
-                                    ${appendixButtonHtml}
-                                </div>
-                                <p class="formatted-text">${q.context_text || ''}</p>
-                                ${q.context_visual ? `<img src="${q.context_visual}" alt="Visual for question ${q.question_number}" class="context-visual">` : ''}
-                                ${q.extra_comment ? `<p class="formatted-text"><em>${q.extra_comment}</em></p>` : ''}
-                                ${gridHtml}
-                            `;
+                                    <div class="question-header">
+                                        <span>Question ${q.question_number}</span>
+                                        ${appendixButtonHtml}
+                                    </div>
+                                    <p class="formatted-text">${q.context_text || ''}</p>
+                                    ${q.context_visual ? `<img src="${q.context_visual}" alt="Visual for question ${q.question_number}" class="context-visual">` : ''}
+                                    ${q.extra_comment ? `<p class="formatted-text"><em>${q.extra_comment}</em></p>` : ''}
+                                    ${gridHtml}
+                                `;
                 questionsContainer.appendChild(questionBlock);
             });
 
@@ -723,11 +751,11 @@
                 button.addEventListener('click', (e) => {
                     const appendices = JSON.parse(e.target.dataset.appendix);
                     const contentHtml = appendices.map(app => `
-                                    <h4>${app.app_title || 'Appendix Item'}</h4>
-                                    <p>${app.app_text || ''}</p>
-                                    ${app.app_visual ? `<img src="${app.app_visual}" alt="Appendix visual">` : ''}
-                                    <hr>
-                                `).join('');
+                                        <h4>${app.app_title || 'Appendix Item'}</h4>
+                                        <p>${app.app_text || ''}</p>
+                                        ${app.app_visual ? `<img src="${app.app_visual}" alt="Appendix visual">` : ''}
+                                        <hr>
+                                    `).join('');
                     appendixModalContent.innerHTML = contentHtml;
                     appendixModal.classList.remove('hidden');
                 });
@@ -847,7 +875,6 @@
         // --- STUDENT ANSWER UPLOAD LOGIC (MODIFIED FOR SCANNING) ---
         generateScanLinkButton.addEventListener('click', async () => {
             generateScanLinkButton.disabled = true;
-            finishScanButton.disabled = true;
             showSpinner(true, spinnerStudent);
             clearLog('Generating scan link...', statusLogStudent);
 
@@ -900,60 +927,11 @@
                 scanUrlLink.href = scanUrl;
                 scanUrlLink.textContent = scanUrl;
                 scanLinkArea.classList.remove('hidden');
-                finishScanButton.classList.remove('hidden');
-                finishScanButton.disabled = false;
                 log('QR code and link generated. Waiting for student to scan and upload...', statusLogStudent);
 
             } catch (error) {
                 log(`❌ An error occurred: ${error.message}`, statusLogStudent);
                 console.error(error);
-                generateScanLinkButton.disabled = false;
-                showSpinner(false, spinnerStudent);
-            }
-        });
-
-        finishScanButton.addEventListener('click', async () => {
-            if (!currentScanSessionToken) {
-                alert('No active scan session. Please generate a link first.');
-                return;
-            }
-
-            generateScanLinkButton.disabled = true;
-            finishScanButton.disabled = true;
-            showSpinner(true, spinnerStudent);
-            clearLog('Processing scanned answers...', statusLogStudent);
-
-            const urlParams = new URLSearchParams(window.location.search);
-            const examId = urlParams.get('id');
-
-            try {
-                log('Calling Edge Function to process scanned images...', statusLogStudent);
-                const response = await fetch(PROCESS_SCANNED_SESSION_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}` // Or a service role key
-                    },
-                    body: JSON.stringify({ sessionToken: currentScanSessionToken, examId })
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(`Failed to process scanned answers: ${errorData.message || response.statusText}`);
-                }
-
-                const result = await response.json();
-                log(`✅ Scanned answers processed successfully! Status: ${result.status}`, statusLogStudent);
-                studentAnswersForm.reset();
-                scanLinkArea.classList.add('hidden');
-                finishScanButton.classList.add('hidden');
-                currentScanSessionToken = null; // Clear the session token
-                await loadExamDetails(examId); // Reload exam details to show new answers
-
-            } catch (error) {
-                log(`❌ An error occurred during processing: ${error.message}`, statusLogStudent);
-                console.error(error);
-            } finally {
                 generateScanLinkButton.disabled = false;
                 showSpinner(false, spinnerStudent);
             }
@@ -1019,27 +997,27 @@
             return sb
                 .from('exams')
                 .select(`
-                                exam_name,
-                                grading_regulations,
-                                questions (
-                                    id, question_number, context_text, context_visual, extra_comment,
-                                    appendices ( app_title, app_text, app_visual ),
-                                    sub_questions (
-                                        id, sub_q_text_content, max_sub_points,
-                                        mcq_options ( mcq_letter, mcq_content ),
-                                        model_alternatives (
-                                            alternative_number, extra_comment,
-                                            model_components ( component_text, component_visual, component_points, component_order )
-                                        ),
-                                        student_answers (
-                                            answer_text, answer_visual, sub_points_awarded, feedback_comment,
-                                            student_exams (
-                                                students ( full_name, student_number )
+                                    exam_name,
+                                    grading_regulations,
+                                    questions (
+                                        id, question_number, context_text, context_visual, extra_comment,
+                                        appendices ( app_title, app_text, app_visual ),
+                                        sub_questions (
+                                            id, sub_q_text_content, max_sub_points,
+                                            mcq_options ( mcq_letter, mcq_content ),
+                                            model_alternatives (
+                                                alternative_number, extra_comment,
+                                                model_components ( component_text, component_visual, component_points, component_order )
+                                            ),
+                                            student_answers (
+                                                answer_text, answer_visual, sub_points_awarded, feedback_comment,
+                                                student_exams (
+                                                    students ( full_name, student_number )
+                                                )
                                             )
                                         )
                                     )
-                                )
-                            `)
+                                `)
                 .eq('id', examId)
                 .single();
         }
@@ -1240,19 +1218,19 @@
             const { data: examBase, error: baseError } = await sb
                 .from('exams')
                 .select(`
-                                    grading_regulations,
-                                    questions (
-                                        question_number, max_total_points, context_text, context_visual, extra_comment,
-                                        sub_questions (
-                                            id, sub_q_text_content, max_sub_points,
-                                            mcq_options ( mcq_letter, mcq_content ),
-                                            model_alternatives (
-                                                alternative_number, extra_comment,
-                                                model_components ( component_text, component_visual, component_points )
+                                        grading_regulations,
+                                        questions (
+                                            question_number, max_total_points, context_text, context_visual, extra_comment,
+                                            sub_questions (
+                                                id, sub_q_text_content, max_sub_points,
+                                                mcq_options ( mcq_letter, mcq_content ),
+                                                model_alternatives (
+                                                    alternative_number, extra_comment,
+                                                    model_components ( component_text, component_visual, component_points )
+                                                )
                                             )
                                         )
-                                    )
-                                `)
+                                    `)
                 .eq('id', examId)
                 .single();
 
