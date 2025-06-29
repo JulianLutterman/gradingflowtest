@@ -522,7 +522,7 @@
 
         // Global variable to store the current scan session token
         let currentScanSessionToken = null;
-        let realtimeChannel = null; // NEW: To hold the realtime subscription
+        let scanSessionChannel = null;
 
 
         // --- HELPER FUNCTIONS ---
@@ -639,11 +639,11 @@
                             const alternativesHtml = sq.model_alternatives.map(alt => {
                                 if (alt.model_components) alt.model_components.sort((a, b) => a.component_order - b.component_order);
                                 const componentsHtml = alt.model_components.map(comp => `
-                                                    <div class="model-component">
-                                                        ${comp.component_text ? `<p class="formatted-text">${comp.component_text}</p>` : ''}
-                                                        ${comp.component_visual ? `<img src="${comp.component_visual}" alt="Model component visual">` : ''}
-                                                        <span class="points-badge">Points: ${comp.component_points}</span>
-                                                    </div>`).join('');
+                                                        <div class="model-component">
+                                                            ${comp.component_text ? `<p class="formatted-text">${comp.component_text}</p>` : ''}
+                                                            ${comp.component_visual ? `<img src="${comp.component_visual}" alt="Model component visual">` : ''}
+                                                            <span class="points-badge">Points: ${comp.component_points}</span>
+                                                        </div>`).join('');
                                 return `<div class="model-alternative"><h5>Alternative ${alt.alternative_number}</h5>${alt.extra_comment ? `<p class="formatted-text"><em>${alt.extra_comment}</em></p>` : ''}${componentsHtml}</div>`;
                             }).join('');
                             modelAnswerHtml = `<div class="model-answer-section">${alternativesHtml}</div>`;
@@ -671,12 +671,12 @@
                                     const pointsHtml = ans.sub_points_awarded !== null ? `<div class="points-awarded-badge">Points: ${ans.sub_points_awarded} / ${sq.max_sub_points || '?'}</div>` : '';
                                     const feedbackHtml = ans.feedback_comment ? `<div class="feedback-comment formatted-text">${ans.feedback_comment}</div>` : '';
                                     return `
-                                                        <div class="student-answer-item">
-                                                            ${correctedText ? `<p class="formatted-text">${correctedText}</p>` : ''}
-                                                            ${ans.answer_visual ? `<img src="${ans.answer_visual}" alt="Student answer visual" class="student-answer-visual">` : ''}
-                                                            ${pointsHtml}
-                                                            ${feedbackHtml}
-                                                        </div>`;
+                                                            <div class="student-answer-item">
+                                                                ${correctedText ? `<p class="formatted-text">${correctedText}</p>` : ''}
+                                                                ${ans.answer_visual ? `<img src="${ans.answer_visual}" alt="Student answer visual" class="student-answer-visual">` : ''}
+                                                                ${pointsHtml}
+                                                                ${feedbackHtml}
+                                                            </div>`;
                                 }).join('');
                                 return `<details class="student-answer-dropdown"><summary>${studentIdentifier}</summary>${answersContent}</details>`;
                             }).join('');
@@ -688,24 +688,24 @@
                     }).join('');
 
                     gridHtml = `
-                                        <div class="sub-question-grid">
-                                            <div class="grid-header">Sub-Question</div>
-                                            <div class="grid-header">Model Answer</div>
-                                            <div class="grid-header">Student Answers</div>
-                                            ${subQuestionCells}
-                                        </div>`;
+                                            <div class="sub-question-grid">
+                                                <div class="grid-header">Sub-Question</div>
+                                                <div class="grid-header">Model Answer</div>
+                                                <div class="grid-header">Student Answers</div>
+                                                ${subQuestionCells}
+                                            </div>`;
                 }
 
                 questionBlock.innerHTML = `
-                                    <div class="question-header">
-                                        <span>Question ${q.question_number}</span>
-                                        ${appendixButtonHtml}
-                                    </div>
-                                    <p class="formatted-text">${q.context_text || ''}</p>
-                                    ${q.context_visual ? `<img src="${q.context_visual}" alt="Visual for question ${q.question_number}" class="context-visual">` : ''}
-                                    ${q.extra_comment ? `<p class="formatted-text"><em>${q.extra_comment}</em></p>` : ''}
-                                    ${gridHtml}
-                                `;
+                                        <div class="question-header">
+                                            <span>Question ${q.question_number}</span>
+                                            ${appendixButtonHtml}
+                                        </div>
+                                        <p class="formatted-text">${q.context_text || ''}</p>
+                                        ${q.context_visual ? `<img src="${q.context_visual}" alt="Visual for question ${q.question_number}" class="context-visual">` : ''}
+                                        ${q.extra_comment ? `<p class="formatted-text"><em>${q.extra_comment}</em></p>` : ''}
+                                        ${gridHtml}
+                                    `;
                 questionsContainer.appendChild(questionBlock);
             });
 
@@ -714,11 +714,11 @@
                 button.addEventListener('click', (e) => {
                     const appendices = JSON.parse(e.target.dataset.appendix);
                     const contentHtml = appendices.map(app => `
-                                        <h4>${app.app_title || 'Appendix Item'}</h4>
-                                        <p>${app.app_text || ''}</p>
-                                        ${app.app_visual ? `<img src="${app.app_visual}" alt="Appendix visual">` : ''}
-                                        <hr>
-                                    `).join('');
+                                            <h4>${app.app_title || 'Appendix Item'}</h4>
+                                            <p>${app.app_text || ''}</p>
+                                            ${app.app_visual ? `<img src="${app.app_visual}" alt="Appendix visual">` : ''}
+                                            <hr>
+                                        `).join('');
                     appendixModalContent.innerHTML = contentHtml;
                     appendixModal.classList.remove('hidden');
                 });
@@ -841,12 +841,6 @@
             showSpinner(true, spinnerStudent);
             clearLog('Generating scan link...', statusLogStudent);
 
-            // Clean up any previous lingering channel
-            if (realtimeChannel) {
-                sb.removeChannel(realtimeChannel);
-                realtimeChannel = null;
-            }
-
             const urlParams = new URLSearchParams(window.location.search);
             const examId = urlParams.get('id');
             const studentName = document.getElementById('student-name').value.trim();
@@ -881,11 +875,7 @@
                     throw new Error(`Failed to generate scan session: ${errorData.message || response.statusText}`);
                 }
 
-                // The edge function should return the id as well for the filter
-                const { session_token, session_id } = await response.json();
-                if (!session_id) {
-                    throw new Error('The generate-scan-session function must return a session_id.');
-                }
+                const { session_token } = await response.json();
                 currentScanSessionToken = session_token;
 
                 const scanUrl = `${SCAN_PAGE_BASE_URL}?token=${session_token}`;
@@ -901,94 +891,51 @@
                 scanUrlLink.textContent = scanUrl;
                 scanLinkArea.classList.remove('hidden');
 
-                log('QR code generated. Waiting for student to upload images...', statusLogStudent);
+                // =================================================================
+                // === ADD THIS NEW BLOCK TO START THE REALTIME LISTENER ===
+                // =================================================================
+                // Unsubscribe from any previous channel first
+                if (scanSessionChannel) {
+                    sb.removeChannel(scanSessionChannel);
+                }
 
-                // --- NEW: Set up the Realtime listener ---
-                realtimeChannel = sb.channel(`scan-session-updates-${session_id}`)
+                log('Listening for scan completion... Scan the QR code with a phone.', statusLogStudent);
+                scanSessionChannel = sb.channel(`scan-session-${currentScanSessionToken}`)
                     .on(
                         'postgres_changes',
                         {
                             event: 'UPDATE',
                             schema: 'public',
                             table: 'scan_sessions',
-                            filter: `id=eq.${session_id}`
+                            filter: `session_token=eq.${currentScanSessionToken}`
                         },
                         (payload) => {
-                            console.log('Change received!', payload);
-                            // Check if the status has been updated to 'uploaded'
-                            if (payload.new.status === 'uploaded') {
-                                log('Upload detected! Triggering automatic processing...', statusLogStudent);
-                                // Call the processing function
-                                processScannedSession(payload.new.token);
+                            console.log('Change received on scan session!', payload);
+                            // Check if the status was updated to 'scanned'
+                            if (payload.new.status === 'scanned') {
+                                log('Scan complete signal received. Starting automatic processing...', statusLogStudent);
+
+                                // Trigger the processing function
+                                processScannedSession(currentScanSessionToken);
                             }
                         }
                     )
-                    .subscribe();
-                // --- END NEW ---
+                    .subscribe((status) => {
+                        if (status === 'SUBSCRIBED') {
+                            console.log('Successfully subscribed to scan session updates!');
+                        }
+                    });
+                // =================================================================
+                // === END OF NEW BLOCK ===
+                // =================================================================
 
             } catch (error) {
                 log(`❌ An error occurred: ${error.message}`, statusLogStudent);
                 console.error(error);
-                generateScanLinkButton.disabled = false; // Re-enable on error
-                showSpinner(false, spinnerStudent);
-            }
-        });
-
-        async function processScannedSession(sessionToken) {
-            if (!sessionToken) {
-                alert('Error: No session token provided for processing.');
-                return;
-            }
-
-            // Disable form buttons to prevent new sessions during processing
-            generateScanLinkButton.disabled = true;
-            showSpinner(true, spinnerStudent);
-            clearLog('Scans uploaded. Now processing answers...', statusLogStudent);
-
-            const urlParams = new URLSearchParams(window.location.search);
-            const examId = urlParams.get('id');
-
-            try {
-                log('Calling Edge Function to process scanned images...', statusLogStudent);
-                const response = await fetch(PROCESS_SCANNED_SESSION_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                    },
-                    body: JSON.stringify({ sessionToken: sessionToken, examId })
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(`Failed to process scanned answers: ${errorData.message || response.statusText}`);
-                }
-
-                const result = await response.json();
-                log(`✅ Scanned answers processed successfully! Status: ${result.status}`, statusLogStudent);
-
-                // Cleanup UI
-                studentAnswersForm.reset();
-                scanLinkArea.classList.add('hidden');
-                currentScanSessionToken = null; // Clear the session token
-
-                // Unsubscribe from the realtime channel
-                if (realtimeChannel) {
-                    sb.removeChannel(realtimeChannel);
-                    realtimeChannel = null;
-                }
-
-                await loadExamDetails(examId); // Reload exam details to show new answers
-
-            } catch (error) {
-                log(`❌ An error occurred during processing: ${error.message}`, statusLogStudent);
-                console.error(error);
-            } finally {
-                // Re-enable the generate button for the next student
                 generateScanLinkButton.disabled = false;
                 showSpinner(false, spinnerStudent);
             }
-        }
+        });
 
 
         // --- AUTOMATIC GRADING LOGIC (UNCHANGED) ---
@@ -1050,27 +997,27 @@
             return sb
                 .from('exams')
                 .select(`
-                                    exam_name,
-                                    grading_regulations,
-                                    questions (
-                                        id, question_number, context_text, context_visual, extra_comment,
-                                        appendices ( app_title, app_text, app_visual ),
-                                        sub_questions (
-                                            id, sub_q_text_content, max_sub_points,
-                                            mcq_options ( mcq_letter, mcq_content ),
-                                            model_alternatives (
-                                                alternative_number, extra_comment,
-                                                model_components ( component_text, component_visual, component_points, component_order )
-                                            ),
-                                            student_answers (
-                                                answer_text, answer_visual, sub_points_awarded, feedback_comment,
-                                                student_exams (
-                                                    students ( full_name, student_number )
+                                        exam_name,
+                                        grading_regulations,
+                                        questions (
+                                            id, question_number, context_text, context_visual, extra_comment,
+                                            appendices ( app_title, app_text, app_visual ),
+                                            sub_questions (
+                                                id, sub_q_text_content, max_sub_points,
+                                                mcq_options ( mcq_letter, mcq_content ),
+                                                model_alternatives (
+                                                    alternative_number, extra_comment,
+                                                    model_components ( component_text, component_visual, component_points, component_order )
+                                                ),
+                                                student_answers (
+                                                    answer_text, answer_visual, sub_points_awarded, feedback_comment,
+                                                    student_exams (
+                                                        students ( full_name, student_number )
+                                                    )
                                                 )
                                             )
                                         )
-                                    )
-                                `)
+                                    `)
                 .eq('id', examId)
                 .single();
         }
@@ -1206,6 +1153,56 @@
 
         // --- GRADING HELPER FUNCTIONS (UNCHANGED) ---
 
+        async function processScannedSession(sessionToken) {
+            if (!sessionToken) {
+                log('Error: No session token provided for processing.', statusLogStudent);
+                return;
+            }
+
+            generateScanLinkButton.disabled = true;
+            showSpinner(true, spinnerStudent);
+            clearLog('Processing scanned answers...', statusLogStudent);
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const examId = urlParams.get('id');
+
+            try {
+                log('Calling Edge Function to process scanned images...', statusLogStudent);
+                const response = await fetch(PROCESS_SCANNED_SESSION_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ sessionToken: sessionToken, examId })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`Failed to process scanned answers: ${errorData.message || response.statusText}`);
+                }
+
+                const result = await response.json();
+                log(`✅ Scanned answers processed successfully! Status: ${result.status}`, statusLogStudent);
+                studentAnswersForm.reset();
+                scanLinkArea.classList.add('hidden');
+                currentScanSessionToken = null; // Clear the session token
+                await loadExamDetails(examId); // Reload exam details to show new answers
+
+            } catch (error) {
+                log(`❌ An error occurred during processing: ${error.message}`, statusLogStudent);
+                console.error(error);
+            } finally {
+                generateScanLinkButton.disabled = false;
+                showSpinner(false, spinnerStudent);
+                // Clean up the listener channel
+                if (scanSessionChannel) {
+                    sb.removeChannel(scanSessionChannel);
+                    scanSessionChannel = null;
+                }
+            }
+        }
+
         async function processSingleStudent(examId, studentExamId, studentIdentifier) {
             try {
                 // A. Fetch the data in the required JSON structure
@@ -1271,19 +1268,19 @@
             const { data: examBase, error: baseError } = await sb
                 .from('exams')
                 .select(`
-                                        grading_regulations,
-                                        questions (
-                                            question_number, max_total_points, context_text, context_visual, extra_comment,
-                                            sub_questions (
-                                                id, sub_q_text_content, max_sub_points,
-                                                mcq_options ( mcq_letter, mcq_content ),
-                                                model_alternatives (
-                                                    alternative_number, extra_comment,
-                                                    model_components ( component_text, component_visual, component_points )
+                                            grading_regulations,
+                                            questions (
+                                                question_number, max_total_points, context_text, context_visual, extra_comment,
+                                                sub_questions (
+                                                    id, sub_q_text_content, max_sub_points,
+                                                    mcq_options ( mcq_letter, mcq_content ),
+                                                    model_alternatives (
+                                                        alternative_number, extra_comment,
+                                                        model_components ( component_text, component_visual, component_points )
+                                                    )
                                                 )
                                             )
-                                        )
-                                    `)
+                                        `)
                 .eq('id', examId)
                 .single();
 
