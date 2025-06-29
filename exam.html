@@ -522,7 +522,6 @@
 
         // Global variable to store the current scan session token
         let currentScanSessionToken = null;
-        let scanCompletionListener = null; // To hold our storage event listener
 
 
         // --- HELPER FUNCTIONS ---
@@ -835,7 +834,7 @@
             }
         });
 
-        // REPLACE THE OLD generateScanLinkButton LISTENER WITH THIS
+        // --- STUDENT ANSWER UPLOAD LOGIC (MODIFIED FOR SCANNING) ---
         generateScanLinkButton.addEventListener('click', async () => {
             generateScanLinkButton.disabled = true;
             showSpinner(true, spinnerStudent);
@@ -865,7 +864,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}` // Or a service role key if function is protected
                     },
                     body: JSON.stringify({ examId, studentName, studentNumber })
                 });
@@ -892,25 +891,14 @@
                 scanLinkArea.classList.remove('hidden');
                 log('QR code and link generated. Waiting for student to scan and upload...', statusLogStudent);
 
-                // --- ADDED LOGIC: Listen for the completion signal ---
-                scanCompletionListener = (event) => {
-                    // Check if the correct key was changed and the value matches our session token
-                    if (event.key === 'scan_complete_token' && event.newValue === currentScanSessionToken) {
-                        log('Upload signal received from scan page. Starting processing...', statusLogStudent);
-                        processScannedSession(); // Trigger the processing automatically
-                    }
-                };
-                window.addEventListener('storage', scanCompletionListener);
-                // --- END OF ADDED LOGIC ---
+                // NEW: Set up listener for upload completion
+                setupUploadCompletionListener(session_token, examId);
 
             } catch (error) {
                 log(`❌ An error occurred: ${error.message}`, statusLogStudent);
                 console.error(error);
-                generateScanLinkButton.disabled = false; // Re-enable on error
-            } finally {
-                // We don't hide the spinner here anymore, as we are now waiting for the upload.
-                // The spinner will be hidden inside processScannedSession().
-                // showSpinner(false, spinnerStudent);
+                generateScanLinkButton.disabled = false;
+                showSpinner(false, spinnerStudent);
             }
         });
 
@@ -1128,20 +1116,64 @@
 
         // processAndUploadStudentAnswers function is now handled by the process-scanned-session Edge Function.
 
-        // --- NEW REFACTORED FUNCTION ---
-        async function processScannedSession() {
-            if (!currentScanSessionToken) {
-                log('⚠️ No active scan session to process.', statusLogStudent);
-                return;
-            }
+        // --- GRADING HELPER FUNCTIONS (UNCHANGED) ---
 
-            // Disable UI elements to prevent new actions
+        // NEW: Set up polling for upload completion from scan page
+        function setupUploadCompletionListener(sessionToken, examId) {
+            log('Setting up polling for upload completion...', statusLogStudent);
+
+            let pollCount = 0;
+            const maxPolls = 60; // Poll for max 5 minutes (60 * 5 seconds)
+
+            const pollForCompletion = async () => {
+                try {
+                    pollCount++;
+
+                    // Check scan session status
+                    const { data: session, error } = await sb
+                        .from('scan_sessions')
+                        .select('status')
+                        .eq('session_token', sessionToken)
+                        .single();
+
+                    if (error) {
+                        console.error('Error checking scan session status:', error);
+                        if (pollCount < maxPolls) {
+                            setTimeout(pollForCompletion, 5000); // Try again in 5 seconds
+                        }
+                        return;
+                    }
+
+                    if (session.status === 'upload_complete') {
+                        log('Upload completion detected! Processing automatically...', statusLogStudent);
+                        processScannedAnswersAutomatically(sessionToken, examId);
+                        return;
+                    }
+
+                    // Continue polling if not complete and haven't exceeded max polls
+                    if (pollCount < maxPolls && session.status === 'pending') {
+                        setTimeout(pollForCompletion, 5000); // Poll every 5 seconds
+                    } else if (pollCount >= maxPolls) {
+                        log('⚠️ Polling timeout reached. Student may need to manually refresh or try again.', statusLogStudent);
+                    }
+
+                } catch (error) {
+                    console.error('Error during polling:', error);
+                    if (pollCount < maxPolls) {
+                        setTimeout(pollForCompletion, 5000);
+                    }
+                }
+            };
+
+            // Start polling after 2 seconds (give time for QR code to be scanned)
+            setTimeout(pollForCompletion, 2000);
+        }
+
+        // NEW: Automatically process scanned answers (extracted from the old button handler)
+        async function processScannedAnswersAutomatically(sessionToken, examId) {
             generateScanLinkButton.disabled = true;
             showSpinner(true, spinnerStudent);
-            clearLog('Processing scanned answers...', statusLogStudent);
-
-            const urlParams = new URLSearchParams(window.location.search);
-            const examId = urlParams.get('id');
+            clearLog('Processing scanned answers automatically...', statusLogStudent);
 
             try {
                 log('Calling Edge Function to process scanned images...', statusLogStudent);
@@ -1151,7 +1183,7 @@
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
                     },
-                    body: JSON.stringify({ sessionToken: currentScanSessionToken, examId })
+                    body: JSON.stringify({ sessionToken: sessionToken, examId })
                 });
 
                 if (!response.ok) {
@@ -1161,28 +1193,30 @@
 
                 const result = await response.json();
                 log(`✅ Scanned answers processed successfully! Status: ${result.status}`, statusLogStudent);
+
+                // Update scan session to mark as processed
+                try {
+                    await sb
+                        .from('scan_sessions')
+                        .update({ status: 'processed' })
+                        .eq('session_token', currentScanSessionToken);
+                } catch (updateError) {
+                    console.error('Could not update scan session to processed:', updateError);
+                }
+
                 studentAnswersForm.reset();
                 scanLinkArea.classList.add('hidden');
+                currentScanSessionToken = null; // Clear the session token
                 await loadExamDetails(examId); // Reload exam details to show new answers
 
             } catch (error) {
                 log(`❌ An error occurred during processing: ${error.message}`, statusLogStudent);
                 console.error(error);
             } finally {
-                // Clean up the listener and session token
-                if (scanCompletionListener) {
-                    window.removeEventListener('storage', scanCompletionListener);
-                    scanCompletionListener = null;
-                }
-                currentScanSessionToken = null;
-
-                // Re-enable UI
                 generateScanLinkButton.disabled = false;
                 showSpinner(false, spinnerStudent);
             }
         }
-
-        // --- GRADING HELPER FUNCTIONS (UNCHANGED) ---
 
         async function processSingleStudent(examId, studentExamId, studentIdentifier) {
             try {
