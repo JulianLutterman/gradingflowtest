@@ -781,7 +781,7 @@
                     .from('scan_sessions')
                     .update({
                         uploaded_image_paths: updatedPaths,
-                        status: 'ready_for_processing'
+                        status: 'uploaded'  // NEW: Signal that images are ready for processing
                     })
                     .eq('id', scanSessionId);
 
