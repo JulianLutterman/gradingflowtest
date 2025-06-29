@@ -507,12 +507,7 @@
             try {
                 // Request camera access with high quality constraints for document scanning
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: { ideal: 'environment' },
-                        width: { ideal: 4096 },  // Request 4K width
-                        height: { ideal: 3072 }, // Request 4K height
-                        aspectRatio: { ideal: 4/3 }
-                    }
+                    video: true
                 });
 
                 cameraStream = stream;
