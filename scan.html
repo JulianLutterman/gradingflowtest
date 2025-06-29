@@ -728,11 +728,6 @@
         async function uploadImages() {
             const newFilesToUpload = allImagesForSession.filter(item => item.type === 'new');
 
-            if (!scanSessionId) {
-                console.error('No scan session ID available');
-                return;
-            }
-
             if (newFilesToUpload.length === 0) {
                 return;
             }
@@ -792,28 +787,22 @@
                 updateUploadButton(); // Update button state (should be disabled if no new images)
 
                 // Change button text to show success
-                // Change button text to show success
                 uploadBtn.textContent = 'Images Uploaded Successfully!';
-
-                // NEW: Update scan session status to signal completion
                 try {
-                    const { error: updateError } = await sb
+                    // Update scan session status to indicate ready for processing
+                    const { error: statusUpdateError } = await sb
                         .from('scan_sessions')
-                        .update({
-                            status: 'upload_complete',
-                            updated_at: new Date().toISOString()
-                        })
-                        .eq('id', scanSessionId);
+                        .update({ status: 'ready_for_processing' })
+                        .eq('session_token', sessionToken);
 
-                    if (updateError) {
-                        console.error('Could not update scan session status:', updateError);
+                    if (statusUpdateError) {
+                        console.error('Failed to update scan session status:', statusUpdateError);
                     } else {
-                        console.log('Scan session marked as upload complete');
+                        console.log('Scan session marked as ready for processing');
                     }
                 } catch (error) {
-                    console.error('Error updating scan session:', error);
+                    console.error('Error updating scan session status:', error);
                 }
-
                 setTimeout(() => {
                     uploadBtn.textContent = originalText;
                 }, 3000);
