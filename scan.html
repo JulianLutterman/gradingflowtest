@@ -767,7 +767,7 @@
                 const { data: currentSessionData, error: fetchError } = await sb
                     .from('scan_sessions')
                     .select('uploaded_image_paths')
-                    .eq('token', sessionToken) // Use the reliable sessionToken instead of id
+                    .eq('session_token', sessionToken) // Use the reliable sessionToken instead of id
                     .single();
 
                 if (fetchError) throw fetchError;
