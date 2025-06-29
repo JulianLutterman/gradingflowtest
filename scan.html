@@ -44,8 +44,23 @@
             line-height: 1.4;
         }
 
-        .camera-instructions strong {
-            color: #333;
+            .camera-instructions strong {
+                color: #333;
+            }
+
+        .workflow-tip {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #856404;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .workflow-tip strong {
+            color: #533f03;
         }
 
         /* Hide the default file inputs */
@@ -76,29 +91,29 @@
             text-decoration: none;
         }
 
-        .camera-btn.primary {
-            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
-        }
+            .camera-btn.primary {
+                background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+                box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+            }
 
-        .camera-btn.primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 123, 255, 0.4);
-        }
+                .camera-btn.primary:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 6px 20px rgba(0, 123, 255, 0.4);
+                }
 
-        .camera-btn.secondary {
-            background: linear-gradient(135deg, #6c757d 0%, #545b62 100%);
-            box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
-        }
+            .camera-btn.secondary {
+                background: linear-gradient(135deg, #6c757d 0%, #545b62 100%);
+                box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
+            }
 
-        .camera-btn.secondary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(108, 117, 125, 0.4);
-        }
+                .camera-btn.secondary:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 6px 20px rgba(108, 117, 125, 0.4);
+                }
 
-        .camera-btn:active {
-            transform: translateY(0);
-        }
+            .camera-btn:active {
+                transform: translateY(0);
+            }
 
         .camera-help {
             font-size: 12px;
@@ -126,16 +141,16 @@
             transition: all 0.3s ease;
         }
 
-        .upload-btn:hover {
-            background: #218838;
-            transform: translateY(-1px);
-        }
+            .upload-btn:hover {
+                background: #218838;
+                transform: translateY(-1px);
+            }
 
-        .upload-btn:disabled {
-            background: #6c757d;
-            cursor: not-allowed;
-            transform: none;
-        }
+            .upload-btn:disabled {
+                background: #6c757d;
+                cursor: not-allowed;
+                transform: none;
+            }
 
         /* Main upload button at the bottom */
         #uploadBtn {
@@ -168,36 +183,36 @@
             transition: all 0.3s ease;
         }
 
-        .preview-item:hover {
-            border-color: #007bff;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.15);
-        }
+            .preview-item:hover {
+                border-color: #007bff;
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(0, 123, 255, 0.15);
+            }
 
-        .preview-item img {
-            width: 100%;
-            height: 120px;
-            object-fit: cover;
-        }
+            .preview-item img {
+                width: 100%;
+                height: 120px;
+                object-fit: cover;
+            }
 
-        .preview-item .image-info {
-            padding: 8px;
-            font-size: 12px;
-            color: #666;
-            text-align: center;
-            width: 100%;
-            background: rgba(255, 255, 255, 0.9);
-        }
+            .preview-item .image-info {
+                padding: 8px;
+                font-size: 12px;
+                color: #666;
+                text-align: center;
+                width: 100%;
+                background: rgba(255, 255, 255, 0.9);
+            }
 
-        .preview-item.new-image {
-            border-color: #28a745;
-            background: linear-gradient(135deg, #f8fff9 0%, #e8f5e8 100%);
-        }
+            .preview-item.new-image {
+                border-color: #28a745;
+                background: linear-gradient(135deg, #f8fff9 0%, #e8f5e8 100%);
+            }
 
-        .preview-item.new-image .image-info {
-            color: #28a745;
-            font-weight: bold;
-        }
+                .preview-item.new-image .image-info {
+                    color: #28a745;
+                    font-weight: bold;
+                }
 
         .remove-btn {
             position: absolute;
@@ -218,10 +233,10 @@
             transition: all 0.3s ease;
         }
 
-        .remove-btn:hover {
-            background: rgba(220, 53, 69, 1);
-            transform: scale(1.1);
-        }
+            .remove-btn:hover {
+                background: rgba(220, 53, 69, 1);
+                transform: scale(1.1);
+            }
 
         .status-message {
             padding: 10px;
@@ -264,8 +279,34 @@
             margin-top: 10px;
         }
 
-        .image-count.has-new {
-            background: #28a745;
+            .image-count.has-new {
+                background: #28a745;
+            }
+
+        .batch-camera-section {
+            background: #e8f5e8;
+            border: 2px solid #28a745;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .batch-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            color: #28a745;
+        }
+
+        .batch-instructions {
+            color: #155724;
+            font-size: 16px;
+            line-height: 1.4;
+            margin-bottom: 15px;
+        }
+
+        .batch-instructions strong {
+            color: #0d4419;
         }
 
         /* Media query for larger screens */
@@ -285,13 +326,44 @@
 
         /* Loading animation */
         @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+
+            100% {
+                opacity: 1;
+            }
         }
 
         .loading {
             animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        /* Device-specific adjustments */
+        .device-specific-note {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            font-size: 14px;
+            color: #495057;
+        }
+
+        .device-note-ios {
+            background: #f0f8ff;
+            border-color: #b3d9ff;
+            color: #0c4a6e;
+        }
+
+        .device-note-android {
+            background: #f0fff4;
+            border-color: #86efac;
+            color: #14532d;
         }
     </style>
 </head>
@@ -299,42 +371,73 @@
 
     <div id="studentInfo" class="student-info">Loading...</div>
 
+    <!-- Batch Camera Section (Recommended) -->
+    <div class="batch-camera-section">
+        <div class="batch-icon">📸</div>
+        <div class="batch-instructions">
+            <strong>📚 Batch Photo Mode (Recommended)</strong><br>
+            Take all your photos at once for the best experience!
+        </div>
+
+        <input type="file" id="batchCameraInput" accept="image/*" capture="environment" multiple>
+        <label for="batchCameraInput" class="camera-btn primary">
+            📸 Take Multiple Photos
+        </label>
+
+        <div class="workflow-tip">
+            <strong>💡 Pro Tip:</strong> This will let you take several photos in sequence before returning to this page. Perfect for capturing all answer sheets in one go!
+        </div>
+    </div>
+
+    <!-- Alternative Methods -->
     <div class="camera-section">
         <div class="camera-icon">📷</div>
         <div class="camera-instructions">
-            <strong>Take High-Quality Photos</strong><br>
-            Choose your preferred method below to capture answer sheets.
+            <strong>Alternative Methods</strong><br>
+            Choose your preferred method below if batch mode doesn't work.
         </div>
-        
+
         <!-- Primary option: Direct camera capture -->
         <input type="file" id="cameraInput" accept="image/*" capture="environment" multiple>
         <label for="cameraInput" class="camera-btn primary">
-            📸 Take Photos Now
+            📸 Take Photos (Single Mode)
         </label>
-        
+
         <div class="camera-help">
-            Opens your camera app to take new photos
+            Opens camera for individual photos
         </div>
-        
+
         <div class="divider">- OR -</div>
-        
+
         <!-- Secondary option: Browse existing photos -->
         <input type="file" id="galleryInput" accept="image/*" multiple>
         <label for="galleryInput" class="camera-btn secondary">
-            🖼️ Select Existing Photos
+            🖼️ Select From Gallery
         </label>
-        
+
         <div class="camera-help">
             Choose photos you've already taken
         </div>
-        
+
         <div id="imageCount" class="image-count hidden">
             0 photos selected
         </div>
     </div>
 
+    <!-- Device-specific notes -->
+    <div id="deviceNotes" class="device-specific-note">
+        <strong>📱 Device Tips:</strong><br>
+        • <strong>iPhone/iPad:</strong> The batch mode should allow multiple photos in sequence<br>
+        • <strong>Android:</strong> Results may vary by device - try the gallery option if camera doesn't work well<br>
+        • If you experience issues, take photos with your regular camera app and use "Select From Gallery"
+    </div>
+
     <button id="uploadBtn" class="upload-btn" disabled>
         Upload All New Images
+    </button>
+
+    <button id="addMoreBtn" class="upload-btn hidden" style="background: #007bff; margin-top: 10px;">
+        📸 Add More Photos
     </button>
 
     <div id="noImagesMessage" class="status-info">
@@ -362,8 +465,10 @@
         const studentInfo = document.getElementById('studentInfo');
         const imagePreviews = document.getElementById('imagePreviews');
         const uploadBtn = document.getElementById('uploadBtn');
+        const addMoreBtn = document.getElementById('addMoreBtn');
         const noImagesMessage = document.getElementById('noImagesMessage');
         const cameraInput = document.getElementById('cameraInput');
+        const batchCameraInput = document.getElementById('batchCameraInput');
         const galleryInput = document.getElementById('galleryInput');
         const imageCount = document.getElementById('imageCount');
 
@@ -425,16 +530,23 @@
 
         // Event listeners
         cameraInput.addEventListener('change', handleImageSelection);
+        batchCameraInput.addEventListener('change', handleImageSelection);
         galleryInput.addEventListener('change', handleImageSelection);
         uploadBtn.addEventListener('click', uploadImages);
+        addMoreBtn.addEventListener('click', () => {
+            // Trigger the batch camera input
+            batchCameraInput.click();
+        });
 
         /**
          * Handles when user selects images from camera/gallery
          */
         function handleImageSelection(event) {
             const files = Array.from(event.target.files);
-            
+
             if (files.length === 0) return;
+
+            console.log(`Received ${files.length} files from ${event.target.id}`);
 
             // Add each selected file to our image collection
             files.forEach(file => {
@@ -453,6 +565,27 @@
             updateNoImagesMessage();
             updateUploadButton();
             updateImageCount();
+
+            // Show success message for batch uploads
+            if (files.length > 1) {
+                showTemporaryMessage(`✓ Added ${files.length} photos successfully!`, 'success');
+            }
+        }
+
+        /**
+         * Shows a temporary status message
+         */
+        function showTemporaryMessage(message, type = 'info') {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `status-message status-${type}`;
+            messageDiv.textContent = message;
+            
+            // Insert after student info
+            studentInfo.parentNode.insertBefore(messageDiv, studentInfo.nextSibling);
+            
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 3000);
         }
 
         /**
@@ -461,9 +594,11 @@
         function updateImageCount() {
             const newImageCount = allImagesForSession.filter(item => item.type === 'new').length;
             const totalCount = allImagesForSession.length;
-            
+
             if (totalCount > 0) {
                 imageCount.classList.remove('hidden');
+                addMoreBtn.classList.remove('hidden');
+                
                 if (newImageCount > 0) {
                     imageCount.textContent = `${newImageCount} new photo${newImageCount !== 1 ? 's' : ''} (${totalCount} total)`;
                     imageCount.classList.add('has-new');
@@ -473,6 +608,7 @@
                 }
             } else {
                 imageCount.classList.add('hidden');
+                addMoreBtn.classList.add('hidden');
             }
         }
 
@@ -489,21 +625,21 @@
                 return;
             }
 
-            allImagesForSession.forEach(item => {
+            allImagesForSession.forEach((item, index) => {
                 const previewItem = document.createElement('div');
                 previewItem.className = `preview-item ${item.type === 'new' ? 'new-image' : ''}`;
 
                 const img = document.createElement('img');
                 img.src = item.type === 'new' ? URL.createObjectURL(item.data) : item.data;
-                img.alt = 'Preview';
+                img.alt = `Preview ${index + 1}`;
 
                 const imageInfo = document.createElement('div');
                 imageInfo.className = 'image-info';
-                
+
                 if (item.type === 'new') {
-                    imageInfo.textContent = '● NEW';
+                    imageInfo.textContent = `● NEW (${index + 1})`;
                 } else {
-                    imageInfo.textContent = 'Uploaded';
+                    imageInfo.textContent = `Uploaded (${index + 1})`;
                 }
 
                 const removeBtn = document.createElement('button');
@@ -530,7 +666,7 @@
         function updateUploadButton() {
             const hasNewImages = allImagesForSession.some(item => item.type === 'new');
             uploadBtn.disabled = !hasNewImages;
-            
+
             if (hasNewImages) {
                 const newCount = allImagesForSession.filter(item => item.type === 'new').length;
                 uploadBtn.textContent = `Upload ${newCount} New Image${newCount !== 1 ? 's' : ''}`;
@@ -630,6 +766,7 @@
             } catch (error) {
                 console.error('Upload error:', error);
                 uploadBtn.textContent = `Upload Failed - Try Again`;
+                uploadBtn.disabled = false;
                 setTimeout(() => {
                     uploadBtn.textContent = originalText;
                     uploadBtn.classList.remove('loading');
