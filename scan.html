@@ -728,6 +728,11 @@
         async function uploadImages() {
             const newFilesToUpload = allImagesForSession.filter(item => item.type === 'new');
 
+            if (!scanSessionId) {
+                console.error('No scan session ID available');
+                return;
+            }
+
             if (newFilesToUpload.length === 0) {
                 return;
             }
@@ -783,20 +788,34 @@
 
                 if (updateError) throw updateError;
 
-                // --- ADD THIS LINE ---
-                // Signal to the exam page that the upload is complete.
-                localStorage.setItem('scan_complete_token', sessionToken);
-                // --- END OF ADDED LINE ---
-
                 renderPreviews(); // Re-render to reflect 'uploaded' status for all images
                 updateUploadButton(); // Update button state (should be disabled if no new images)
 
                 // Change button text to show success
+                // Change button text to show success
                 uploadBtn.textContent = 'Images Uploaded Successfully!';
+
+                // NEW: Update scan session status to signal completion
+                try {
+                    const { error: updateError } = await sb
+                        .from('scan_sessions')
+                        .update({
+                            status: 'upload_complete',
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', scanSessionId);
+
+                    if (updateError) {
+                        console.error('Could not update scan session status:', updateError);
+                    } else {
+                        console.log('Scan session marked as upload complete');
+                    }
+                } catch (error) {
+                    console.error('Error updating scan session:', error);
+                }
+
                 setTimeout(() => {
                     uploadBtn.textContent = originalText;
-                    // It's good practice to remove the item after signaling.
-                    localStorage.removeItem('scan_complete_token');
                 }, 3000);
 
             } catch (error) {
