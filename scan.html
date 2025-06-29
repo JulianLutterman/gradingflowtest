@@ -413,17 +413,44 @@
             cameraPlaceholder.textContent = 'Attempting to start camera...';
 
             try {
-                // Request camera access, preferring the environment (rear) camera
-                const stream = await navigator.mediaDevices.getUserMedia({
+                // Request camera access with high quality settings
+                const constraints = {
                     video: {
-                        facingMode: 'environment'
+                        facingMode: 'environment',
+                        width: { min: 1280, ideal: 1920, max: 4096 },
+                        height: { min: 720, ideal: 1080, max: 4096 },
+                        aspectRatio: { ideal: 16/9 },
+                        frameRate: { ideal: 30, max: 60 }
                     }
-                });
+                };
+
+                let stream;
+                try {
+                    // Try with high quality settings first
+                    stream = await navigator.mediaDevices.getUserMedia(constraints);
+                } catch (error) {
+                    console.warn('High quality camera failed, trying fallback:', error);
+                    // Fallback to basic constraints if high quality fails
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: 'environment',
+                            width: { min: 640, ideal: 1280 },
+                            height: { min: 480, ideal: 720 }
+                        }
+                    });
+                }
+
                 cameraStream = stream;
                 cameraFeed.srcObject = stream;
                 cameraFeed.classList.remove('hidden');
                 cameraPlaceholder.classList.add('hidden');
                 takePhotoBtn.disabled = false;
+
+                // Log the actual video dimensions for debugging
+                cameraFeed.addEventListener('loadedmetadata', () => {
+                    console.log('Video dimensions:', cameraFeed.videoWidth, 'x', cameraFeed.videoHeight);
+                });
+
             } catch (error) {
                 console.error('Error accessing camera:', error);
                 cameraFeed.classList.add('hidden');
@@ -470,10 +497,10 @@
             // Draw the current video frame onto the canvas
             context.drawImage(cameraFeed, 0, 0, cameraCanvas.width, cameraCanvas.height);
 
-            // Convert canvas content to a Blob (and then a File object)
+            // Convert canvas content to a Blob with high quality settings
             cameraCanvas.toBlob((blob) => {
                 if (blob) {
-                    const file = new File([blob], `scan_${Date.now()}.png`, { type: 'image/png' });
+                    const file = new File([blob], `scan_${Date.now()}.jpg`, { type: 'image/jpeg' });
                     const newImage = {
                         id: generateUUID(),
                         type: 'new', // Mark as a new image, not yet uploaded
@@ -482,7 +509,7 @@
                     allImagesForSession.push(newImage); // Add to our global image list
                     renderPreviews(); // Re-render the preview section
                 }
-            }, 'image/png'); // Capture as PNG
+            }, 'image/jpeg', 0.95); // Use JPEG with 95% quality for better file size/quality balance
         }
 
         // Stop camera when navigating away from the page
