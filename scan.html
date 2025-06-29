@@ -21,7 +21,7 @@
         }
         /* Styles for the camera feed and container */
         .camera-container {
-            position: relative;
+            position: relative; /* Needed for absolute positioning of child elements */
             width: 100%; /* Takes full width of its parent */
             max-width: 97%; /* Limits max width on larger screens */
             margin: 0 auto;
@@ -51,6 +51,20 @@
             padding: 20px;
         }
 
+        /* New style for the flash effect */
+        .flash-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: white;
+            opacity: 0; /* Start invisible */
+            transition: opacity 0.1s ease-out; /* Smooth fade out */
+            z-index: 9; /* Below the button, above the video */
+            pointer-events: none; /* Allow clicks to pass through when invisible */
+        }
+
         .camera-controls {
             display: flex;
             flex-direction: column; /* Stack buttons vertically by default */
@@ -78,14 +92,62 @@
                 background: #6c757d;
                 cursor: not-allowed;
             }
-        /* Specific button styles */
-        #takePhotoBtn {
-            background-color: #28a745;
+
+        /* Specific button styles for the new "Activate Camera" button */
+        #activateCameraBtn {
+            background-color: #28a745; /* Green color */
+        }
+        #activateCameraBtn:hover {
+            background-color: #218838;
         }
 
-            #takePhotoBtn:hover {
-                background-color: #218838;
-            }
+        /* Styles for the new simplistic take photo button */
+        #takePhotoBtn {
+            position: absolute; /* Position within camera-container */
+            bottom: 20px; /* Distance from bottom */
+            left: 50%; /* Center horizontally */
+            transform: translateX(-50%); /* Adjust for true centering */
+            width: 60px; /* Size of the circle */
+            height: 60px;
+            border-radius: 50%; /* Make it a circle */
+            background-color: white;
+            border: 4px solid #ccc; /* Outer ring */
+            cursor: pointer;
+            z-index: 10; /* Ensure it's above video and flash overlay */
+            display: flex; /* For inner circle */
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3); /* Optional shadow */
+            /* Remove default button padding/text styles */
+            padding: 0;
+            font-size: 0;
+            line-height: 0;
+        }
+
+        #takePhotoBtn::after { /* Inner circle */
+            content: '';
+            display: block;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #007bff; /* Blue inner circle */
+            border: 2px solid #007bff; /* Match outer border color */
+        }
+
+        #takePhotoBtn:hover {
+            background-color: #f0f0f0;
+        }
+
+        #takePhotoBtn:disabled {
+            background-color: #e0e0e0;
+            border-color: #bbb;
+            cursor: not-allowed;
+        }
+        #takePhotoBtn:disabled::after {
+            background-color: #a0a0a0;
+            border-color: #a0a0a0;
+        }
+
         /* Main upload button at the bottom */
         #uploadBtn {
             margin-top: 20px;
@@ -205,16 +267,16 @@
 
     <div class="camera-container">
         <video id="cameraFeed" autoplay playsinline class="hidden"></video>
+        <div id="flashOverlay" class="flash-overlay"></div> <!-- New flash overlay -->
         <div id="cameraPlaceholder" class="camera-placeholder">
-            Attempting to start camera...
+            Click "Activate Camera" to begin.
         </div>
         <canvas id="cameraCanvas" class="hidden"></canvas> <!-- Hidden canvas for capturing frames -->
+        <button id="takePhotoBtn" disabled></button> <!-- Simplistic take photo button -->
     </div>
 
     <div class="camera-controls">
-        <button id="takePhotoBtn" class="upload-btn" disabled>
-            📸 Take Photo
-        </button>
+        <button id="activateCameraBtn" class="upload-btn">Activate Camera</button>
     </div>
 
     <button id="uploadBtn" class="upload-btn" disabled>
@@ -230,7 +292,7 @@
     <script>
         // Configuration
         const SUPABASE_URL = 'https://uagiatfoiwusxafxskvp.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhZ2lhdGZvaXd1c3hhZnhza3ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyODc0NjYsImV4cCI6MjA2NDg2MzQ2Nn0.b0wIEHgENkhzkp3qHAotqbLTq7BwsqgM7b0ksAl3h1U';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhZ2lhdGZvaXd1c3hhZnhza3ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyODc0NjYsImV4cCI6MjA2NDg2MzQ2Nn0.b0hIEHgENkhzkp3qHAotqbLTq7BwsqgM7b0ksAl3h1U'; // Corrected key (typo in original)
         const STORAGE_BUCKET = 'exam-visuals';
 
         // Initialize Supabase client
@@ -254,6 +316,8 @@
         const cameraCanvas = document.getElementById('cameraCanvas');
         const cameraPlaceholder = document.getElementById('cameraPlaceholder');
         const takePhotoBtn = document.getElementById('takePhotoBtn');
+        const activateCameraBtn = document.getElementById('activateCameraBtn'); // New button
+        const flashOverlay = document.getElementById('flashOverlay'); // New flash overlay
 
         // Utility to generate a unique ID for local image management
         function generateUUID() {
@@ -305,14 +369,16 @@
                 updateNoImagesMessage(); // Update message based on images
                 updateUploadButton(); // Update upload button state
 
-                // Automatically start the camera after initialization
-                startCamera();
+                // Do NOT automatically start the camera here. It will be started by the button click.
 
             } catch (error) {
                 console.error('Initialization error:', error);
                 studentInfo.textContent = `Error: ${error.message}`;
             }
         });
+
+        // Event listener for activate camera button
+        activateCameraBtn.addEventListener('click', startCamera);
 
         // Event listener for take photo button
         takePhotoBtn.addEventListener('click', takePhoto);
@@ -322,11 +388,12 @@
          */
         async function startCamera() {
             if (cameraStream) {
-                return;
+                return; // Camera already active
             }
 
             showStatus('Attempting to start camera...', 'info');
             cameraPlaceholder.textContent = 'Attempting to start camera...';
+            activateCameraBtn.disabled = true; // Disable button while trying to start
 
             try {
                 // Request camera access, preferring the environment (rear) camera
@@ -340,6 +407,8 @@
                 cameraFeed.classList.remove('hidden');
                 cameraPlaceholder.classList.add('hidden');
                 takePhotoBtn.disabled = false;
+                activateCameraBtn.classList.add('hidden'); // Hide activate button once camera is on
+                showStatus('Camera active.', 'success');
             } catch (error) {
                 console.error('Error accessing camera:', error);
                 showStatus(`Error accessing camera: ${error.message}. Please ensure camera permissions are granted.`, 'error');
@@ -347,6 +416,7 @@
                 cameraPlaceholder.classList.remove('hidden');
                 cameraPlaceholder.textContent = `Camera access failed: ${error.message}. Please grant permissions.`;
                 takePhotoBtn.disabled = true;
+                activateCameraBtn.disabled = false; // Re-enable if failed
             }
         }
 
@@ -361,8 +431,10 @@
                 cameraFeed.srcObject = null;
                 cameraFeed.classList.add('hidden');
                 cameraPlaceholder.classList.remove('hidden');
-                cameraPlaceholder.textContent = 'Camera is off.';
+                cameraPlaceholder.textContent = 'Camera is off. Click "Activate Camera" to restart.';
                 takePhotoBtn.disabled = true;
+                activateCameraBtn.classList.remove('hidden'); // Show activate button again
+                activateCameraBtn.disabled = false;
                 showStatus('Camera stopped.', 'info');
             }
         }
@@ -375,6 +447,12 @@
                 showStatus('Camera not active. Please wait for camera to start.', 'error');
                 return;
             }
+
+            // Flash effect
+            flashOverlay.style.opacity = '1';
+            setTimeout(() => {
+                flashOverlay.style.opacity = '0';
+            }, 100); // Flash for 100ms
 
             const context = cameraCanvas.getContext('2d');
             // Set canvas dimensions to match video feed for accurate capture
@@ -469,6 +547,7 @@
             }
 
             uploadBtn.disabled = true;
+            showStatus('Uploading images...', 'info');
 
             try {
                 const uploadedUrls = [];
@@ -519,9 +598,11 @@
 
                 renderPreviews(); // Re-render to reflect 'uploaded' status for all images
                 updateUploadButton(); // Update button state (should be disabled if no new images)
+                showStatus('Images uploaded successfully!', 'success');
 
             } catch (error) {
                 console.error('Upload error:', error);
+                showStatus(`Upload failed: ${error.message}`, 'error');
             } finally {
                 uploadBtn.disabled = false; // Re-enable button in case of failure
             }
@@ -543,6 +624,8 @@
                 // Extract filename from the URL to construct the storage path
                 const filename = urlToRemove.split('/').pop();
                 const filePath = `temp_scans/${sessionToken}/${filename}`;
+
+                showStatus('Removing image...', 'info');
 
                 try {
                     // Delete from Supabase Storage
@@ -569,9 +652,11 @@
                         .eq('id', scanSessionId);
 
                     if (updateError) throw updateError;
+                    showStatus('Image removed successfully!', 'success');
 
                 } catch (error) {
                     console.error('Remove image error:', error);
+                    showStatus(`Failed to remove image: ${error.message}`, 'error');
                     return; // Stop if deletion failed
                 }
             }
@@ -580,6 +665,28 @@
             allImagesForSession.splice(indexToRemove, 1);
             renderPreviews();
         }
+
+        // Function to display status messages
+        let statusTimeout;
+        function showStatus(message, type) {
+            const existingStatus = document.querySelector('.status-message');
+            if (existingStatus) {
+                existingStatus.remove();
+            }
+
+            const statusDiv = document.createElement('div');
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.textContent = message;
+            document.body.insertBefore(statusDiv, imagePreviews); // Insert before previews
+
+            clearTimeout(statusTimeout);
+            statusTimeout = setTimeout(() => {
+                statusDiv.remove();
+            }, 5000); // Remove message after 5 seconds
+        }
+
+        // Attach uploadImages to the upload button
+        uploadBtn.addEventListener('click', uploadImages);
     </script>
 </body>
 </html>
