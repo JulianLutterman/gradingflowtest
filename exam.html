@@ -522,9 +522,9 @@
 
         // Global variable to store the current scan session token
         let currentScanSessionToken = null;
-        // ADD THESE NEW VARIABLES:
-        let pollingInterval = null;
-        let isPolling = false;
+        // ADD these new global variables:
+        let scanPollingInterval = null;
+        let scanProcessingTimeout = null;
 
 
         // --- HELPER FUNCTIONS ---
@@ -837,7 +837,6 @@
             }
         });
 
-        // --- STUDENT ANSWER UPLOAD LOGIC (MODIFIED FOR SCANNING) ---
         generateScanLinkButton.addEventListener('click', async () => {
             generateScanLinkButton.disabled = true;
             showSpinner(true, spinnerStudent);
@@ -867,7 +866,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}` // Or a service role key if function is protected
                     },
                     body: JSON.stringify({ examId, studentName, studentNumber })
                 });
@@ -878,7 +877,7 @@
                 }
 
                 const { session_token } = await response.json();
-                currentScanSessionToken = session_token;
+                currentScanSessionToken = session_token; // Store the token globally
 
                 const scanUrl = `${SCAN_PAGE_BASE_URL}?token=${session_token}`;
 
@@ -894,10 +893,10 @@
                 scanLinkArea.classList.remove('hidden');
 
                 log('QR code and link generated. Waiting for student to scan and upload...', statusLogStudent);
-                log('Monitoring for automatic processing...', statusLogStudent);
+                log('Monitoring for uploaded images (will auto-process when ready)...', statusLogStudent);
 
-                // Start polling for status changes
-                startPolling(examId);
+                // NEW: Start polling for status changes
+                startScanPolling(examId);
 
             } catch (error) {
                 log(`❌ An error occurred: ${error.message}`, statusLogStudent);
@@ -963,133 +962,6 @@
 
 
         // --- DATA FETCHING FUNCTIONS (UNCHANGED) ---
-
-        /**
- * Starts polling the scan session for status changes
- */
-        function startPolling(examId) {
-            if (isPolling) {
-                stopPolling(); // Stop any existing polling
-            }
-
-            isPolling = true;
-            pollingInterval = setInterval(async () => {
-                try {
-                    await checkScanSessionStatus(examId);
-                } catch (error) {
-                    console.error('Polling error:', error);
-                    log(`⚠️ Polling error: ${error.message}`, statusLogStudent);
-                }
-            }, 5000); // Poll every 5 seconds
-        }
-
-        /**
-         * Stops the polling interval
-         */
-        function stopPolling() {
-            if (pollingInterval) {
-                clearInterval(pollingInterval);
-                pollingInterval = null;
-            }
-            isPolling = false;
-        }
-
-        /**
-         * Checks the scan session status and triggers processing if ready
-         */
-        async function checkScanSessionStatus(examId) {
-            if (!currentScanSessionToken) {
-                return;
-            }
-
-            try {
-                const response = await fetch(`${SUPABASE_URL}/functions/v1/get-scan-session?token=${currentScanSessionToken}`, {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                    }
-                });
-
-                if (!response.ok) {
-                    // Session might be expired or deleted
-                    if (response.status === 404 || response.status === 410) {
-                        log('Scan session expired or completed. Stopping monitoring.', statusLogStudent);
-                        stopPolling();
-                        return;
-                    }
-                    throw new Error(`Failed to check session status: ${response.statusText}`);
-                }
-
-                const session = await response.json();
-
-                if (session.status === 'ready_for_processing') {
-                    log('📱 Images uploaded! Starting automatic processing...', statusLogStudent);
-                    stopPolling(); // Stop polling before processing
-                    await processScannedSession(examId);
-                } else if (session.status === 'completed') {
-                    log('✅ Processing completed successfully!', statusLogStudent);
-                    stopPolling();
-                    scanLinkArea.classList.add('hidden');
-                    currentScanSessionToken = null;
-                    await loadExamDetails(examId);
-                } else if (session.status === 'failed') {
-                    log('❌ Processing failed. Please try again.', statusLogStudent);
-                    stopPolling();
-                    generateScanLinkButton.disabled = false;
-                    showSpinner(false, spinnerStudent);
-                }
-
-            } catch (error) {
-                // Don't stop polling on temporary errors, just log them
-                console.warn('Temporary polling error:', error);
-            }
-        }
-
-        /**
-         * Processes the scanned session (moved from the old finish button logic)
-         */
-        async function processScannedSession(examId) {
-            if (!currentScanSessionToken) {
-                alert('No active scan session. Please generate a link first.');
-                return;
-            }
-
-            generateScanLinkButton.disabled = true;
-            showSpinner(true, spinnerStudent);
-            clearLog('Processing scanned answers...', statusLogStudent);
-
-            try {
-                log('Calling Edge Function to process scanned images...', statusLogStudent);
-                const response = await fetch(PROCESS_SCANNED_SESSION_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                    },
-                    body: JSON.stringify({ sessionToken: currentScanSessionToken, examId })
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(`Failed to process scanned answers: ${errorData.message || response.statusText}`);
-                }
-
-                const result = await response.json();
-                log(`✅ Scanned answers processed successfully! Status: ${result.status}`, statusLogStudent);
-                studentAnswersForm.reset();
-                scanLinkArea.classList.add('hidden');
-                currentScanSessionToken = null;
-                await loadExamDetails(examId);
-
-            } catch (error) {
-                log(`❌ An error occurred during processing: ${error.message}`, statusLogStudent);
-                console.error(error);
-            } finally {
-                generateScanLinkButton.disabled = false;
-                showSpinner(false, spinnerStudent);
-            }
-        }
-
         async function fetchFullExamDetails(examId) {
             return sb
                 .from('exams')
@@ -1438,13 +1310,126 @@
             if (examUpdateError) throw new Error(`Failed to update final score: ${examUpdateError.message}`);
         }
 
-        // Clean up polling when the page is closed
-        window.addEventListener('beforeunload', () => {
-            stopPolling();
-        });
 
-        window.addEventListener('pagehide', () => {
-            stopPolling();
+        /**
+ * Starts polling the scan session for status changes
+ */
+        function startScanPolling(examId) {
+            // Clear any existing polling
+            stopScanPolling();
+
+            // Set up 10-minute timeout
+            scanProcessingTimeout = setTimeout(() => {
+                stopScanPolling();
+                log('⏰ Scan session timed out after 10 minutes. Please try again if needed.', statusLogStudent);
+                generateScanLinkButton.disabled = false;
+                showSpinner(false, spinnerStudent);
+            }, 10 * 60 * 1000); // 10 minutes
+
+            // Start polling every 5 seconds
+            scanPollingInterval = setInterval(async () => {
+                try {
+                    await checkScanStatus(examId);
+                } catch (error) {
+                    console.error('Error during scan polling:', error);
+                    // Continue polling even if there's an error
+                }
+            }, 5000); // 5 seconds
+        }
+
+        /**
+         * Stops the polling and clears timeouts
+         */
+        function stopScanPolling() {
+            if (scanPollingInterval) {
+                clearInterval(scanPollingInterval);
+                scanPollingInterval = null;
+            }
+            if (scanProcessingTimeout) {
+                clearTimeout(scanProcessingTimeout);
+                scanProcessingTimeout = null;
+            }
+        }
+
+        /**
+         * Checks the current status of the scan session
+         */
+        async function checkScanStatus(examId) {
+            if (!currentScanSessionToken) return;
+
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/get-scan-session?token=${currentScanSessionToken}`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    }
+                });
+
+                if (!response.ok) {
+                    console.error('Failed to check scan status:', response.statusText);
+                    return;
+                }
+
+                const session = await response.json();
+
+                // Check if status changed to 'uploaded'
+                if (session.status === 'uploaded') {
+                    log('📸 Images detected! Starting automatic processing...', statusLogStudent);
+                    stopScanPolling(); // Stop polling
+                    await processScannedAnswers(examId); // Process automatically
+                }
+
+            } catch (error) {
+                console.error('Error checking scan status:', error);
+            }
+        }
+
+        /**
+         * Processes the scanned answers (moved from the old button click handler)
+         */
+        async function processScannedAnswers(examId) {
+            showSpinner(true, spinnerStudent);
+            clearLog('Processing scanned answers...', statusLogStudent);
+
+            try {
+                log('Calling Edge Function to process scanned images...', statusLogStudent);
+                const response = await fetch(PROCESS_SCANNED_SESSION_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ sessionToken: currentScanSessionToken, examId })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`Failed to process scanned answers: ${errorData.message || response.statusText}`);
+                }
+
+                const result = await response.json();
+                log(`✅ Scanned answers processed successfully! Status: ${result.status}`, statusLogStudent);
+
+                // Clean up UI
+                studentAnswersForm.reset();
+                scanLinkArea.classList.add('hidden');
+                currentScanSessionToken = null;
+
+                // Reload exam details to show new answers
+                await loadExamDetails(examId);
+
+            } catch (error) {
+                log(`❌ An error occurred during processing: ${error.message}`, statusLogStudent);
+                console.error(error);
+            } finally {
+                generateScanLinkButton.disabled = false;
+                showSpinner(false, spinnerStudent);
+            }
+        }
+
+        // ADD this after the existing window event listeners
+        window.addEventListener('beforeunload', () => {
+            stopScanPolling(); // Clean up polling when page is closed
         });
 
     </script>
