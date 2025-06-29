@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -19,9 +20,31 @@
             font-weight: bold;
             text-align: center; /* Center student info */
         }
+
+        /* Styles for the camera activation button */
+        .camera-activation {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        #activateCameraBtn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        #activateCameraBtn:hover {
+            background: #0056b3;
+        }
+
         /* Styles for the camera feed and container */
         .camera-container {
-            position: relative; /* Needed for absolute positioning of child elements */
+            position: relative;
             width: 100%; /* Takes full width of its parent */
             max-width: 97%; /* Limits max width on larger screens */
             margin: 0 auto;
@@ -51,25 +74,65 @@
             padding: 20px;
         }
 
-        /* New style for the flash effect */
-        .flash-overlay {
+        /* Take photo button - simplified white circle */
+        #takePhotoBtn {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 70px;
+            height: 70px;
+            background: white;
+            border: 4px solid #fff;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transition: all 0.2s ease;
+            z-index: 10;
+        }
+
+        #takePhotoBtn:hover {
+            transform: translateX(-50%) scale(1.1);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        #takePhotoBtn:active {
+            transform: translateX(-50%) scale(0.95);
+        }
+
+        #takePhotoBtn:disabled {
+            background: #ccc;
+            border-color: #ccc;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        #takePhotoBtn:disabled:hover {
+            transform: translateX(-50%) scale(1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Flash effect for photo capture */
+        .camera-flash {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: white;
-            opacity: 0; /* Start invisible */
-            transition: opacity 0.1s ease-out; /* Smooth fade out */
-            z-index: 9; /* Below the button, above the video */
-            pointer-events: none; /* Allow clicks to pass through when invisible */
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 5;
         }
 
-        .camera-controls {
-            display: flex;
-            flex-direction: column; /* Stack buttons vertically by default */
-            gap: 10px;
-            margin: 20px 0;
+        .camera-flash.active {
+            animation: flashEffect 0.3s ease-out;
+        }
+
+        @keyframes flashEffect {
+            0% { opacity: 0; }
+            50% { opacity: 0.8; }
+            100% { opacity: 0; }
         }
 
         .upload-btn {
@@ -84,68 +147,13 @@
             box-sizing: border-box; /* Include padding in width */
         }
 
-            .upload-btn:hover {
-                background: #0056b3;
-            }
-
-            .upload-btn:disabled {
-                background: #6c757d;
-                cursor: not-allowed;
-            }
-
-        /* Specific button styles for the new "Activate Camera" button */
-        #activateCameraBtn {
-            background-color: #28a745; /* Green color */
-        }
-        #activateCameraBtn:hover {
-            background-color: #218838;
+        .upload-btn:hover {
+            background: #0056b3;
         }
 
-        /* Styles for the new simplistic take photo button */
-        #takePhotoBtn {
-            position: absolute; /* Position within camera-container */
-            bottom: 20px; /* Distance from bottom */
-            left: 50%; /* Center horizontally */
-            transform: translateX(-50%); /* Adjust for true centering */
-            width: 60px; /* Size of the circle */
-            height: 60px;
-            border-radius: 50%; /* Make it a circle */
-            background-color: white;
-            border: 4px solid #ccc; /* Outer ring */
-            cursor: pointer;
-            z-index: 10; /* Ensure it's above video and flash overlay */
-            display: flex; /* For inner circle */
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3); /* Optional shadow */
-            /* Remove default button padding/text styles */
-            padding: 0;
-            font-size: 0;
-            line-height: 0;
-        }
-
-        #takePhotoBtn::after { /* Inner circle */
-            content: '';
-            display: block;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background-color: #007bff; /* Blue inner circle */
-            border: 2px solid #007bff; /* Match outer border color */
-        }
-
-        #takePhotoBtn:hover {
-            background-color: #f0f0f0;
-        }
-
-        #takePhotoBtn:disabled {
-            background-color: #e0e0e0;
-            border-color: #bbb;
+        .upload-btn:disabled {
+            background: #6c757d;
             cursor: not-allowed;
-        }
-        #takePhotoBtn:disabled::after {
-            background-color: #a0a0a0;
-            border-color: #a0a0a0;
         }
 
         /* Main upload button at the bottom */
@@ -179,11 +187,11 @@
             background-color: #f9f9f9;
         }
 
-            .preview-item img {
-                width: 100%;
-                height: 100px; /* Fixed height for consistency */
-                object-fit: cover; /* Cover the area, cropping if necessary */
-            }
+        .preview-item img {
+            width: 100%;
+            height: 100px; /* Fixed height for consistency */
+            object-fit: cover; /* Cover the area, cropping if necessary */
+        }
 
         .remove-btn {
             position: absolute;
@@ -233,24 +241,8 @@
             display: none;
         }
 
-        /* Media query for larger screens to revert some styles */
+        /* Media query for larger screens */
         @media (min-width: 600px) {
-            .camera-controls {
-                flex-direction: row; /* Buttons side-by-side on larger screens */
-                justify-content: center;
-                flex-wrap: wrap; /* Allow wrapping if many buttons */
-            }
-
-            .upload-btn {
-                width: auto; /* Auto width for buttons in controls */
-                flex-grow: 1;
-                max-width: 200px; /* Limit individual button width */
-            }
-
-            #uploadBtn {
-                max-width: 300px; /* Slightly smaller max-width for main button on larger screens */
-            }
-
             .preview-container {
                 grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); /* More columns on wider screens */
             }
@@ -258,325 +250,407 @@
             .preview-item img {
                 height: 120px; /* Slightly taller previews on larger screens */
             }
+
+            #uploadBtn {
+                max-width: 300px; /* Slightly smaller max-width for main button on larger screens */
+            }
         }
     </style>
 </head>
 <body>
 
-    <div id="studentInfo" class="student-info">Loading...</div>
+<div id="studentInfo" class="student-info">Loading...</div>
 
-    <div class="camera-container">
-        <video id="cameraFeed" autoplay playsinline class="hidden"></video>
-        <div id="flashOverlay" class="flash-overlay"></div> <!-- New flash overlay -->
-        <div id="cameraPlaceholder" class="camera-placeholder">
-            Click "Activate Camera" to begin.
-        </div>
-        <canvas id="cameraCanvas" class="hidden"></canvas> <!-- Hidden canvas for capturing frames -->
-        <button id="takePhotoBtn" disabled></button> <!-- Simplistic take photo button -->
-    </div>
-
-    <div class="camera-controls">
-        <button id="activateCameraBtn" class="upload-btn">Activate Camera</button>
-    </div>
-
-    <button id="uploadBtn" class="upload-btn" disabled>
-        Upload All New Images
+<div id="cameraActivation" class="camera-activation">
+    <button id="activateCameraBtn" class="upload-btn">
+        📷 Activate Camera
     </button>
+</div>
 
-    <div id="noImagesMessage" class="status-info">
-        No images uploaded yet. Use the camera to capture the student's answer sheets.
+<div id="cameraContainer" class="camera-container hidden">
+    <video id="cameraFeed" autoplay playsinline class="hidden"></video>
+    <div id="cameraPlaceholder" class="camera-placeholder">
+        Attempting to start camera...
     </div>
+    <canvas id="cameraCanvas" class="hidden"></canvas> <!-- Hidden canvas for capturing frames -->
+    <button id="takePhotoBtn" disabled></button>
+    <div class="camera-flash" id="cameraFlash"></div>
+</div>
 
-    <div id="imagePreviews" class="preview-container"></div>
+<button id="uploadBtn" class="upload-btn" disabled>
+    Upload All New Images
+</button>
 
-    <script>
-        // Configuration
-        const SUPABASE_URL = 'https://uagiatfoiwusxafxskvp.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhZ2lhdGZvaXd1c3hhZnhza3ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyODc0NjYsImV4cCI6MjA2NDg2MzQ2Nn0.b0hIEHgENkhzkp3qHAotqbLTq7BwsqgM7b0ksAl3h1U'; // Corrected key (typo in original)
-        const STORAGE_BUCKET = 'exam-visuals';
+<div id="noImagesMessage" class="status-info">
+    No images uploaded yet. Use the camera to capture the student's answer sheets.
+</div>
 
-        // Initialize Supabase client
-        const { createClient } = supabase;
-        const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+<div id="imagePreviews" class="preview-container"></div>
 
-        // Global variables
-        let scanSessionId = null;
-        let sessionToken = null;
-        // Stores objects like { id: uuid, type: 'new'|'uploaded', data: File|string }
-        let allImagesForSession = [];
-        let cameraStream = null;
+<script>
+    // Configuration
+    const SUPABASE_URL = 'https://uagiatfoiwusxafxskvp.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhZ2lhdGZvaXd1c3hhZnhza3ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyODc0NjYsImV4cCI6MjA2NDg2MzQ2Nn0.b0wIEHgENkhzkp3qHAotqbLTq7BwsqgM7b0ksAl3h1U';
+    const STORAGE_BUCKET = 'exam-visuals';
 
-        // DOM elements
-        const studentInfo = document.getElementById('studentInfo');
-        const imagePreviews = document.getElementById('imagePreviews');
-        const uploadBtn = document.getElementById('uploadBtn');
-        const noImagesMessage = document.getElementById('noImagesMessage');
+    // Initialize Supabase client
+    const { createClient } = supabase;
+    const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        const cameraFeed = document.getElementById('cameraFeed');
-        const cameraCanvas = document.getElementById('cameraCanvas');
-        const cameraPlaceholder = document.getElementById('cameraPlaceholder');
-        const takePhotoBtn = document.getElementById('takePhotoBtn');
-        const activateCameraBtn = document.getElementById('activateCameraBtn'); // New button
-        const flashOverlay = document.getElementById('flashOverlay'); // New flash overlay
+    // Global variables
+    let scanSessionId = null;
+    let sessionToken = null;
+    // Stores objects like { id: uuid, type: 'new'|'uploaded', data: File|string }
+    let allImagesForSession = [];
+    let cameraStream = null;
 
-        // Utility to generate a unique ID for local image management
-        function generateUUID() {
-            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
-            });
+    // DOM elements
+    const studentInfo = document.getElementById('studentInfo');
+    const imagePreviews = document.getElementById('imagePreviews');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const noImagesMessage = document.getElementById('noImagesMessage');
+
+    const cameraActivation = document.getElementById('cameraActivation');
+    const activateCameraBtn = document.getElementById('activateCameraBtn');
+    const cameraContainer = document.getElementById('cameraContainer');
+    const cameraFeed = document.getElementById('cameraFeed');
+    const cameraCanvas = document.getElementById('cameraCanvas');
+    const cameraPlaceholder = document.getElementById('cameraPlaceholder');
+    const takePhotoBtn = document.getElementById('takePhotoBtn');
+    const cameraFlash = document.getElementById('cameraFlash');
+
+    // Utility to generate a unique ID for local image management
+    function generateUUID() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+            var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
+
+    // Show status messages
+    function showStatus(message, type) {
+        // Create status element
+        const statusDiv = document.createElement('div');
+        statusDiv.className = `status-message status-${type}`;
+        statusDiv.textContent = message;
+        
+        // Insert after student info
+        studentInfo.parentNode.insertBefore(statusDiv, studentInfo.nextSibling);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (statusDiv.parentNode) {
+                statusDiv.parentNode.removeChild(statusDiv);
+            }
+        }, 5000);
+    }
+
+    // Initialize page on load
+    document.addEventListener('DOMContentLoaded', async () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        sessionToken = urlParams.get('token');
+
+        if (!sessionToken) {
+            studentInfo.textContent = 'Error: No session token provided.';
+            return;
         }
 
-        // Initialize page on load
-        document.addEventListener('DOMContentLoaded', async () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            sessionToken = urlParams.get('token');
+        try {
+            // Fetch scan session details using the Edge Function
+            const response = await fetch(`${SUPABASE_URL}/functions/v1/get-scan-session?token=${sessionToken}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                }
+            });
 
-            if (!sessionToken) {
-                studentInfo.textContent = 'Error: No session token provided.';
-                return;
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to load session');
             }
 
-            try {
-                // Fetch scan session details using the Edge Function
-                const response = await fetch(`${SUPABASE_URL}/functions/v1/get-scan-session?token=${sessionToken}`, {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                    }
-                });
+            const session = await response.json();
 
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || 'Failed to load session');
+            scanSessionId = session.id;
+
+            // Populate allImagesForSession with existing uploaded images from the session
+            if (session.uploaded_image_paths && session.uploaded_image_paths.length > 0) {
+                allImagesForSession = session.uploaded_image_paths.map(url => ({
+                    id: generateUUID(), // Assign a new ID for local management
+                    type: 'uploaded',
+                    data: url
+                }));
+            }
+
+            studentInfo.textContent = `Student: ${session.student_name || session.student_number || 'Unknown'}`;
+            renderPreviews(); // Display existing images
+            updateNoImagesMessage(); // Update message based on images
+            updateUploadButton(); // Update upload button state
+
+        } catch (error) {
+            console.error('Initialization error:', error);
+            studentInfo.textContent = `Error: ${error.message}`;
+        }
+    });
+
+    // Event listeners
+    activateCameraBtn.addEventListener('click', activateCamera);
+    takePhotoBtn.addEventListener('click', takePhoto);
+    uploadBtn.addEventListener('click', uploadImages);
+
+    /**
+     * Activates the camera and shows the camera view
+     */
+    async function activateCamera() {
+        cameraActivation.classList.add('hidden');
+        cameraContainer.classList.remove('hidden');
+        await startCamera();
+    }
+
+    /**
+     * Starts the camera stream and displays it in the video element.
+     */
+    async function startCamera() {
+        if (cameraStream) {
+            return;
+        }
+
+        showStatus('Attempting to start camera...', 'info');
+        cameraPlaceholder.textContent = 'Attempting to start camera...';
+
+        try {
+            // Request camera access, preferring the environment (rear) camera
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: 'environment'
                 }
+            });
+            cameraStream = stream;
+            cameraFeed.srcObject = stream;
+            cameraFeed.classList.remove('hidden');
+            cameraPlaceholder.classList.add('hidden');
+            takePhotoBtn.disabled = false;
+            showStatus('Camera activated successfully!', 'success');
+        } catch (error) {
+            console.error('Error accessing camera:', error);
+            showStatus(`Error accessing camera: ${error.message}. Please ensure camera permissions are granted.`, 'error');
+            cameraFeed.classList.add('hidden');
+            cameraPlaceholder.classList.remove('hidden');
+            cameraPlaceholder.textContent = `Camera access failed: ${error.message}. Please grant permissions.`;
+            takePhotoBtn.disabled = true;
+        }
+    }
 
-                const session = await response.json();
+    /**
+     * Stops the camera stream and releases resources.
+     * This function is now primarily for cleanup on page unload, not user interaction.
+     */
+    function stopCamera() {
+        if (cameraStream) {
+            cameraStream.getTracks().forEach(track => track.stop());
+            cameraStream = null;
+            cameraFeed.srcObject = null;
+            cameraFeed.classList.add('hidden');
+            cameraPlaceholder.classList.remove('hidden');
+            cameraPlaceholder.textContent = 'Camera is off.';
+            takePhotoBtn.disabled = true;
+            showStatus('Camera stopped.', 'info');
+        }
+    }
 
-                scanSessionId = session.id;
+    /**
+     * Captures a photo from the current camera feed.
+     */
+    function takePhoto() {
+        if (!cameraStream) {
+            showStatus('Camera not active. Please wait for camera to start.', 'error');
+            return;
+        }
 
-                // Populate allImagesForSession with existing uploaded images from the session
-                if (session.uploaded_image_paths && session.uploaded_image_paths.length > 0) {
-                    allImagesForSession = session.uploaded_image_paths.map(url => ({
-                        id: generateUUID(), // Assign a new ID for local management
-                        type: 'uploaded',
-                        data: url
-                    }));
-                }
+        // Trigger flash effect
+        cameraFlash.classList.add('active');
+        setTimeout(() => {
+            cameraFlash.classList.remove('active');
+        }, 300);
 
-                studentInfo.textContent = `Student: ${session.student_name || session.student_number || 'Unknown'}`;
-                renderPreviews(); // Display existing images
-                updateNoImagesMessage(); // Update message based on images
-                updateUploadButton(); // Update upload button state
+        const context = cameraCanvas.getContext('2d');
+        // Set canvas dimensions to match video feed for accurate capture
+        cameraCanvas.width = cameraFeed.videoWidth;
+        cameraCanvas.height = cameraFeed.videoHeight;
+        // Draw the current video frame onto the canvas
+        context.drawImage(cameraFeed, 0, 0, cameraCanvas.width, cameraCanvas.height);
 
-                // Do NOT automatically start the camera here. It will be started by the button click.
+        // Convert canvas content to a Blob (and then a File object)
+        cameraCanvas.toBlob((blob) => {
+            if (blob) {
+                const file = new File([blob], `scan_${Date.now()}.png`, { type: 'image/png' });
+                const newImage = {
+                    id: generateUUID(),
+                    type: 'new', // Mark as a new image, not yet uploaded
+                    data: file
+                };
+                allImagesForSession.push(newImage); // Add to our global image list
+                renderPreviews(); // Re-render the preview section
+                showStatus('Photo captured successfully!', 'success');
+            }
+        }, 'image/png'); // Capture as PNG
+    }
 
-            } catch (error) {
-                console.error('Initialization error:', error);
-                studentInfo.textContent = `Error: ${error.message}`;
+    // Stop camera when navigating away from the page
+    window.addEventListener('beforeunload', stopCamera);
+    window.addEventListener('pagehide', stopCamera); // For mobile browsers
+
+    /**
+     * Renders all images (newly captured and already uploaded) in the preview section.
+     */
+    function renderPreviews() {
+        imagePreviews.innerHTML = ''; // Clear existing previews
+
+        updateNoImagesMessage(); // Update the "No images" message visibility
+        updateUploadButton(); // Update the upload button's disabled state
+
+        if (allImagesForSession.length === 0) {
+            return; // No images to render
+        }
+
+        allImagesForSession.forEach(item => {
+            const previewItem = document.createElement('div');
+            previewItem.className = 'preview-item';
+
+            const img = document.createElement('img');
+            // For new images, create an object URL; for uploaded, use the direct URL
+            img.src = item.type === 'new' ? URL.createObjectURL(item.data) : item.data;
+            img.alt = 'Preview';
+
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'remove-btn';
+            removeBtn.textContent = '×';
+            removeBtn.onclick = () => removeImage(item.id); // Pass the unique ID for removal
+
+            previewItem.appendChild(img);
+            previewItem.appendChild(removeBtn);
+
+            imagePreviews.appendChild(previewItem);
+
+            // Revoke object URL for 'new' images after they are loaded to free memory
+            if (item.type === 'new') {
+                img.onload = () => URL.revokeObjectURL(img.src);
             }
         });
+    }
 
-        // Event listener for activate camera button
-        activateCameraBtn.addEventListener('click', startCamera);
+    /**
+     * Updates the state of the main "Upload All New Images" button.
+     */
+    function updateUploadButton() {
+        const hasNewImages = allImagesForSession.some(item => item.type === 'new');
+        uploadBtn.disabled = !hasNewImages;
+    }
 
-        // Event listener for take photo button
-        takePhotoBtn.addEventListener('click', takePhoto);
+    /**
+     * Toggles the visibility of the "No images uploaded yet" message.
+     */
+    function updateNoImagesMessage() {
+        const hasImages = allImagesForSession.length > 0;
+        noImagesMessage.classList.toggle('hidden', hasImages);
+    }
 
-        /**
-         * Starts the camera stream and displays it in the video element.
-         */
-        async function startCamera() {
-            if (cameraStream) {
-                return; // Camera already active
+    /**
+     * Uploads all newly captured images to Supabase Storage and updates the session record.
+     */
+    async function uploadImages() {
+        const newFilesToUpload = allImagesForSession.filter(item => item.type === 'new');
+
+        if (newFilesToUpload.length === 0) {
+            showStatus('No new images to upload', 'error');
+            return;
+        }
+
+        uploadBtn.disabled = true;
+        showStatus('Uploading images...', 'info');
+
+        try {
+            const uploadedUrls = [];
+            for (const item of newFilesToUpload) {
+                const file = item.data;
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+                const filePath = `temp_scans/${sessionToken}/${fileName}`;
+
+                // Upload file to Supabase Storage
+                const { error: uploadError } = await sb.storage
+                    .from(STORAGE_BUCKET)
+                    .upload(filePath, file);
+
+                if (uploadError) throw uploadError;
+
+                // Get public URL of the uploaded file
+                const { data: urlData } = sb.storage
+                    .from(STORAGE_BUCKET)
+                    .getPublicUrl(filePath);
+
+                uploadedUrls.push(urlData.publicUrl);
+
+                // Update the item's type and data in our local array
+                item.type = 'uploaded';
+                item.data = urlData.publicUrl;
             }
 
-            showStatus('Attempting to start camera...', 'info');
-            cameraPlaceholder.textContent = 'Attempting to start camera...';
-            activateCameraBtn.disabled = true; // Disable button while trying to start
+            // Fetch current uploaded_image_paths from DB to merge with new ones
+            const { data: currentSessionData, error: fetchError } = await sb
+                .from('scan_sessions')
+                .select('uploaded_image_paths')
+                .eq('id', scanSessionId)
+                .single();
+
+            if (fetchError) throw fetchError;
+
+            const existingPaths = currentSessionData.uploaded_image_paths || [];
+            const updatedPaths = [...existingPaths, ...uploadedUrls];
+
+            // Update the scan_sessions table with the merged list of image paths
+            const { error: updateError } = await sb
+                .from('scan_sessions')
+                .update({ uploaded_image_paths: updatedPaths })
+                .eq('id', scanSessionId);
+
+            if (updateError) throw updateError;
+
+            renderPreviews(); // Re-render to reflect 'uploaded' status for all images
+            updateUploadButton(); // Update button state (should be disabled if no new images)
+            showStatus(`Successfully uploaded ${uploadedUrls.length} image(s)!`, 'success');
+
+        } catch (error) {
+            console.error('Upload error:', error);
+            showStatus(`Upload failed: ${error.message}`, 'error');
+        } finally {
+            uploadBtn.disabled = false; // Re-enable button in case of failure
+        }
+    }
+
+    /**
+     * Removes an image from the local list and, if uploaded, from Supabase Storage and DB.
+     * @param {string} idToRemove - The unique ID of the image to remove.
+     */
+    async function removeImage(idToRemove) {
+        const indexToRemove = allImagesForSession.findIndex(item => item.id === idToRemove);
+        if (indexToRemove === -1) return; // Image not found
+
+        const itemToRemove = allImagesForSession[indexToRemove];
+
+        if (itemToRemove.type === 'uploaded') {
+            // If it's an already uploaded image, delete from Supabase Storage and DB
+            const urlToRemove = itemToRemove.data;
+            // Extract filename from the URL to construct the storage path
+            const filename = urlToRemove.split('/').pop();
+            const filePath = `temp_scans/${sessionToken}/${filename}`;
 
             try {
-                // Request camera access, preferring the environment (rear) camera
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: 'environment'
-                    }
-                });
-                cameraStream = stream;
-                cameraFeed.srcObject = stream;
-                cameraFeed.classList.remove('hidden');
-                cameraPlaceholder.classList.add('hidden');
-                takePhotoBtn.disabled = false;
-                activateCameraBtn.classList.add('hidden'); // Hide activate button once camera is on
-                showStatus('Camera active.', 'success');
-            } catch (error) {
-                console.error('Error accessing camera:', error);
-                showStatus(`Error accessing camera: ${error.message}. Please ensure camera permissions are granted.`, 'error');
-                cameraFeed.classList.add('hidden');
-                cameraPlaceholder.classList.remove('hidden');
-                cameraPlaceholder.textContent = `Camera access failed: ${error.message}. Please grant permissions.`;
-                takePhotoBtn.disabled = true;
-                activateCameraBtn.disabled = false; // Re-enable if failed
-            }
-        }
+                // Delete from Supabase Storage
+                const { error: deleteError } = await sb.storage.from(STORAGE_BUCKET).remove([filePath]);
+                if (deleteError) throw deleteError;
 
-        /**
-         * Stops the camera stream and releases resources.
-         * This function is now primarily for cleanup on page unload, not user interaction.
-         */
-        function stopCamera() {
-            if (cameraStream) {
-                cameraStream.getTracks().forEach(track => track.stop());
-                cameraStream = null;
-                cameraFeed.srcObject = null;
-                cameraFeed.classList.add('hidden');
-                cameraPlaceholder.classList.remove('hidden');
-                cameraPlaceholder.textContent = 'Camera is off. Click "Activate Camera" to restart.';
-                takePhotoBtn.disabled = true;
-                activateCameraBtn.classList.remove('hidden'); // Show activate button again
-                activateCameraBtn.disabled = false;
-                showStatus('Camera stopped.', 'info');
-            }
-        }
-
-        /**
-         * Captures a photo from the current camera feed.
-         */
-        function takePhoto() {
-            if (!cameraStream) {
-                showStatus('Camera not active. Please wait for camera to start.', 'error');
-                return;
-            }
-
-            // Flash effect
-            flashOverlay.style.opacity = '1';
-            setTimeout(() => {
-                flashOverlay.style.opacity = '0';
-            }, 100); // Flash for 100ms
-
-            const context = cameraCanvas.getContext('2d');
-            // Set canvas dimensions to match video feed for accurate capture
-            cameraCanvas.width = cameraFeed.videoWidth;
-            cameraCanvas.height = cameraFeed.videoHeight;
-            // Draw the current video frame onto the canvas
-            context.drawImage(cameraFeed, 0, 0, cameraCanvas.width, cameraCanvas.height);
-
-            // Convert canvas content to a Blob (and then a File object)
-            cameraCanvas.toBlob((blob) => {
-                if (blob) {
-                    const file = new File([blob], `scan_${Date.now()}.png`, { type: 'image/png' });
-                    const newImage = {
-                        id: generateUUID(),
-                        type: 'new', // Mark as a new image, not yet uploaded
-                        data: file
-                    };
-                    allImagesForSession.push(newImage); // Add to our global image list
-                    renderPreviews(); // Re-render the preview section
-                }
-            }, 'image/png'); // Capture as PNG
-        }
-
-        // Stop camera when navigating away from the page
-        window.addEventListener('beforeunload', stopCamera);
-        window.addEventListener('pagehide', stopCamera); // For mobile browsers
-
-        /**
-         * Renders all images (newly captured and already uploaded) in the preview section.
-         */
-        function renderPreviews() {
-            imagePreviews.innerHTML = ''; // Clear existing previews
-
-            updateNoImagesMessage(); // Update the "No images" message visibility
-            updateUploadButton(); // Update the upload button's disabled state
-
-            if (allImagesForSession.length === 0) {
-                return; // No images to render
-            }
-
-            allImagesForSession.forEach(item => {
-                const previewItem = document.createElement('div');
-                previewItem.className = 'preview-item';
-
-                const img = document.createElement('img');
-                // For new images, create an object URL; for uploaded, use the direct URL
-                img.src = item.type === 'new' ? URL.createObjectURL(item.data) : item.data;
-                img.alt = 'Preview';
-
-                const removeBtn = document.createElement('button');
-                removeBtn.className = 'remove-btn';
-                removeBtn.textContent = '×';
-                removeBtn.onclick = () => removeImage(item.id); // Pass the unique ID for removal
-
-                previewItem.appendChild(img);
-                previewItem.appendChild(removeBtn);
-
-                imagePreviews.appendChild(previewItem);
-
-                // Revoke object URL for 'new' images after they are loaded to free memory
-                if (item.type === 'new') {
-                    img.onload = () => URL.revokeObjectURL(img.src);
-                }
-            });
-        }
-
-        /**
-         * Updates the state of the main "Upload All New Images" button.
-         */
-        function updateUploadButton() {
-            const hasNewImages = allImagesForSession.some(item => item.type === 'new');
-            uploadBtn.disabled = !hasNewImages;
-        }
-
-        /**
-         * Toggles the visibility of the "No images uploaded yet" message.
-         */
-        function updateNoImagesMessage() {
-            const hasImages = allImagesForSession.length > 0;
-            noImagesMessage.classList.toggle('hidden', hasImages);
-        }
-
-        /**
-         * Uploads all newly captured images to Supabase Storage and updates the session record.
-         */
-        async function uploadImages() {
-            const newFilesToUpload = allImagesForSession.filter(item => item.type === 'new');
-
-            if (newFilesToUpload.length === 0) {
-                showStatus('No new images to upload', 'error');
-                return;
-            }
-
-            uploadBtn.disabled = true;
-            showStatus('Uploading images...', 'info');
-
-            try {
-                const uploadedUrls = [];
-                for (const item of newFilesToUpload) {
-                    const file = item.data;
-                    const fileExt = file.name.split('.').pop();
-                    const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-                    const filePath = `temp_scans/${sessionToken}/${fileName}`;
-
-                    // Upload file to Supabase Storage
-                    const { error: uploadError } = await sb.storage
-                        .from(STORAGE_BUCKET)
-                        .upload(filePath, file);
-
-                    if (uploadError) throw uploadError;
-
-                    // Get public URL of the uploaded file
-                    const { data: urlData } = sb.storage
-                        .from(STORAGE_BUCKET)
-                        .getPublicUrl(filePath);
-
-                    uploadedUrls.push(urlData.publicUrl);
-
-                    // Update the item's type and data in our local array
-                    item.type = 'uploaded';
-                    item.data = urlData.publicUrl;
-                }
-
-                // Fetch current uploaded_image_paths from DB to merge with new ones
+                // Fetch current paths from DB to ensure we're updating the latest version
                 const { data: currentSessionData, error: fetchError } = await sb
                     .from('scan_sessions')
                     .select('uploaded_image_paths')
@@ -586,9 +660,10 @@
                 if (fetchError) throw fetchError;
 
                 const existingPaths = currentSessionData.uploaded_image_paths || [];
-                const updatedPaths = [...existingPaths, ...uploadedUrls];
+                // Filter out the URL of the image being removed
+                const updatedPaths = existingPaths.filter(path => path !== urlToRemove);
 
-                // Update the scan_sessions table with the merged list of image paths
+                // Update the scan_sessions table with the new list of paths
                 const { error: updateError } = await sb
                     .from('scan_sessions')
                     .update({ uploaded_image_paths: updatedPaths })
@@ -596,97 +671,19 @@
 
                 if (updateError) throw updateError;
 
-                renderPreviews(); // Re-render to reflect 'uploaded' status for all images
-                updateUploadButton(); // Update button state (should be disabled if no new images)
-                showStatus('Images uploaded successfully!', 'success');
+                showStatus('Image removed successfully!', 'success');
 
             } catch (error) {
-                console.error('Upload error:', error);
-                showStatus(`Upload failed: ${error.message}`, 'error');
-            } finally {
-                uploadBtn.disabled = false; // Re-enable button in case of failure
+                console.error('Remove image error:', error);
+                showStatus(`Failed to remove image: ${error.message}`, 'error');
+                return; // Stop if deletion failed
             }
         }
 
-        /**
-         * Removes an image from the local list and, if uploaded, from Supabase Storage and DB.
-         * @param {string} idToRemove - The unique ID of the image to remove.
-         */
-        async function removeImage(idToRemove) {
-            const indexToRemove = allImagesForSession.findIndex(item => item.id === idToRemove);
-            if (indexToRemove === -1) return; // Image not found
-
-            const itemToRemove = allImagesForSession[indexToRemove];
-
-            if (itemToRemove.type === 'uploaded') {
-                // If it's an already uploaded image, delete from Supabase Storage and DB
-                const urlToRemove = itemToRemove.data;
-                // Extract filename from the URL to construct the storage path
-                const filename = urlToRemove.split('/').pop();
-                const filePath = `temp_scans/${sessionToken}/${filename}`;
-
-                showStatus('Removing image...', 'info');
-
-                try {
-                    // Delete from Supabase Storage
-                    const { error: deleteError } = await sb.storage.from(STORAGE_BUCKET).remove([filePath]);
-                    if (deleteError) throw deleteError;
-
-                    // Fetch current paths from DB to ensure we're updating the latest version
-                    const { data: currentSessionData, error: fetchError } = await sb
-                        .from('scan_sessions')
-                        .select('uploaded_image_paths')
-                        .eq('id', scanSessionId)
-                        .single();
-
-                    if (fetchError) throw fetchError;
-
-                    const existingPaths = currentSessionData.uploaded_image_paths || [];
-                    // Filter out the URL of the image being removed
-                    const updatedPaths = existingPaths.filter(path => path !== urlToRemove);
-
-                    // Update the scan_sessions table with the new list of paths
-                    const { error: updateError } = await sb
-                        .from('scan_sessions')
-                        .update({ uploaded_image_paths: updatedPaths })
-                        .eq('id', scanSessionId);
-
-                    if (updateError) throw updateError;
-                    showStatus('Image removed successfully!', 'success');
-
-                } catch (error) {
-                    console.error('Remove image error:', error);
-                    showStatus(`Failed to remove image: ${error.message}`, 'error');
-                    return; // Stop if deletion failed
-                }
-            }
-
-            // Remove from local array and re-render the previews
-            allImagesForSession.splice(indexToRemove, 1);
-            renderPreviews();
-        }
-
-        // Function to display status messages
-        let statusTimeout;
-        function showStatus(message, type) {
-            const existingStatus = document.querySelector('.status-message');
-            if (existingStatus) {
-                existingStatus.remove();
-            }
-
-            const statusDiv = document.createElement('div');
-            statusDiv.className = `status-message status-${type}`;
-            statusDiv.textContent = message;
-            document.body.insertBefore(statusDiv, imagePreviews); // Insert before previews
-
-            clearTimeout(statusTimeout);
-            statusTimeout = setTimeout(() => {
-                statusDiv.remove();
-            }, 5000); // Remove message after 5 seconds
-        }
-
-        // Attach uploadImages to the upload button
-        uploadBtn.addEventListener('click', uploadImages);
-    </script>
+        // Remove from local array and re-render the previews
+        allImagesForSession.splice(indexToRemove, 1);
+        renderPreviews();
+    }
+</script>
 </body>
 </html>
