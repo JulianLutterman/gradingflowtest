@@ -413,31 +413,63 @@
             cameraPlaceholder.textContent = 'Attempting to start camera...';
 
             try {
-                // Request camera access with high quality settings
+                // Get available camera devices
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                console.log('Available cameras:', videoDevices);
+
+                // Find the best rear camera (usually has higher resolution)
+                let deviceId = null;
+                for (const device of videoDevices) {
+                    if (device.label.toLowerCase().includes('back') || 
+                        device.label.toLowerCase().includes('rear') ||
+                        device.label.toLowerCase().includes('environment')) {
+                        deviceId = device.deviceId;
+                        break;
+                    }
+                }
+
+                // Ultra-high quality constraints - push the limits
                 const constraints = {
                     video: {
-                        facingMode: 'environment',
-                        width: { min: 1280, ideal: 1920, max: 4096 },
-                        height: { min: 720, ideal: 1080, max: 4096 },
-                        aspectRatio: { ideal: 16/9 },
-                        frameRate: { ideal: 30, max: 60 }
+                        deviceId: deviceId ? { exact: deviceId } : undefined,
+                        facingMode: deviceId ? undefined : 'environment',
+                        width: { min: 1920, ideal: 3840, max: 7680 },
+                        height: { min: 1080, ideal: 2160, max: 4320 },
+                        frameRate: { ideal: 30, max: 60 },
+                        focusMode: 'continuous',
+                        exposureMode: 'continuous',
+                        whiteBalanceMode: 'continuous'
                     }
                 };
 
                 let stream;
                 try {
-                    // Try with high quality settings first
+                    // Try ultra-high quality first
                     stream = await navigator.mediaDevices.getUserMedia(constraints);
                 } catch (error) {
-                    console.warn('High quality camera failed, trying fallback:', error);
-                    // Fallback to basic constraints if high quality fails
-                    stream = await navigator.mediaDevices.getUserMedia({
-                        video: {
-                            facingMode: 'environment',
-                            width: { min: 640, ideal: 1280 },
-                            height: { min: 480, ideal: 720 }
-                        }
-                    });
+                    console.warn('Ultra-high quality failed, trying high quality:', error);
+                    try {
+                        // Fallback to high quality
+                        stream = await navigator.mediaDevices.getUserMedia({
+                            video: {
+                                facingMode: 'environment',
+                                width: { min: 1280, ideal: 1920, max: 4096 },
+                                height: { min: 720, ideal: 1080, max: 4096 },
+                                frameRate: { ideal: 30 }
+                            }
+                        });
+                    } catch (error2) {
+                        console.warn('High quality failed, trying basic:', error2);
+                        // Final fallback
+                        stream = await navigator.mediaDevices.getUserMedia({
+                            video: {
+                                facingMode: 'environment',
+                                width: { min: 640, ideal: 1280 },
+                                height: { min: 480, ideal: 720 }
+                            }
+                        });
+                    }
                 }
 
                 cameraStream = stream;
@@ -446,9 +478,37 @@
                 cameraPlaceholder.classList.add('hidden');
                 takePhotoBtn.disabled = false;
 
-                // Log the actual video dimensions for debugging
-                cameraFeed.addEventListener('loadedmetadata', () => {
+                // Log the actual video dimensions and capabilities for debugging
+                cameraFeed.addEventListener('loadedmetadata', async () => {
                     console.log('Video dimensions:', cameraFeed.videoWidth, 'x', cameraFeed.videoHeight);
+                    
+                    // Log camera capabilities
+                    const track = stream.getVideoTracks()[0];
+                    const capabilities = track.getCapabilities();
+                    const settings = track.getSettings();
+                    console.log('Camera capabilities:', capabilities);
+                    console.log('Current settings:', settings);
+                    
+                    // Try to apply advanced settings if supported
+                    const advancedConstraints = {};
+                    if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
+                        advancedConstraints.focusMode = 'continuous';
+                    }
+                    if (capabilities.exposureMode && capabilities.exposureMode.includes('continuous')) {
+                        advancedConstraints.exposureMode = 'continuous';
+                    }
+                    if (capabilities.whiteBalanceMode && capabilities.whiteBalanceMode.includes('continuous')) {
+                        advancedConstraints.whiteBalanceMode = 'continuous';
+                    }
+                    
+                    if (Object.keys(advancedConstraints).length > 0) {
+                        try {
+                            await track.applyConstraints(advancedConstraints);
+                            console.log('Applied advanced constraints:', advancedConstraints);
+                        } catch (error) {
+                            console.warn('Could not apply advanced constraints:', error);
+                        }
+                    }
                 });
 
             } catch (error) {
@@ -491,13 +551,22 @@
             }, 300);
 
             const context = cameraCanvas.getContext('2d');
-            // Set canvas dimensions to match video feed for accurate capture
-            cameraCanvas.width = cameraFeed.videoWidth;
-            cameraCanvas.height = cameraFeed.videoHeight;
-            // Draw the current video frame onto the canvas
+            
+            // Use the maximum possible resolution - either video dimensions or larger
+            const maxWidth = Math.max(cameraFeed.videoWidth, 1920);
+            const maxHeight = Math.max(cameraFeed.videoHeight, 1080);
+            
+            cameraCanvas.width = maxWidth;
+            cameraCanvas.height = maxHeight;
+            
+            // Enable image smoothing for better quality
+            context.imageSmoothingEnabled = true;
+            context.imageSmoothingQuality = 'high';
+            
+            // Draw the current video frame onto the canvas with scaling
             context.drawImage(cameraFeed, 0, 0, cameraCanvas.width, cameraCanvas.height);
 
-            // Convert canvas content to a Blob with high quality settings
+            // Convert canvas content to a Blob with maximum quality
             cameraCanvas.toBlob((blob) => {
                 if (blob) {
                     const file = new File([blob], `scan_${Date.now()}.jpg`, { type: 'image/jpeg' });
@@ -509,7 +578,7 @@
                     allImagesForSession.push(newImage); // Add to our global image list
                     renderPreviews(); // Re-render the preview section
                 }
-            }, 'image/jpeg', 0.95); // Use JPEG with 95% quality for better file size/quality balance
+            }, 'image/jpeg', 1.0); // Use maximum quality (100%)
         }
 
         // Stop camera when navigating away from the page
