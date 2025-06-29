@@ -776,9 +776,13 @@
                 const updatedPaths = [...existingPaths, ...uploadedUrls];
 
                 // Update the scan_sessions table with the merged list of image paths
+                // Update the scan_sessions table with the merged list of image paths AND set status to ready for processing
                 const { error: updateError } = await sb
                     .from('scan_sessions')
-                    .update({ uploaded_image_paths: updatedPaths })
+                    .update({
+                        uploaded_image_paths: updatedPaths,
+                        status: 'ready_for_processing'
+                    })
                     .eq('id', scanSessionId);
 
                 if (updateError) throw updateError;
@@ -788,21 +792,6 @@
 
                 // Change button text to show success
                 uploadBtn.textContent = 'Images Uploaded Successfully!';
-                try {
-                    // Update scan session status to indicate ready for processing
-                    const { error: statusUpdateError } = await sb
-                        .from('scan_sessions')
-                        .update({ status: 'ready_for_processing' })
-                        .eq('session_token', sessionToken);
-
-                    if (statusUpdateError) {
-                        console.error('Failed to update scan session status:', statusUpdateError);
-                    } else {
-                        console.log('Scan session marked as ready for processing');
-                    }
-                } catch (error) {
-                    console.error('Error updating scan session status:', error);
-                }
                 setTimeout(() => {
                     uploadBtn.textContent = originalText;
                 }, 3000);
