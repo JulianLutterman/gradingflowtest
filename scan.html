@@ -739,7 +739,6 @@
             try {
                 const uploadedUrls = [];
                 for (const item of newFilesToUpload) {
-                    // ... (keep the existing for loop code for uploading files)
                     const file = item.data;
                     const fileExt = file.name.split('.').pop();
                     const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
@@ -768,7 +767,7 @@
                 const { data: currentSessionData, error: fetchError } = await sb
                     .from('scan_sessions')
                     .select('uploaded_image_paths')
-                    .eq('session_token', sessionToken) // Use sessionToken here
+                    .eq('id', scanSessionId)
                     .single();
 
                 if (fetchError) throw fetchError;
@@ -780,38 +779,32 @@
                 const { error: updateError } = await sb
                     .from('scan_sessions')
                     .update({ uploaded_image_paths: updatedPaths })
-                    .eq('session_token', sessionToken); // Use sessionToken here
+                    .eq('id', scanSessionId);
 
                 if (updateError) throw updateError;
 
-                // =================================================================
-                // === ADD THIS NEW BLOCK TO TRIGGER THE LISTENER ON exam.html ===
-                // =================================================================
-                // Update the status to 'scanned' to signal completion
-                const { error: statusUpdateError } = await sb
-                    .from('scan_sessions')
-                    .update({ status: 'scanned' })
-                    .eq('session_token', sessionToken);
+                // --- ADD THIS LINE ---
+                // Signal to the exam page that the upload is complete.
+                localStorage.setItem('scan_complete_token', sessionToken);
+                // --- END OF ADDED LINE ---
 
-                if (statusUpdateError) throw statusUpdateError;
-                // =================================================================
-                // === END OF NEW BLOCK ===
-                // =================================================================
+                renderPreviews(); // Re-render to reflect 'uploaded' status for all images
+                updateUploadButton(); // Update button state (should be disabled if no new images)
 
-
-                renderPreviews();
-                updateUploadButton();
-
-                // Change button text to show success and inform user they can close the page
-                uploadBtn.textContent = 'Upload Complete! You can close this page.';
-                stopCamera(); // Also a good idea to turn off the camera
+                // Change button text to show success
+                uploadBtn.textContent = 'Images Uploaded Successfully!';
+                setTimeout(() => {
+                    uploadBtn.textContent = originalText;
+                    // It's good practice to remove the item after signaling.
+                    localStorage.removeItem('scan_complete_token');
+                }, 3000);
 
             } catch (error) {
                 console.error('Upload error:', error);
-                uploadBtn.textContent = originalText; // Reset text on error
-                uploadBtn.disabled = false; // Re-enable button on error
+                uploadBtn.textContent = originalText;
+            } finally {
+                uploadBtn.disabled = false; // Re-enable button in case of failure
             }
-            // Remove the finally block or just leave the re-enabling part in the catch block
         }
 
         /**
