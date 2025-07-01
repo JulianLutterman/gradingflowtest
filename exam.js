@@ -519,6 +519,7 @@ function stopScanPolling() {
     }
 }
 
+// --- CORRECTED FUNCTION ---
 async function checkScanStatus(examId) {
     if (!currentScanSessionToken) return;
 
@@ -530,11 +531,19 @@ async function checkScanStatus(examId) {
             .maybeSingle();
 
         if (error) {
-            console.error('Failed to check scan status:', error);
+            // This will now only catch actual database/network errors
+            console.error('Failed to query scan status:', error);
             return;
         }
 
-        // Check if status changed to 'uploaded'
+        // --- THIS IS THE FIX ---
+        // If the session is null, it just means it's not ready yet or has been processed and cleared.
+        // We simply exit and wait for the next poll.
+        if (!scanSession) {
+            return;
+        }
+
+        // If we reach here, scanSession is a valid object. Now it's safe to check its status.
         if (scanSession.status === 'uploaded') {
             log('📸 Images detected! Starting automatic processing...', statusLogStudent);
             stopScanPolling();
@@ -542,6 +551,7 @@ async function checkScanStatus(examId) {
         }
 
     } catch (error) {
+        // This catch block will now correctly report any unexpected errors during processing.
         console.error('Error checking scan status:', error);
     }
 }
