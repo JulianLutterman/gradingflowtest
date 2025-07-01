@@ -50,7 +50,6 @@ function getFilenameFromUrl(url) {
 // --- MAIN LOGIC ---
 document.addEventListener('DOMContentLoaded', async () => {
     // --- ASSIGN DOM ELEMENTS ---
-    // Now that the DOM is loaded, we can safely select the elements.
     examNameTitle = document.getElementById('exam-name-title');
     questionsContainer = document.getElementById('questions-container');
     appendixForm = document.getElementById('appendix-form');
@@ -104,8 +103,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // --- ATTACH EVENT LISTENERS ---
-
-    // --- APPENDIX UPLOAD LOGIC ---
     appendixForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         submitAppendixButton.disabled = true;
@@ -154,7 +151,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // --- ANSWER MODEL UPLOAD LOGIC ---
     modelForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         submitModelButton.disabled = true;
@@ -203,7 +199,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // --- STUDENT ANSWERS SCANNING LOGIC ---
     generateScanLinkButton.addEventListener('click', async () => {
         generateScanLinkButton.disabled = true;
         showSpinner(true, spinnerStudent);
@@ -270,7 +265,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // --- AUTOMATIC GRADING LOGIC ---
     gradeAllButton.addEventListener('click', async (e) => {
         e.preventDefault();
         gradeAllButton.disabled = true;
@@ -323,7 +317,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // --- LOAD INITIAL DATA ---
     await loadExamDetails(examId);
 });
 
@@ -366,25 +359,21 @@ function renderExam(questions) {
         const questionBlock = document.createElement('div');
         questionBlock.className = 'question-block';
 
-        // --- Appendix Button ---
         let appendixButtonHtml = '';
         if (q.appendices && q.appendices.length > 0) {
             const appendixData = JSON.stringify(q.appendices);
             appendixButtonHtml = `<button class="appendix-button" data-appendix='${appendixData}'>Show Appendix</button>`;
         }
 
-        // --- Grid Layout ---
         let gridHtml = '';
         if (q.sub_questions && q.sub_questions.length > 0) {
             const subQuestionCells = q.sub_questions.map(sq => {
-                // --- Column 1: Sub-Question ---
                 let mcqHtml = '';
                 if (sq.mcq_options && sq.mcq_options.length > 0) {
                     mcqHtml = sq.mcq_options.map(opt => `<div class="mcq-option"><strong>${opt.mcq_letter}:</strong> <span class="formatted-text">${opt.mcq_content}</span></div>`).join('');
                 }
                 const subQCell = `<div class="grid-cell"><div class="sub-question-content"><p class="formatted-text"><strong>${sq.sub_q_text_content || ''}</strong></p>${mcqHtml}</div></div>`;
 
-                // --- Column 2: Model Answer ---
                 let modelAnswerHtml = 'No model answer provided.';
                 if (sq.model_alternatives && sq.model_alternatives.length > 0) {
                     sq.model_alternatives.sort((a, b) => a.alternative_number - b.alternative_number);
@@ -402,7 +391,6 @@ function renderExam(questions) {
                 }
                 const modelCell = `<div class="grid-cell">${modelAnswerHtml}</div>`;
 
-                // --- Column 3: Student Answers ---
                 let studentAnswersHtml = 'No answers submitted.';
                 if (sq.student_answers && sq.student_answers.length > 0) {
                     const answersByStudent = sq.student_answers.reduce((acc, ans) => {
@@ -461,7 +449,6 @@ function renderExam(questions) {
         questionsContainer.appendChild(questionBlock);
     });
 
-    // Add event listeners for the new appendix buttons
     document.querySelectorAll('.appendix-button').forEach(button => {
         button.addEventListener('click', (e) => {
             const appendices = JSON.parse(e.target.dataset.appendix);
@@ -485,12 +472,9 @@ function renderExam(questions) {
     });
 }
 
-// --- SCAN POLLING AND PROCESSING LOGIC ---
 function startScanPolling(examId) {
-    // Clear any existing polling
     stopScanPolling();
 
-    // Set up 10-minute timeout
     scanProcessingTimeout = setTimeout(() => {
         stopScanPolling();
         log('⏰ Scan session timed out after 10 minutes. Please try again if needed.', statusLogStudent);
@@ -498,7 +482,6 @@ function startScanPolling(examId) {
         showSpinner(false, spinnerStudent);
     }, 10 * 60 * 1000);
 
-    // Start polling every 5 seconds
     scanPollingInterval = setInterval(async () => {
         try {
             await checkScanStatus(examId);
@@ -519,59 +502,61 @@ function stopScanPolling() {
     }
 }
 
-// --- CORRECTED FUNCTION ---
 async function checkScanStatus(examId) {
     if (!currentScanSessionToken) return;
 
     try {
         const { data: scanSession, error } = await sb
             .from('scan_sessions')
-            .select('*')
+            .select('status') // We only need the status for this check
             .eq('session_token', currentScanSessionToken)
             .maybeSingle();
 
         if (error) {
-            // This will now only catch actual database/network errors
             console.error('Failed to query scan status:', error);
             return;
         }
 
-        // --- THIS IS THE FIX ---
-        // If the session is null, it just means it's not ready yet or has been processed and cleared.
-        // We simply exit and wait for the next poll.
         if (!scanSession) {
+            // This is normal for the first few seconds.
+            console.log('Polling: Scan session not yet found in DB, retrying...');
             return;
         }
 
-        // If we reach here, scanSession is a valid object. Now it's safe to check its status.
+        // Log the status we found. This makes the polling "noisy" and reveals the problem.
+        console.log(`Polling: Session found. Current status is '${scanSession.status}'.`);
+
+        // Now, check if the status is what we're waiting for.
         if (scanSession.status === 'uploaded') {
             log('📸 Images detected! Starting automatic processing...', statusLogStudent);
             stopScanPolling();
-            await processScannedAnswers(examId, scanSession);
+            // We need the full session data to process, so we fetch it again here.
+            const { data: fullScanSession, error: fullSessionError } = await sb.from('scan_sessions').select('*').eq('session_token', currentScanSessionToken).single();
+            if(fullSessionError) throw fullSessionError;
+            
+            await processScannedAnswers(examId, fullScanSession);
         }
 
     } catch (error) {
-        // This catch block will now correctly report any unexpected errors during processing.
         console.error('Error checking scan status:', error);
+        // Stop polling on unexpected errors to prevent spamming logs.
+        stopScanPolling();
     }
 }
 
-// --- DIRECT PROCESSING LOGIC (moved from Edge function) ---
+
 async function processScannedAnswers(examId, scanSession) {
     try {
         log('Processing scanned answers...', statusLogStudent);
 
-        // Update session status to processing
         await sb.from('scan_sessions').update({ status: 'processing' }).eq('id', scanSession.id);
 
-        // Check if images exist
         if (!scanSession.uploaded_image_paths || scanSession.uploaded_image_paths.length === 0) {
             await sb.from('scan_sessions').update({ status: 'completed' }).eq('id', scanSession.id);
             log('No images uploaded for this session.', statusLogStudent);
             return;
         }
 
-        // Fetch exam structure for the GCF
         log('Fetching exam structure for processing...', statusLogStudent);
         const { data: examStructure, error: fetchExamError } = await sb
             .from('questions')
@@ -588,12 +573,10 @@ async function processScannedAnswers(examId, scanSession) {
 
         const examStructureForGcf = { questions: examStructure };
 
-        // Prepare form data for GCF
         log('Downloading and preparing images for processing...', statusLogStudent);
         const formData = new FormData();
         formData.append('exam_structure', JSON.stringify(examStructureForGcf));
 
-        // Download images and add to form data
         const downloadPromises = scanSession.uploaded_image_paths.map(async (imageUrl) => {
             const filename = imageUrl.split('/').pop();
             try {
@@ -620,10 +603,9 @@ async function processScannedAnswers(examId, scanSession) {
             }
         });
 
-        // Call GCF with timeout handling
         log('Calling external Cloud Function for processing...', statusLogStudent);
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 minute timeout
+        const timeoutId = setTimeout(() => controller.abort(), 180000);
 
         try {
             const gcfResponse = await fetch(STUDENT_ANSWERS_GCF_URL, {
@@ -639,41 +621,33 @@ async function processScannedAnswers(examId, scanSession) {
                 throw new Error(`Cloud function failed: ${gcfResponse.statusText} - ${errorText}`);
             }
 
-            // Process ZIP response from GCF
             log('Processing service returned success. Unzipping results...', statusLogStudent);
             const zipBlob = await gcfResponse.blob();
             const jszip = new JSZip();
             const zip = await jszip.loadAsync(zipBlob);
 
-            // Find the JSON file within the zip
             const jsonFile = Object.values(zip.files).find((file) => file.name.endsWith('.json') && !file.dir);
             if (!jsonFile) {
                 throw new Error('Could not find the JSON file inside the ZIP response from the GCF.');
             }
 
-            // Read and parse JSON content
             const jsonContent = await jsonFile.async('string');
             const responseData = JSON.parse(jsonContent);
 
             log('Successfully parsed student answers from JSON.', statusLogStudent);
 
-            // Process the response and save to student_answers table
             await saveStudentAnswers(scanSession, examId, responseData);
 
-            // Update scan session status to completed
             await sb.from('scan_sessions').update({ status: 'completed' }).eq('id', scanSession.id);
 
-            // Clean up temp files (non-blocking)
             cleanupTempFiles(scanSession).catch(console.error);
 
             log('✅ Scanned answers processed successfully!', statusLogStudent);
 
-            // Clean up UI
             studentAnswersForm.reset();
             scanLinkArea.classList.add('hidden');
             currentScanSessionToken = null;
 
-            // Reload exam details to show new answers
             await loadExamDetails(examId);
 
         } catch (error) {
@@ -688,7 +662,6 @@ async function processScannedAnswers(examId, scanSession) {
         log(`❌ An error occurred during processing: ${error.message}`, statusLogStudent);
         console.error('Processing failed:', error);
 
-        // Update session status to failed
         try {
             await sb.from('scan_sessions').update({
                 status: 'failed',
@@ -703,11 +676,9 @@ async function processScannedAnswers(examId, scanSession) {
     }
 }
 
-// --- HELPER FUNCTIONS FOR SCAN PROCESSING ---
 async function saveStudentAnswers(scanSession, examId, responseData) {
     let studentExamId;
 
-    // Find or create student_exam record
     const { data: existingStudentExam, error: seError } = await sb
         .from('student_exams')
         .select('id')
@@ -719,7 +690,6 @@ async function saveStudentAnswers(scanSession, examId, responseData) {
 
     if (existingStudentExam) {
         studentExamId = existingStudentExam.id;
-        // Delete existing answers
         await sb.from('student_answers').delete().eq('student_exam_id', studentExamId);
     } else {
         const { data: newStudentExam, error: createSeError } = await sb
@@ -736,7 +706,6 @@ async function saveStudentAnswers(scanSession, examId, responseData) {
         studentExamId = newStudentExam.id;
     }
 
-    // Fetch database questions for matching
     const { data: dbQuestions, error: fetchQError } = await sb
         .from('questions')
         .select('id, question_number, sub_questions(id, sub_q_text_content)')
@@ -744,7 +713,6 @@ async function saveStudentAnswers(scanSession, examId, responseData) {
 
     if (fetchQError) throw new Error(`Could not fetch exam structure for matching: ${fetchQError.message}`);
 
-    // Create lookup map for sub-questions
     const subQuestionLookup = dbQuestions.reduce((qMap, q) => {
         qMap[q.question_number] = q.sub_questions.reduce((sqMap, sq) => {
             sqMap[sq.sub_q_text_content] = sq.id;
@@ -753,7 +721,6 @@ async function saveStudentAnswers(scanSession, examId, responseData) {
         return qMap;
     }, {});
 
-    // Prepare answers for insertion
     const answersToInsert = [];
 
     for (const q_res of responseData.questions) {
@@ -775,7 +742,6 @@ async function saveStudentAnswers(scanSession, examId, responseData) {
         }
     }
 
-    // Batch insert answers
     if (answersToInsert.length > 0) {
         const batchSize = 100;
         for (let i = 0; i < answersToInsert.length; i += batchSize) {
@@ -798,11 +764,9 @@ async function cleanupTempFiles(scanSession) {
         }
     } catch (error) {
         console.error('Failed to cleanup temp files:', error);
-        // Don't throw - this is non-critical
     }
 }
 
-// --- DATA FETCHING FUNCTIONS ---
 async function fetchFullExamDetails(examId) {
     return sb
         .from('exams')
@@ -840,7 +804,6 @@ async function fetchExamDataForModelJson(examId) {
     return sb.from('questions').select(`question_number, sub_questions (sub_q_text_content)`).eq('exam_id', examId).order('question_number', { ascending: true });
 }
 
-// --- DATA PROCESSING AND UPLOAD FUNCTIONS ---
 async function processAndUploadAppendices(examId, appendices, zip) {
     log('Preparing to save appendices to database...', statusLogAppendix);
     const { data: questions, error: qError } = await sb.from('questions').select('id, question_number').eq('exam_id', examId);
@@ -956,10 +919,8 @@ async function processAndUploadModel(examId, modelQuestions, zip) {
     }
 }
 
-// --- GRADING HELPER FUNCTIONS ---
 async function processSingleStudent(examId, studentExamId, studentIdentifier) {
     try {
-        // A. Fetch the data in the required JSON structure
         log(`Fetching data for ${studentIdentifier}...`, statusLogGrading);
         const { data: gradingData, error: dataError } = await fetchGradingDataForStudent(examId, studentExamId);
         if (dataError) throw new Error(`Data fetch failed: ${dataError.message}`);
@@ -969,9 +930,8 @@ async function processSingleStudent(examId, studentExamId, studentIdentifier) {
             return { status: 'success', studentExamId };
         }
 
-        // B. Collect all image URLs and fetch them, and build sub-question ID map
         const imageUrls = new Set();
-        const subQuestionAnswerIdMap = new Map(); // Map<sub_question_id, student_answer_id>
+        const subQuestionAnswerIdMap = new Map();
 
         JSON.stringify(gradingData, (key, value) => {
             if (value && typeof value === 'string' && value.startsWith('http')) {
@@ -989,7 +949,7 @@ async function processSingleStudent(examId, studentExamId, studentIdentifier) {
             return value;
         });
 
-        const imageBlobs = new Map(); // Map<filename, blob>
+        const imageBlobs = new Map();
         const fetchImagePromises = Array.from(imageUrls).map(async (url) => {
             const filename = getFilenameFromUrl(url);
             if (filename) {
@@ -1002,11 +962,9 @@ async function processSingleStudent(examId, studentExamId, studentIdentifier) {
         await Promise.all(fetchImagePromises);
         log(`Fetched ${imageBlobs.size} unique images for ${studentIdentifier}.`, statusLogGrading);
 
-        // C. Call the GCF
         log(`Sending data to AI for grading (${studentIdentifier})...`, statusLogGrading);
         const gcfResponse = await callGradingGcf(gradingData, imageBlobs);
 
-        // D. Process the response and update the DB
         await updateGradingResultsInDb(studentExamId, gcfResponse, subQuestionAnswerIdMap);
         log(`✅ Saved results for ${studentIdentifier}.`, statusLogGrading);
 
@@ -1018,7 +976,6 @@ async function processSingleStudent(examId, studentExamId, studentIdentifier) {
 }
 
 async function fetchGradingDataForStudent(examId, studentExamId) {
-    // 1. Fetch the base exam structure with model answers etc.
     const { data: examBase, error: baseError } = await sb
         .from('exams')
         .select(`
@@ -1040,7 +997,6 @@ async function fetchGradingDataForStudent(examId, studentExamId) {
 
     if (baseError) throw baseError;
 
-    // 2. Fetch all answers for this specific student exam.
     const { data: studentAnswers, error: answersError } = await sb
         .from('student_answers')
         .select('id, sub_question_id, answer_text, answer_visual')
@@ -1048,18 +1004,15 @@ async function fetchGradingDataForStudent(examId, studentExamId) {
 
     if (answersError) throw answersError;
 
-    // 3. Create a map for easy lookup.
     const answersMap = new Map(studentAnswers.map(ans => [ans.sub_question_id, {
         id: ans.id,
         answer_text: ans.answer_text,
         answer_visual: ans.answer_visual
     }]));
 
-    // 4. Inject the student answers into the base structure.
     examBase.questions.forEach(q => {
         q.sub_questions.forEach(sq => {
             const studentAns = answersMap.get(sq.id);
-            // The GCF expects an array for student_answers
             sq.student_answers = studentAns ? [studentAns] : [];
         });
     });
@@ -1095,11 +1048,9 @@ async function updateGradingResultsInDb(studentExamId, gcfResponse, subQuestionT
         throw new Error("Invalid response from grading service.");
     }
 
-    // The GCF now returns the full question structure
     const allSubQuestionResults = gcfResponse.questions.flatMap(q => q.sub_questions || []);
 
     for (const subQResult of allSubQuestionResults) {
-        // Use the reliable sub_question_id for matching
         const studentAnswerId = subQuestionToAnswerIdMap.get(subQResult.sub_question_id);
 
         if (studentAnswerId && subQResult.student_answers) {
@@ -1113,7 +1064,6 @@ async function updateGradingResultsInDb(studentExamId, gcfResponse, subQuestionT
             });
             totalPoints += points;
         } else if (subQResult.student_answers && subQResult.student_answers.feedback_comment.startsWith("ERROR:")) {
-            // Log errors from the GCF if a sub-question failed to grade
             log(`⚠️ GCF Error on sub-question ID ${subQResult.sub_question_id}: ${subQResult.student_answers.feedback_comment}`, statusLogGrading);
         }
     }
@@ -1145,7 +1095,6 @@ async function updateGradingResultsInDb(studentExamId, gcfResponse, subQuestionT
     if (examUpdateError) throw new Error(`Failed to update final score: ${examUpdateError.message}`);
 }
 
-// Clean up polling when page is closed
 window.addEventListener('beforeunload', () => {
     stopScanPolling();
 });
