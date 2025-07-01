@@ -527,7 +527,7 @@ async function checkScanStatus(examId) {
             .from('scan_sessions')
             .select('*')
             .eq('session_token', currentScanSessionToken)
-            .single();
+            .maybeSingle();
 
         if (error) {
             console.error('Failed to check scan status:', error);
