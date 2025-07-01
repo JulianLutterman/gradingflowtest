@@ -552,22 +552,32 @@ async function checkScanStatus(examId) {
             .from('scan_sessions')
             .select('*')
             .eq('session_token', currentScanSessionToken)
-            .single();
+            .maybeSingle(); // CORRECT: Use maybeSingle() to allow for 0 or 1 result
 
         if (error) {
+            // This will now only catch legitimate database/network errors, not "0 rows found".
             console.error('Failed to check scan status:', error);
+            stopScanPolling(); // Stop polling if a real error occurs.
             return;
         }
 
-        // Check if status changed to 'uploaded'
-        if (scanSession.status === 'uploaded') {
-            log('📸 Images detected! Starting automatic processing...', statusLogStudent);
-            stopScanPolling();
-            await processScannedAnswers(examId, scanSession);
+        // If scanSession is not null, a record was found.
+        if (scanSession) {
+            // Check if its status has been updated to 'uploaded'
+            if (scanSession.status === 'uploaded') {
+                log('📸 Images detected! Starting automatic processing...', statusLogStudent);
+                stopScanPolling(); // Stop polling, we found what we needed.
+                await processScannedAnswers(examId, scanSession);
+            }
+            // If status is 'pending' or something else, the poll will just run again later.
         }
+        // If scanSession is null, it means the record wasn't found yet.
+        // We do nothing and let the polling continue.
 
     } catch (error) {
-        console.error('Error checking scan status:', error);
+        // This catches any other unexpected JS errors within the function.
+        console.error('Error during scan status check:', error);
+        stopScanPolling();
     }
 }
 
