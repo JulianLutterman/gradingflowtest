@@ -16,10 +16,38 @@ const SCAN_PAGE_BASE_URL = `${window.location.origin}/scan.html`;
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// --- DOM ELEMENT VARIABLES ---
-// These are declared here and will be assigned their values once the DOM is loaded.
-let examNameTitle, questionsContainer, appendixForm, submitAppendixButton, statusLogAppendix, spinnerAppendix, modelForm, submitModelButton, statusLogModel, spinnerModel, rulesModal, rulesModalText, rulesModalClose, appendixModal, appendixModalContent, appendixModalClose, studentAnswersForm, generateScanLinkButton, scanLinkArea, qrcodeCanvas, scanUrlLink, statusLogStudent, spinnerStudent, gradeAllButton, spinnerGrading, statusLogGrading, showRulesButton;
-
+// --- DOM ELEMENTS ---
+const examNameTitle = document.getElementById('exam-name-title');
+const questionsContainer = document.getElementById('questions-container');
+// Appendix Form
+const appendixForm = document.getElementById('appendix-form');
+const submitAppendixButton = document.getElementById('submit-appendix-button');
+const statusLogAppendix = document.getElementById('status-log-appendix');
+const spinnerAppendix = document.getElementById('spinner-appendix');
+// Model Form
+const modelForm = document.getElementById('model-form');
+const submitModelButton = document.getElementById('submit-model-button');
+const statusLogModel = document.getElementById('status-log-model');
+const spinnerModel = document.getElementById('spinner-model');
+// Modals
+const rulesModal = document.getElementById('rules-modal');
+const rulesModalText = document.getElementById('rules-modal-text');
+const rulesModalClose = document.getElementById('rules-modal-close');
+const appendixModal = document.getElementById('appendix-modal');
+const appendixModalContent = document.getElementById('appendix-modal-content');
+const appendixModalClose = document.getElementById('appendix-modal-close');
+// Student Answers Form
+const studentAnswersForm = document.getElementById('student-answers-form');
+const generateScanLinkButton = document.getElementById('generate-scan-link-button');
+const scanLinkArea = document.getElementById('scan-link-area');
+const qrcodeCanvas = document.getElementById('qrcode-canvas');
+const scanUrlLink = document.getElementById('scan-url');
+const statusLogStudent = document.getElementById('status-log-student');
+const spinnerStudent = document.getElementById('spinner-student');
+// Grading Elements
+const gradeAllButton = document.getElementById('grade-all-button');
+const spinnerGrading = document.getElementById('spinner-grading');
+const statusLogGrading = document.getElementById('status-log-grading');
 
 // Global variable to store the current scan session token
 let currentScanSessionToken = null;
@@ -47,66 +75,8 @@ function getFilenameFromUrl(url) {
     }
 }
 
-// --- MAIN EXECUTION ---
-// All code that interacts with the DOM is placed inside this event listener.
+// --- MAIN LOGIC ---
 document.addEventListener('DOMContentLoaded', async () => {
-    // --- INITIALIZE DOM ELEMENTS ---
-    examNameTitle = document.getElementById('exam-name-title');
-    questionsContainer = document.getElementById('questions-container');
-    showRulesButton = document.getElementById('show-rules-button');
-    // Appendix Form
-    appendixForm = document.getElementById('appendix-form');
-    submitAppendixButton = document.getElementById('submit-appendix-button');
-    statusLogAppendix = document.getElementById('status-log-appendix');
-    spinnerAppendix = document.getElementById('spinner-appendix');
-    // Model Form
-    modelForm = document.getElementById('model-form');
-    submitModelButton = document.getElementById('submit-model-button');
-    statusLogModel = document.getElementById('status-log-model');
-    spinnerModel = document.getElementById('spinner-model');
-    // Modals
-    rulesModal = document.getElementById('rules-modal');
-    rulesModalText = document.getElementById('rules-modal-text');
-    rulesModalClose = document.getElementById('rules-modal-close');
-    appendixModal = document.getElementById('appendix-modal');
-    appendixModalContent = document.getElementById('appendix-modal-content');
-    appendixModalClose = document.getElementById('appendix-modal-close');
-    // Student Answers Form
-    studentAnswersForm = document.getElementById('student-answers-form');
-    generateScanLinkButton = document.getElementById('generate-scan-link-button');
-    scanLinkArea = document.getElementById('scan-link-area');
-    qrcodeCanvas = document.getElementById('qrcode-canvas');
-    scanUrlLink = document.getElementById('scan-url');
-    statusLogStudent = document.getElementById('status-log-student');
-    spinnerStudent = document.getElementById('spinner-student');
-    // Grading Elements
-    gradeAllButton = document.getElementById('grade-all-button');
-    spinnerGrading = document.getElementById('spinner-grading');
-    statusLogGrading = document.getElementById('status-log-grading');
-
-    // --- ATTACH EVENT LISTENERS ---
-    // Modal Closing Logic
-    [rulesModal, appendixModal].forEach(modal => {
-        modal.addEventListener('click', (event) => {
-            if (event.target === modal) modal.classList.add('hidden');
-        });
-    });
-    [rulesModalClose, appendixModalClose].forEach(button => {
-        button.addEventListener('click', () => button.closest('.modal-overlay').classList.add('hidden'));
-    });
-
-    // Form and Button Listeners
-    appendixForm.addEventListener('submit', handleAppendixSubmit);
-    modelForm.addEventListener('submit', handleModelSubmit);
-    generateScanLinkButton.addEventListener('click', handleGenerateScanLink);
-    gradeAllButton.addEventListener('click', handleGradeAll);
-
-    // Cleanup on page leave
-    window.addEventListener('beforeunload', () => {
-        stopScanPolling();
-    });
-
-    // --- INITIAL PAGE LOAD ---
     const urlParams = new URLSearchParams(window.location.search);
     const examId = urlParams.get('id');
 
@@ -123,236 +93,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     await loadExamDetails(examId);
+
+    // --- MODAL CLOSING LOGIC ---
+    [rulesModal, appendixModal].forEach(modal => {
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) modal.classList.add('hidden');
+        });
+    });
+    [rulesModalClose, appendixModalClose].forEach(button => {
+        button.addEventListener('click', () => button.closest('.modal-overlay').classList.add('hidden'));
+    });
 });
-
-
-// --- EVENT HANDLER FUNCTIONS ---
-
-async function handleAppendixSubmit(e) {
-    e.preventDefault();
-    submitAppendixButton.disabled = true;
-    showSpinner(true, spinnerAppendix);
-    clearLog('Starting appendix processing...', statusLogAppendix);
-    const urlParams = new URLSearchParams(window.location.search);
-    const examId = urlParams.get('id');
-    const files = document.getElementById('appendix-files').files;
-    if (!examId || files.length === 0) {
-        alert('Cannot proceed without an Exam ID and at least one file.');
-        submitAppendixButton.disabled = false;
-        showSpinner(false, spinnerAppendix);
-        return;
-    }
-    try {
-        log('Fetching current exam structure...', statusLogAppendix);
-        const { data: examData, error: fetchError } = await fetchExamDataForAppendixJson(examId);
-        if (fetchError) throw new Error(`Could not fetch exam data: ${fetchError.message}`);
-        const examStructureForGcf = { questions: examData.questions };
-        log('Uploading appendix files and exam structure to processing service...', statusLogAppendix);
-        const formData = new FormData();
-        for (const file of files) { formData.append('files', file); }
-        formData.append('exam_structure', JSON.stringify(examStructureForGcf));
-        const gcfResponse = await fetch(APPENDIX_GCF_URL, { method: 'POST', body: formData });
-        if (!gcfResponse.ok) {
-            const errorText = await gcfResponse.text();
-            throw new Error(`Cloud function failed: ${gcfResponse.statusText} - ${errorText}`);
-        }
-        log('Processing service returned success. Unzipping results...', statusLogAppendix);
-        const zipBlob = await gcfResponse.blob();
-        const jszip = new JSZip();
-        const zip = await jszip.loadAsync(zipBlob);
-        const jsonFile = Object.values(zip.files).find(file => file.name.endsWith('.json'));
-        if (!jsonFile) throw new Error("No JSON file found in the returned zip.");
-        const jsonContent = await jsonFile.async('string');
-        const appendixData = JSON.parse(jsonContent);
-        log('Successfully parsed appendix structure from JSON.', statusLogAppendix);
-        await processAndUploadAppendices(examId, appendixData.appendices, zip);
-        log('✅ Appendix successfully uploaded and linked to questions!', statusLogAppendix);
-        appendixForm.reset();
-        await loadExamDetails(examId);
-    } catch (error) {
-        log(`❌ An error occurred: ${error.message}`, statusLogAppendix);
-        console.error(error);
-    } finally {
-        submitAppendixButton.disabled = false;
-        showSpinner(false, spinnerAppendix);
-    }
-}
-
-async function handleModelSubmit(e) {
-    e.preventDefault();
-    submitModelButton.disabled = true;
-    showSpinner(true, spinnerModel);
-    clearLog('Starting answer model processing...', statusLogModel);
-    const urlParams = new URLSearchParams(window.location.search);
-    const examId = urlParams.get('id');
-    const files = document.getElementById('model-files').files;
-    if (!examId || files.length === 0) {
-        alert('Cannot proceed without an Exam ID and at least one file.');
-        submitModelButton.disabled = false;
-        showSpinner(false, spinnerModel);
-        return;
-    }
-    try {
-        log('Fetching exam structure for model processing...', statusLogModel);
-        const { data: examStructure, error: fetchError } = await fetchExamDataForModelJson(examId);
-        if (fetchError) throw new Error(`Could not fetch exam data for model: ${fetchError.message}`);
-        const examStructureForGcf = { questions: examStructure };
-        log('Uploading model files and exam structure to processing service...', statusLogModel);
-        const formData = new FormData();
-        for (const file of files) { formData.append('files', file); }
-        formData.append('exam_structure', JSON.stringify(examStructureForGcf));
-        const gcfResponse = await fetch(MODEL_GCF_URL, { method: 'POST', body: formData });
-        if (!gcfResponse.ok) {
-            const errorText = await gcfResponse.text();
-            throw new Error(`Cloud function failed: ${gcfResponse.statusText} - ${errorText}`);
-        }
-        log('Processing service returned success. Unzipping results...', statusLogModel);
-        const zipBlob = await gcfResponse.blob();
-        const jszip = new JSZip();
-        const zip = await jszip.loadAsync(zipBlob);
-        const jsonFile = Object.values(zip.files).find(file => file.name.endsWith('.json'));
-        if (!jsonFile) throw new Error("No JSON file found in the returned zip.");
-        const jsonContent = await jsonFile.async('string');
-        const modelData = JSON.parse(jsonContent);
-        log('Successfully parsed answer model from JSON.', statusLogModel);
-        await processAndUploadModel(examId, modelData.questions, zip);
-        log('✅ Answer Model successfully uploaded and saved!', statusLogModel);
-        modelForm.reset();
-        await loadExamDetails(examId);
-    } catch (error) {
-        log(`❌ An error occurred: ${error.message}`, statusLogModel);
-        console.error(error);
-    } finally {
-        submitModelButton.disabled = false;
-        showSpinner(false, spinnerModel);
-    }
-}
-
-async function handleGenerateScanLink() {
-    generateScanLinkButton.disabled = true;
-    showSpinner(true, spinnerStudent);
-    clearLog('Generating scan link...', statusLogStudent);
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const examId = urlParams.get('id');
-    const studentName = document.getElementById('student-name').value.trim();
-    const studentNumber = document.getElementById('student-number').value.trim();
-
-    if (!studentName && !studentNumber) {
-        alert('Please provide a student name or student number.');
-        generateScanLinkButton.disabled = false;
-        showSpinner(false, spinnerStudent);
-        return;
-    }
-    if (!examId) {
-        alert('Cannot proceed without an Exam ID.');
-        generateScanLinkButton.disabled = false;
-        showSpinner(false, spinnerStudent);
-        return;
-    }
-
-    try {
-        log('Calling Edge Function to create scan session...', statusLogStudent);
-        const response = await fetch(GENERATE_SCAN_SESSION_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-            },
-            body: JSON.stringify({ examId, studentName, studentNumber })
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(`Failed to generate scan session: ${errorData.message || response.statusText}`);
-        }
-
-        const { session_token } = await response.json();
-        currentScanSessionToken = session_token;
-
-        const scanUrl = `${SCAN_PAGE_BASE_URL}?token=${session_token}`;
-
-        log('Scan session created. Generating QR code...', statusLogStudent);
-        new QRious({
-            element: qrcodeCanvas,
-            value: scanUrl,
-            size: 200
-        });
-
-        scanUrlLink.href = scanUrl;
-        scanUrlLink.textContent = scanUrl;
-        scanLinkArea.classList.remove('hidden');
-
-        log('QR code and link generated. Waiting for student to scan and upload...', statusLogStudent);
-        log('Monitoring for uploaded images (will auto-process when ready)...', statusLogStudent);
-
-        // Start polling for status changes
-        startScanPolling(examId);
-
-    } catch (error) {
-        log(`❌ An error occurred: ${error.message}`, statusLogStudent);
-        console.error(error);
-        generateScanLinkButton.disabled = false;
-        showSpinner(false, spinnerStudent);
-    }
-}
-
-async function handleGradeAll(e) {
-    e.preventDefault();
-    gradeAllButton.disabled = true;
-    showSpinner(true, spinnerGrading);
-    clearLog('Starting grading process...', statusLogGrading);
-    const urlParams = new URLSearchParams(window.location.search);
-    const examId = urlParams.get('id');
-
-    try {
-        log('Finding ungraded submissions...', statusLogGrading);
-        const { data: ungradedExams, error: findError } = await sb
-            .from('student_exams')
-            .select('id, students(full_name, student_number)')
-            .eq('exam_id', examId)
-            .is('total_points_awarded', null);
-
-        if (findError) throw findError;
-        if (!ungradedExams || ungradedExams.length === 0) {
-            log('✅ No new ungraded submissions found.', statusLogGrading);
-            gradeAllButton.disabled = false;
-            showSpinner(false, spinnerGrading);
-            return;
-        }
-        log(`Found ${ungradedExams.length} ungraded submission(s). Preparing data for grading...`, statusLogGrading);
-
-        const gradingPromises = ungradedExams.map(studentExam => {
-            const studentIdentifier = studentExam.students.full_name || studentExam.students.student_number;
-            return processSingleStudent(examId, studentExam.id, studentIdentifier);
-        });
-
-        const results = await Promise.all(gradingPromises);
-
-        let successCount = 0;
-        results.forEach(result => {
-            if (result.status === 'success') {
-                successCount++;
-            } else {
-                log(`❌ Grading failed for student exam ${result.studentExamId}: ${result.error}`, statusLogGrading);
-            }
-        });
-
-        log(`✅ Successfully graded and saved ${successCount} of ${ungradedExams.length} submissions.`, statusLogGrading);
-        log('Refreshing page data...', statusLogGrading);
-        await loadExamDetails(examId);
-
-    } catch (error) {
-        log(`❌ A critical error occurred during the grading process: ${error.message}`, statusLogGrading);
-        console.error(error);
-    } finally {
-        gradeAllButton.disabled = false;
-        showSpinner(false, spinnerGrading);
-    }
-}
-
-
-// --- CORE LOGIC FUNCTIONS ---
 
 async function loadExamDetails(examId) {
     const { data: examData, error } = await fetchFullExamDetails(examId);
@@ -365,6 +116,7 @@ async function loadExamDetails(examId) {
 
     examNameTitle.textContent = examData.exam_name;
 
+    const showRulesButton = document.getElementById('show-rules-button');
     if (examData.grading_regulations) {
         showRulesButton.classList.remove('hidden');
         showRulesButton.onclick = () => {
@@ -510,6 +262,178 @@ function renderExam(questions) {
     });
 }
 
+// --- APPENDIX UPLOAD LOGIC ---
+appendixForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    submitAppendixButton.disabled = true;
+    showSpinner(true, spinnerAppendix);
+    clearLog('Starting appendix processing...', statusLogAppendix);
+    const urlParams = new URLSearchParams(window.location.search);
+    const examId = urlParams.get('id');
+    const files = document.getElementById('appendix-files').files;
+    if (!examId || files.length === 0) {
+        alert('Cannot proceed without an Exam ID and at least one file.');
+        submitAppendixButton.disabled = false;
+        showSpinner(false, spinnerAppendix);
+        return;
+    }
+    try {
+        log('Fetching current exam structure...', statusLogAppendix);
+        const { data: examData, error: fetchError } = await fetchExamDataForAppendixJson(examId);
+        if (fetchError) throw new Error(`Could not fetch exam data: ${fetchError.message}`);
+        const examStructureForGcf = { questions: examData.questions };
+        log('Uploading appendix files and exam structure to processing service...', statusLogAppendix);
+        const formData = new FormData();
+        for (const file of files) { formData.append('files', file); }
+        formData.append('exam_structure', JSON.stringify(examStructureForGcf));
+        const gcfResponse = await fetch(APPENDIX_GCF_URL, { method: 'POST', body: formData });
+        if (!gcfResponse.ok) {
+            const errorText = await gcfResponse.text();
+            throw new Error(`Cloud function failed: ${gcfResponse.statusText} - ${errorText}`);
+        }
+        log('Processing service returned success. Unzipping results...', statusLogAppendix);
+        const zipBlob = await gcfResponse.blob();
+        const jszip = new JSZip();
+        const zip = await jszip.loadAsync(zipBlob);
+        const jsonFile = Object.values(zip.files).find(file => file.name.endsWith('.json'));
+        if (!jsonFile) throw new Error("No JSON file found in the returned zip.");
+        const jsonContent = await jsonFile.async('string');
+        const appendixData = JSON.parse(jsonContent);
+        log('Successfully parsed appendix structure from JSON.', statusLogAppendix);
+        await processAndUploadAppendices(examId, appendixData.appendices, zip);
+        log('✅ Appendix successfully uploaded and linked to questions!', statusLogAppendix);
+        appendixForm.reset();
+        await loadExamDetails(examId);
+    } catch (error) {
+        log(`❌ An error occurred: ${error.message}`, statusLogAppendix);
+        console.error(error);
+    } finally {
+        submitAppendixButton.disabled = false;
+        showSpinner(false, spinnerAppendix);
+    }
+});
+
+// --- ANSWER MODEL UPLOAD LOGIC ---
+modelForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    submitModelButton.disabled = true;
+    showSpinner(true, spinnerModel);
+    clearLog('Starting answer model processing...', statusLogModel);
+    const urlParams = new URLSearchParams(window.location.search);
+    const examId = urlParams.get('id');
+    const files = document.getElementById('model-files').files;
+    if (!examId || files.length === 0) {
+        alert('Cannot proceed without an Exam ID and at least one file.');
+        submitModelButton.disabled = false;
+        showSpinner(false, spinnerModel);
+        return;
+    }
+    try {
+        log('Fetching exam structure for model processing...', statusLogModel);
+        const { data: examStructure, error: fetchError } = await fetchExamDataForModelJson(examId);
+        if (fetchError) throw new Error(`Could not fetch exam data for model: ${fetchError.message}`);
+        const examStructureForGcf = { questions: examStructure };
+        log('Uploading model files and exam structure to processing service...', statusLogModel);
+        const formData = new FormData();
+        for (const file of files) { formData.append('files', file); }
+        formData.append('exam_structure', JSON.stringify(examStructureForGcf));
+        const gcfResponse = await fetch(MODEL_GCF_URL, { method: 'POST', body: formData });
+        if (!gcfResponse.ok) {
+            const errorText = await gcfResponse.text();
+            throw new Error(`Cloud function failed: ${gcfResponse.statusText} - ${errorText}`);
+        }
+        log('Processing service returned success. Unzipping results...', statusLogModel);
+        const zipBlob = await gcfResponse.blob();
+        const jszip = new JSZip();
+        const zip = await jszip.loadAsync(zipBlob);
+        const jsonFile = Object.values(zip.files).find(file => file.name.endsWith('.json'));
+        if (!jsonFile) throw new Error("No JSON file found in the returned zip.");
+        const jsonContent = await jsonFile.async('string');
+        const modelData = JSON.parse(jsonContent);
+        log('Successfully parsed answer model from JSON.', statusLogModel);
+        await processAndUploadModel(examId, modelData.questions, zip);
+        log('✅ Answer Model successfully uploaded and saved!', statusLogModel);
+        modelForm.reset();
+        await loadExamDetails(examId);
+    } catch (error) {
+        log(`❌ An error occurred: ${error.message}`, statusLogModel);
+        console.error(error);
+    } finally {
+        submitModelButton.disabled = false;
+        showSpinner(false, spinnerModel);
+    }
+});
+
+// --- STUDENT ANSWERS SCANNING LOGIC ---
+generateScanLinkButton.addEventListener('click', async () => {
+    generateScanLinkButton.disabled = true;
+    showSpinner(true, spinnerStudent);
+    clearLog('Generating scan link...', statusLogStudent);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const examId = urlParams.get('id');
+    const studentName = document.getElementById('student-name').value.trim();
+    const studentNumber = document.getElementById('student-number').value.trim();
+
+    if (!studentName && !studentNumber) {
+        alert('Please provide a student name or student number.');
+        generateScanLinkButton.disabled = false;
+        showSpinner(false, spinnerStudent);
+        return;
+    }
+    if (!examId) {
+        alert('Cannot proceed without an Exam ID.');
+        generateScanLinkButton.disabled = false;
+        showSpinner(false, spinnerStudent);
+        return;
+    }
+
+    try {
+        log('Calling Edge Function to create scan session...', statusLogStudent);
+        const response = await fetch(GENERATE_SCAN_SESSION_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({ examId, studentName, studentNumber })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`Failed to generate scan session: ${errorData.message || response.statusText}`);
+        }
+
+        const { session_token } = await response.json();
+        currentScanSessionToken = session_token;
+
+        const scanUrl = `${SCAN_PAGE_BASE_URL}?token=${session_token}`;
+
+        log('Scan session created. Generating QR code...', statusLogStudent);
+        new QRious({
+            element: qrcodeCanvas,
+            value: scanUrl,
+            size: 200
+        });
+
+        scanUrlLink.href = scanUrl;
+        scanUrlLink.textContent = scanUrl;
+        scanLinkArea.classList.remove('hidden');
+
+        log('QR code and link generated. Waiting for student to scan and upload...', statusLogStudent);
+        log('Monitoring for uploaded images (will auto-process when ready)...', statusLogStudent);
+
+        // Start polling for status changes
+        startScanPolling(examId);
+
+    } catch (error) {
+        log(`❌ An error occurred: ${error.message}`, statusLogStudent);
+        console.error(error);
+        generateScanLinkButton.disabled = false;
+        showSpinner(false, spinnerStudent);
+    }
+});
+
 // --- SCAN POLLING AND PROCESSING LOGIC ---
 function startScanPolling(examId) {
     // Clear any existing polling
@@ -552,35 +476,26 @@ async function checkScanStatus(examId) {
             .from('scan_sessions')
             .select('*')
             .eq('session_token', currentScanSessionToken)
-            .maybeSingle(); // CORRECT: Use maybeSingle() to allow for 0 or 1 result
+            .single();
 
         if (error) {
-            // This will now only catch legitimate database/network errors, not "0 rows found".
             console.error('Failed to check scan status:', error);
-            stopScanPolling(); // Stop polling if a real error occurs.
             return;
         }
 
-        // If scanSession is not null, a record was found.
-        if (scanSession) {
-            // Check if its status has been updated to 'uploaded'
-            if (scanSession.status === 'uploaded') {
-                log('📸 Images detected! Starting automatic processing...', statusLogStudent);
-                stopScanPolling(); // Stop polling, we found what we needed.
-                await processScannedAnswers(examId, scanSession);
-            }
-            // If status is 'pending' or something else, the poll will just run again later.
+        // Check if status changed to 'uploaded'
+        if (scanSession.status === 'uploaded') {
+            log('📸 Images detected! Starting automatic processing...', statusLogStudent);
+            stopScanPolling();
+            await processScannedAnswers(examId, scanSession);
         }
-        // If scanSession is null, it means the record wasn't found yet.
-        // We do nothing and let the polling continue.
 
     } catch (error) {
-        // This catches any other unexpected JS errors within the function.
-        console.error('Error during scan status check:', error);
-        stopScanPolling();
+        console.error('Error checking scan status:', error);
     }
 }
 
+// --- DIRECT PROCESSING LOGIC (moved from Edge function) ---
 async function processScannedAnswers(examId, scanSession) {
     try {
         log('Processing scanned answers...', statusLogStudent);
@@ -727,8 +642,159 @@ async function processScannedAnswers(examId, scanSession) {
     }
 }
 
-// --- DATA FETCHING AND PROCESSING FUNCTIONS ---
+// --- HELPER FUNCTIONS FOR SCAN PROCESSING ---
+async function saveStudentAnswers(scanSession, examId, responseData) {
+    let studentExamId;
 
+    // Find or create student_exam record
+    const { data: existingStudentExam, error: seError } = await sb
+        .from('student_exams')
+        .select('id')
+        .eq('student_id', scanSession.student_id)
+        .eq('exam_id', examId)
+        .maybeSingle();
+
+    if (seError) throw new Error(`Error finding student_exam record: ${seError.message}`);
+
+    if (existingStudentExam) {
+        studentExamId = existingStudentExam.id;
+        // Delete existing answers
+        await sb.from('student_answers').delete().eq('student_exam_id', studentExamId);
+    } else {
+        const { data: newStudentExam, error: createSeError } = await sb
+            .from('student_exams')
+            .insert({
+                student_id: scanSession.student_id,
+                exam_id: examId,
+                status: 'submitted'
+            })
+            .select('id')
+            .single();
+
+        if (createSeError) throw new Error(`Could not create student_exam record: ${createSeError.message}`);
+        studentExamId = newStudentExam.id;
+    }
+
+    // Fetch database questions for matching
+    const { data: dbQuestions, error: fetchQError } = await sb
+        .from('questions')
+        .select('id, question_number, sub_questions(id, sub_q_text_content)')
+        .eq('exam_id', examId);
+
+    if (fetchQError) throw new Error(`Could not fetch exam structure for matching: ${fetchQError.message}`);
+
+    // Create lookup map for sub-questions
+    const subQuestionLookup = dbQuestions.reduce((qMap, q) => {
+        qMap[q.question_number] = q.sub_questions.reduce((sqMap, sq) => {
+            sqMap[sq.sub_q_text_content] = sq.id;
+            return sqMap;
+        }, {});
+        return qMap;
+    }, {});
+
+    // Prepare answers for insertion
+    const answersToInsert = [];
+
+    for (const q_res of responseData.questions) {
+        for (const sq_res of q_res.sub_questions) {
+            const sub_question_id = subQuestionLookup[q_res.question_number]?.[sq_res.sub_q_text_content];
+            if (!sub_question_id) {
+                console.warn(`Warning: Could not find matching sub-question for Q#${q_res.question_number}. Skipping.`);
+                continue;
+            }
+
+            if (sq_res.student_answers) {
+                answersToInsert.push({
+                    student_exam_id: studentExamId,
+                    sub_question_id: sub_question_id,
+                    answer_text: sq_res.student_answers.answer_text || null,
+                    answer_visual: sq_res.student_answers.answer_visual || null
+                });
+            }
+        }
+    }
+
+    // Batch insert answers
+    if (answersToInsert.length > 0) {
+        const batchSize = 100;
+        for (let i = 0; i < answersToInsert.length; i += batchSize) {
+            const batch = answersToInsert.slice(i, i + batchSize);
+            const { error: insertError } = await sb.from('student_answers').insert(batch);
+            if (insertError) throw new Error(`Failed to insert student answers batch: ${insertError.message}`);
+        }
+    }
+}
+
+async function cleanupTempFiles(scanSession) {
+    try {
+        const pathsToDelete = scanSession.uploaded_image_paths.map((url) => {
+            const filename = url.split('/').pop();
+            return `temp_scans/${scanSession.session_token}/${filename}`;
+        });
+
+        if (pathsToDelete.length > 0) {
+            await sb.storage.from(STORAGE_BUCKET).remove(pathsToDelete);
+        }
+    } catch (error) {
+        console.error('Failed to cleanup temp files:', error);
+        // Don't throw - this is non-critical
+    }
+}
+
+// --- AUTOMATIC GRADING LOGIC ---
+gradeAllButton.addEventListener('click', async (e) => {
+    e.preventDefault();
+    gradeAllButton.disabled = true;
+    showSpinner(true, spinnerGrading);
+    clearLog('Starting grading process...', statusLogGrading);
+    const urlParams = new URLSearchParams(window.location.search);
+    const examId = urlParams.get('id');
+
+    try {
+        log('Finding ungraded submissions...', statusLogGrading);
+        const { data: ungradedExams, error: findError } = await sb
+            .from('student_exams')
+            .select('id, students(full_name, student_number)')
+            .eq('exam_id', examId)
+            .is('total_points_awarded', null);
+
+        if (findError) throw findError;
+        if (!ungradedExams || ungradedExams.length === 0) {
+            log('✅ No new ungraded submissions found.', statusLogGrading);
+            return;
+        }
+        log(`Found ${ungradedExams.length} ungraded submission(s). Preparing data for grading...`, statusLogGrading);
+
+        const gradingPromises = ungradedExams.map(studentExam => {
+            const studentIdentifier = studentExam.students.full_name || studentExam.students.student_number;
+            return processSingleStudent(examId, studentExam.id, studentIdentifier);
+        });
+
+        const results = await Promise.all(gradingPromises);
+
+        let successCount = 0;
+        results.forEach(result => {
+            if (result.status === 'success') {
+                successCount++;
+            } else {
+                log(`❌ Grading failed for student exam ${result.studentExamId}: ${result.error}`, statusLogGrading);
+            }
+        });
+
+        log(`✅ Successfully graded and saved ${successCount} of ${ungradedExams.length} submissions.`, statusLogGrading);
+        log('Refreshing page data...', statusLogGrading);
+        await loadExamDetails(examId);
+
+    } catch (error) {
+        log(`❌ A critical error occurred during the grading process: ${error.message}`, statusLogGrading);
+        console.error(error);
+    } finally {
+        gradeAllButton.disabled = false;
+        showSpinner(false, spinnerGrading);
+    }
+});
+
+// --- DATA FETCHING FUNCTIONS ---
 async function fetchFullExamDetails(examId) {
     return sb
         .from('exams')
@@ -766,6 +832,7 @@ async function fetchExamDataForModelJson(examId) {
     return sb.from('questions').select(`question_number, sub_questions (sub_q_text_content)`).eq('exam_id', examId).order('question_number', { ascending: true });
 }
 
+// --- DATA PROCESSING AND UPLOAD FUNCTIONS ---
 async function processAndUploadAppendices(examId, appendices, zip) {
     log('Preparing to save appendices to database...', statusLogAppendix);
     const { data: questions, error: qError } = await sb.from('questions').select('id, question_number').eq('exam_id', examId);
@@ -878,104 +945,6 @@ async function processAndUploadModel(examId, modelQuestions, zip) {
                 }
             }
         }
-    }
-}
-
-async function saveStudentAnswers(scanSession, examId, responseData) {
-    let studentExamId;
-
-    // Find or create student_exam record
-    const { data: existingStudentExam, error: seError } = await sb
-        .from('student_exams')
-        .select('id')
-        .eq('student_id', scanSession.student_id)
-        .eq('exam_id', examId)
-        .maybeSingle();
-
-    if (seError) throw new Error(`Error finding student_exam record: ${seError.message}`);
-
-    if (existingStudentExam) {
-        studentExamId = existingStudentExam.id;
-        // Delete existing answers
-        await sb.from('student_answers').delete().eq('student_exam_id', studentExamId);
-    } else {
-        const { data: newStudentExam, error: createSeError } = await sb
-            .from('student_exams')
-            .insert({
-                student_id: scanSession.student_id,
-                exam_id: examId,
-                status: 'submitted'
-            })
-            .select('id')
-            .single();
-
-        if (createSeError) throw new Error(`Could not create student_exam record: ${createSeError.message}`);
-        studentExamId = newStudentExam.id;
-    }
-
-    // Fetch database questions for matching
-    const { data: dbQuestions, error: fetchQError } = await sb
-        .from('questions')
-        .select('id, question_number, sub_questions(id, sub_q_text_content)')
-        .eq('exam_id', examId);
-
-    if (fetchQError) throw new Error(`Could not fetch exam structure for matching: ${fetchQError.message}`);
-
-    // Create lookup map for sub-questions
-    const subQuestionLookup = dbQuestions.reduce((qMap, q) => {
-        qMap[q.question_number] = q.sub_questions.reduce((sqMap, sq) => {
-            sqMap[sq.sub_q_text_content] = sq.id;
-            return sqMap;
-        }, {});
-        return qMap;
-    }, {});
-
-    // Prepare answers for insertion
-    const answersToInsert = [];
-
-    for (const q_res of responseData.questions) {
-        for (const sq_res of q_res.sub_questions) {
-            const sub_question_id = subQuestionLookup[q_res.question_number]?.[sq_res.sub_q_text_content];
-            if (!sub_question_id) {
-                console.warn(`Warning: Could not find matching sub-question for Q#${q_res.question_number}. Skipping.`);
-                continue;
-            }
-
-            if (sq_res.student_answers) {
-                answersToInsert.push({
-                    student_exam_id: studentExamId,
-                    sub_question_id: sub_question_id,
-                    answer_text: sq_res.student_answers.answer_text || null,
-                    answer_visual: sq_res.student_answers.answer_visual || null
-                });
-            }
-        }
-    }
-
-    // Batch insert answers
-    if (answersToInsert.length > 0) {
-        const batchSize = 100;
-        for (let i = 0; i < answersToInsert.length; i += batchSize) {
-            const batch = answersToInsert.slice(i, i + batchSize);
-            const { error: insertError } = await sb.from('student_answers').insert(batch);
-            if (insertError) throw new Error(`Failed to insert student answers batch: ${insertError.message}`);
-        }
-    }
-}
-
-async function cleanupTempFiles(scanSession) {
-    try {
-        const pathsToDelete = scanSession.uploaded_image_paths.map((url) => {
-            const filename = url.split('/').pop();
-            return `temp_scans/${scanSession.session_token}/${filename}`;
-        });
-
-        if (pathsToDelete.length > 0) {
-            await sb.storage.from(STORAGE_BUCKET).remove(pathsToDelete);
-        }
-    } catch (error) {
-        console.error('Failed to cleanup temp files:', error);
-        // Don't throw - this is non-critical
     }
 }
 
@@ -1167,3 +1136,8 @@ async function updateGradingResultsInDb(studentExamId, gcfResponse, subQuestionT
 
     if (examUpdateError) throw new Error(`Failed to update final score: ${examUpdateError.message}`);
 }
+
+// Clean up polling when page is closed
+window.addEventListener('beforeunload', () => {
+    stopScanPolling();
+});
