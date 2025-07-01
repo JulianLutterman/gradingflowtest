@@ -919,183 +919,28 @@ async function checkScanStatus(examId) {
 /**
  * Processes the scanned answers (moved from the old button click handler)
  */
-// Background processing function (migrated from Edge Function)
-async function processScannedAnswersBackground(scanSession, examId) {
-    try {
-        log('Starting background processing...', statusLogStudent);
-
-        // Fetch exam structure for the GCF
-        log('Fetching exam structure...', statusLogStudent);
-        const { data: examStructure, error: fetchExamError } = await sb
-            .from('questions')
-            .select(`
-                question_number,
-                sub_questions (
-                    sub_q_text_content
-                )
-            `)
-            .eq('exam_id', examId)
-            .order('question_number', { ascending: true });
-
-        if (fetchExamError) throw fetchExamError;
-
-        const examStructureForGcf = { questions: examStructure };
-
-        // Download images in parallel with limited concurrency
-        log('Downloading images...', statusLogStudent);
-        const formData = new FormData();
-        formData.append('exam_structure', JSON.stringify(examStructureForGcf));
-
-        const downloadPromises = scanSession.uploaded_image_paths.map(async (imageUrl) => {
-            const filename = imageUrl.split('/').pop();
-            try {
-                const { data: imageBlob, error: downloadError } = await sb.storage
-                    .from(STORAGE_BUCKET)
-                    .download(`temp_scans/${currentScanSessionToken}/${filename}`);
-
-                if (downloadError) {
-                    console.warn(`Failed to download image ${filename}: ${downloadError.message}`);
-                    return null;
-                }
-
-                return { filename, blob: imageBlob };
-            } catch (error) {
-                console.warn(`Error downloading image ${filename}:`, error);
-                return null;
-            }
-        });
-
-        // Wait for all downloads with timeout
-        const downloadResults = await Promise.allSettled(downloadPromises);
-        downloadResults.forEach((result, index) => {
-            if (result.status === 'fulfilled' && result.value) {
-                const { filename, blob } = result.value;
-                formData.append('files', blob, filename);
-            }
-        });
-
-        // Call GCF with timeout handling
-        log('Calling external Cloud Function for processing...', statusLogStudent);
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 minute timeout
-
-        try {
-            const gcfResponse = await fetch(STUDENT_ANSWERS_GCF_URL, {
-                method: 'POST',
-                body: formData,
-                signal: controller.signal
-            });
-
-            clearTimeout(timeoutId);
-
-            if (!gcfResponse.ok) {
-                const errorText = await gcfResponse.text();
-                throw new Error(`Cloud function failed: ${gcfResponse.statusText} - ${errorText}`);
-            }
-
-            // Process ZIP response from GCF
-            log('Processing response from Cloud Function...', statusLogStudent);
-            const zipBlob = await gcfResponse.blob();
-            const jszip = new JSZip();
-            const zip = await jszip.loadAsync(zipBlob);
-
-            // Find the JSON file within the zip
-            const jsonFile = Object.values(zip.files).find(file =>
-                file.name.endsWith('.json') && !file.dir
-            );
-
-            if (!jsonFile) {
-                throw new Error('Could not find the JSON file inside the ZIP response from the GCF.');
-            }
-
-            // Read and parse JSON content
-            const jsonContent = await jsonFile.async('string');
-            const responseData = JSON.parse(jsonContent);
-
-            // Process the response and save to student_answers table
-            log('Saving student answers to database...', statusLogStudent);
-            await saveStudentAnswersFromScan(scanSession, examId, responseData);
-
-            // Update scan session status to completed
-            await sb.from('scan_sessions').update({
-                status: 'completed'
-            }).eq('id', scanSession.id);
-
-            // Clean up in background (don't wait for it)
-            cleanupTempFiles(scanSession);
-
-            log('Background processing completed successfully.', statusLogStudent);
-
-        } catch (error) {
-            clearTimeout(timeoutId);
-            if (error.name === 'AbortError') {
-                throw new Error('Processing timed out - please try again with fewer or smaller images');
-            }
-            throw error;
-        }
-
-    } catch (error) {
-        console.error('Background processing failed:', error);
-        throw error;
-    }
-}
-
-/**
- * Processes the scanned answers (migrated from Edge Function)
- */
 async function processScannedAnswers(examId) {
     showSpinner(true, spinnerStudent);
     clearLog('Processing scanned answers...', statusLogStudent);
 
-    let scanSession;
     try {
-        const sessionToken = currentScanSessionToken;
-        if (!sessionToken || !examId) {
-            throw new Error('Session token and Exam ID are required');
+        log('Calling Edge Function to process scanned images...', statusLogStudent);
+        const response = await fetch(PROCESS_SCANNED_SESSION_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({ sessionToken: currentScanSessionToken, examId })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`Failed to process scanned answers: ${errorData.message || response.statusText}`);
         }
 
-        // Fetch scan session details
-        log('Fetching scan session details...', statusLogStudent);
-        const { data: scanSessionData, error: sessionError } = await sb
-            .from('scan_sessions')
-            .select('id, student_id, student_name, student_number, uploaded_image_paths, expires_at')
-            .eq('session_token', sessionToken)
-            .single();
-
-        scanSession = scanSessionData;
-        if (sessionError || !scanSession) {
-            throw new Error(`Scan session not found or expired: ${sessionError?.message || 'Unknown error'}`);
-        }
-
-        if (new Date(scanSession.expires_at) < new Date()) {
-            throw new Error('Scan session has expired.');
-        }
-
-        // Update session status to processing
-        log('Updating session status to processing...', statusLogStudent);
-        await sb.from('scan_sessions').update({
-            status: 'processing'
-        }).eq('id', scanSession.id);
-
-        // Check if images exist
-        if (!scanSession.uploaded_image_paths || scanSession.uploaded_image_paths.length === 0) {
-            await sb.from('scan_sessions').update({
-                status: 'completed'
-            }).eq('id', scanSession.id);
-
-            log('✅ No images uploaded for this session.', statusLogStudent);
-
-            // Clean up UI
-            studentAnswersForm.reset();
-            scanLinkArea.classList.add('hidden');
-            currentScanSessionToken = null;
-            return;
-        }
-
-        // Start processing
-        await processScannedAnswersBackground(scanSession, examId);
-
-        log('✅ Scanned answers processed successfully!', statusLogStudent);
+        const result = await response.json();
+        log(`✅ Scanned answers processed successfully! Status: ${result.status}`, statusLogStudent);
 
         // Clean up UI
         studentAnswersForm.reset();
@@ -1106,126 +951,11 @@ async function processScannedAnswers(examId) {
         await loadExamDetails(examId);
 
     } catch (error) {
-        console.error('Error processing scanned session:', error.message);
-
-        // Update session status to failed if possible
-        if (scanSession?.id) {
-            try {
-                await sb.from('scan_sessions').update({
-                    status: 'failed',
-                    error_message: error.message
-                }).eq('id', scanSession.id);
-            } catch (updateError) {
-                console.error('Failed to update session status to failed:', updateError.message);
-            }
-        }
-
         log(`❌ An error occurred during processing: ${error.message}`, statusLogStudent);
         console.error(error);
     } finally {
         generateScanLinkButton.disabled = false;
         showSpinner(false, spinnerStudent);
-    }
-}
-
-// Function for saving student answers (migrated from Edge Function)
-async function saveStudentAnswersFromScan(scanSession, examId, responseData) {
-    let studentExamId;
-
-    // Find or create student_exam record
-    const { data: existingStudentExam, error: seError } = await sb
-        .from('student_exams')
-        .select('id')
-        .eq('student_id', scanSession.student_id)
-        .eq('exam_id', examId)
-        .maybeSingle();
-
-    if (seError) throw new Error(`Error finding student_exam record: ${seError.message}`);
-
-    if (existingStudentExam) {
-        studentExamId = existingStudentExam.id;
-        // Delete existing answers
-        await sb.from('student_answers').delete().eq('student_exam_id', studentExamId);
-    } else {
-        const { data: newStudentExam, error: createSeError } = await sb
-            .from('student_exams')
-            .insert({
-                student_id: scanSession.student_id,
-                exam_id: examId,
-                status: 'submitted'
-            })
-            .select('id')
-            .single();
-
-        if (createSeError) throw new Error(`Could not create student_exam record: ${createSeError.message}`);
-        studentExamId = newStudentExam.id;
-    }
-
-    // Fetch database questions for matching
-    const { data: dbQuestions, error: fetchQError } = await sb
-        .from('questions')
-        .select('id, question_number, sub_questions(id, sub_q_text_content)')
-        .eq('exam_id', examId);
-
-    if (fetchQError) throw new Error(`Could not fetch exam structure for matching: ${fetchQError.message}`);
-
-    // Create lookup map for sub-questions
-    const subQuestionLookup = dbQuestions.reduce((qMap, q) => {
-        qMap[q.question_number] = q.sub_questions.reduce((sqMap, sq) => {
-            sqMap[sq.sub_q_text_content] = sq.id;
-            return sqMap;
-        }, {});
-        return qMap;
-    }, {});
-
-    // Prepare answers for insertion
-    const answersToInsert = [];
-
-    for (const q_res of responseData.questions) {
-        for (const sq_res of q_res.sub_questions) {
-            const sub_question_id = subQuestionLookup[q_res.question_number]?.[sq_res.sub_q_text_content];
-
-            if (!sub_question_id) {
-                console.warn(`Warning: Could not find matching sub-question for Q#${q_res.question_number}. Skipping.`);
-                continue;
-            }
-
-            if (sq_res.student_answers) {
-                answersToInsert.push({
-                    student_exam_id: studentExamId,
-                    sub_question_id: sub_question_id,
-                    answer_text: sq_res.student_answers.answer_text || null,
-                    answer_visual: sq_res.student_answers.answer_visual || null
-                });
-            }
-        }
-    }
-
-    // Batch insert answers
-    if (answersToInsert.length > 0) {
-        // Insert in batches of 100 to avoid payload limits
-        const batchSize = 100;
-        for (let i = 0; i < answersToInsert.length; i += batchSize) {
-            const batch = answersToInsert.slice(i, i + batchSize);
-            const { error: insertError } = await sb.from('student_answers').insert(batch);
-            if (insertError) throw new Error(`Failed to insert student answers batch: ${insertError.message}`);
-        }
-    }
-}
-
-async function cleanupTempFiles(scanSession) {
-    try {
-        const pathsToDelete = scanSession.uploaded_image_paths.map(url => {
-            const filename = url.split('/').pop();
-            return `temp_scans/${currentScanSessionToken}/${filename}`;
-        });
-
-        if (pathsToDelete.length > 0) {
-            await sb.storage.from(STORAGE_BUCKET).remove(pathsToDelete);
-        }
-    } catch (error) {
-        console.error('Failed to cleanup temp files:', error);
-        // Don't throw - this is non-critical
     }
 }
 
