@@ -1,0 +1,257 @@
+body {
+    font-family: Arial, sans-serif;
+    max-width: 100%; /* Limits overall width on larger screens */
+    margin: 0 auto; /* Centers the content */
+    padding: 15px; /* Slightly reduced padding for mobile */
+    box-sizing: border-box; /* Include padding in element's total width */
+}
+
+.student-info {
+    margin-bottom: 20px;
+    font-weight: bold;
+    text-align: center; /* Center student info */
+}
+
+/* Styles for the camera activation button */
+.camera-activation {
+    text-align: center;
+    margin: 20px 0;
+}
+
+#activateCameraBtn {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 15px 30px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+    #activateCameraBtn:hover {
+        background: #0056b3;
+    }
+
+/* Styles for the camera feed and container */
+.camera-container {
+    position: relative;
+    width: 100%; /* Takes full width of its parent */
+    max-width: 97%; /* Limits max width on larger screens */
+    margin: 0 auto;
+    background-color: #000;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex; /* Use flexbox for centering content */
+    flex-direction: column; /* Stack content vertically */
+    align-items: center; /* Center horizontally */
+    justify-content: center; /* Center vertically */
+    min-height: 500px; /* Ensure visibility even without stream, adjust as needed */
+    /* REMOVED: aspect-ratio: 4/3; */
+}
+
+#cameraFeed {
+    width: 100%;
+    height: 100%; /* Take full height of container */
+    display: block;
+    background-color: #000;
+    /* CHANGED: from 'contain' to 'cover' */
+    object-fit: cover; /* Ensures video fills the container without distortion */
+}
+
+.camera-placeholder {
+    color: #fff;
+    font-size: 1.1em;
+    text-align: center;
+    padding: 20px;
+}
+
+/* Take photo button - simplified white circle */
+#takePhotoBtn {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 70px;
+    height: 70px;
+    background: white;
+    border: 4px solid #fff;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s ease;
+    z-index: 10;
+}
+
+    #takePhotoBtn:hover {
+        transform: translateX(-50%) scale(1.1);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    }
+
+    #takePhotoBtn:active {
+        transform: translateX(-50%) scale(0.95);
+    }
+
+    #takePhotoBtn:disabled {
+        background: #ccc;
+        border-color: #ccc;
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+
+        #takePhotoBtn:disabled:hover {
+            transform: translateX(-50%) scale(1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+/* Flash effect for photo capture */
+.camera-flash {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: white;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 5;
+}
+
+    .camera-flash.active {
+        animation: flashEffect 0.3s ease-out;
+    }
+
+@keyframes flashEffect {
+    0% {
+        opacity: 0;
+    }
+
+    50% {
+        opacity: 0.8;
+    }
+
+    100% {
+        opacity: 0;
+    }
+}
+
+.upload-btn {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 12px 20px; /* Slightly adjusted padding */
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    width: 100%; /* Make buttons full width */
+    box-sizing: border-box; /* Include padding in width */
+}
+
+    .upload-btn:hover {
+        background: #0056b3;
+    }
+
+    .upload-btn:disabled {
+        background: #6c757d;
+        cursor: not-allowed;
+    }
+
+/* Main upload button at the bottom */
+#uploadBtn {
+    margin-top: 20px;
+    margin-bottom: 10px;
+    width: 100%; /* Ensure it's full width */
+    max-width: 400px; /* Limit max width on larger screens */
+    display: block; /* Ensure it takes full width */
+    margin-left: auto; /* Center it */
+    margin-right: auto; /* Center it */
+}
+
+.preview-container {
+    display: grid;
+    /* On mobile, show 2 columns, scaling down to 1 if necessary */
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.preview-item {
+    position: relative;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: #f9f9f9;
+}
+
+    .preview-item img {
+        width: 100%;
+        height: 100px; /* Fixed height for consistency */
+        object-fit: cover; /* Cover the area, cropping if necessary */
+    }
+
+.remove-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: rgba(255, 0, 0, 0.8); /* Slightly transparent red */
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 28px; /* Slightly larger for easier tapping */
+    height: 28px;
+    cursor: pointer;
+    font-size: 16px; /* Larger font for 'x' */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.status-message {
+    padding: 10px;
+    border-radius: 5px;
+    margin: 10px 0;
+    text-align: center;
+    font-size: 0.95em;
+}
+
+.status-success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.status-error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.status-info {
+    background-color: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
+
+.hidden {
+    display: none;
+}
+
+/* Media query for larger screens */
+@media (min-width: 600px) {
+    .preview-container {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); /* More columns on wider screens */
+    }
+
+    .preview-item img {
+        height: 120px; /* Slightly taller previews on larger screens */
+    }
+
+    #uploadBtn {
+        max-width: 300px; /* Slightly smaller max-width for main button on larger screens */
+    }
+}
