@@ -1,41 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scan Student Answers</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link rel="stylesheet" href="scan.css">
-</head>
-<body>
-
-    <div id="studentInfo" class="student-info">Loading...</div>
-
-    <div id="cameraActivation" class="camera-activation">
-        <button id="activateCameraBtn" class="upload-btn">
-            Activate Camera
-        </button>
-    </div>
-
-    <div id="cameraContainer" class="camera-container hidden">
-        <video id="cameraFeed" autoplay playsinline class="hidden"></video>
-        <div id="cameraPlaceholder" class="camera-placeholder">
-            Attempting to start camera...
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Scan Student Answers</title>
+        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+        <link rel="stylesheet" href="scan.css">
+    </head>
+    <body>
+    
+        <div id="studentInfo" class="student-info">Loading...</div>
+    
+        <div id="cameraActivation" class="camera-activation">
+            <button id="activateCameraBtn" class="upload-btn">
+                Activate Camera
+            </button>
         </div>
-        <canvas id="cameraCanvas" class="hidden"></canvas> <!-- Hidden canvas for capturing frames -->
-        <button id="takePhotoBtn" disabled></button>
-        <div class="camera-flash" id="cameraFlash"></div>
-    </div>
-
-    <button id="uploadBtn" class="upload-btn" disabled>
-        Upload All New Images
-    </button>
-
-    <div id="noImagesMessage" class="status-info">
-        No images uploaded yet. Use the camera to capture the student's answer sheets.
-    </div>
-
-    <div id="imagePreviews" class="preview-container"></div>
-</body>
+    
+        <div id="cameraContainer" class="camera-container hidden">
+            <video id="cameraFeed" autoplay playsinline class="hidden"></video>
+            <div id="cameraPlaceholder" class="camera-placeholder">
+                Attempting to start camera...
+            </div>
+            <canvas id="cameraCanvas" class="hidden"></canvas> <!-- Hidden canvas for capturing frames -->
+            <button id="takePhotoBtn" disabled></button>
+            <div class="camera-flash" id="cameraFlash"></div>
+        </div>
+    
+        <button id="uploadBtn" class="upload-btn" disabled>
+            Upload All New Images
+        </button>
+    
+        <div id="noImagesMessage" class="status-info">
+            No images uploaded yet. Use the camera to capture the student's answer sheets.
+        </div>
+    
+        <div id="imagePreviews" class="preview-container"></div>
+    </body>
     <script src="exam.js"></script>
 </html>
