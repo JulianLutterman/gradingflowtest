@@ -175,20 +175,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     try {
-        // Fetch scan session details using the Edge Function
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/get-scan-session?token=${sessionToken}`, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-            }
+        // Fetch scan session details using a secure RPC call
+        const { data, error } = await sb.rpc('get_session_by_token', {
+            token_arg: sessionToken
         });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to load session');
+        if (error) {
+            // This will catch database-level errors
+            throw error;
         }
 
-        const session = await response.json();
+        if (!data || data.length === 0) {
+            // This handles the case where the token is invalid or the session is expired,
+            // as our function will return an empty array.
+            throw new Error('Session not found or has expired.');
+        }
+
+        // The RPC function returns an array of results, we just need the first one.
+        const session = data[0];
 
         scanSessionId = session.id;
 
@@ -476,7 +480,6 @@ async function uploadImages() {
         const existingPaths = currentSessionData.uploaded_image_paths || [];
         const updatedPaths = [...existingPaths, ...uploadedUrls];
 
-        // Update the scan_sessions table with the merged list of image paths
         // Update the scan_sessions table with the merged list of image paths AND set status to ready for processing
         const { error: updateError } = await sb
             .from('scan_sessions')
