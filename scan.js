@@ -430,6 +430,9 @@ function updateNoImagesMessage() {
 /**
  * Uploads all newly captured images to Supabase Storage and updates the session record.
  */
+/**
+ * Uploads all newly captured images to Supabase Storage and updates the session record.
+ */
 async function uploadImages() {
     const newFilesToUpload = allImagesForSession.filter(item => item.type === 'new');
 
@@ -449,7 +452,7 @@ async function uploadImages() {
             const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
             const filePath = `temp_scans/${sessionToken}/${fileName}`;
 
-            // Upload file to Supabase Storage
+            // Step 1: Upload file to Supabase Storage (this part is fine)
             const { error: uploadError } = await sb.storage
                 .from(STORAGE_BUCKET)
                 .upload(filePath, file);
@@ -468,43 +471,35 @@ async function uploadImages() {
             item.data = urlData.publicUrl;
         }
 
-        // Fetch current uploaded_image_paths from DB to merge with new ones
-        const { data: currentSessionData, error: fetchError } = await sb
-            .from('scan_sessions')
-            .select('uploaded_image_paths')
-            .eq('id', scanSessionId)
-            .single();
+        // --- START: REPLACEMENT LOGIC ---
+        // Step 2: Call the secure RPC function to update the database
+        // This replaces the direct .select() and .update() calls that were failing.
+        const { error: rpcError } = await sb.rpc('append_images_to_session', {
+            session_id_arg: scanSessionId,
+            new_urls_arg: uploadedUrls // Pass the array of new URLs
+        });
 
-        if (fetchError) throw fetchError;
-
-        const existingPaths = currentSessionData.uploaded_image_paths || [];
-        const updatedPaths = [...existingPaths, ...uploadedUrls];
-
-        // Update the scan_sessions table with the merged list of image paths AND set status to ready for processing
-        const { error: updateError } = await sb
-            .from('scan_sessions')
-            .update({
-                uploaded_image_paths: updatedPaths,
-                status: 'uploaded'  // NEW: Signal that images are ready for processing
-            })
-            .eq('id', scanSessionId);
-
-        if (updateError) throw updateError;
+        if (rpcError) {
+            // If the RPC call fails, throw the error
+            throw rpcError;
+        }
+        // --- END: REPLACEMENT LOGIC ---
 
         renderPreviews(); // Re-render to reflect 'uploaded' status for all images
-        updateUploadButton(); // Update button state (should be disabled if no new images)
+        updateUploadButton(); // Update button state (should be disabled)
 
         // Change button text to show success
         uploadBtn.textContent = 'Images Uploaded Successfully!';
         setTimeout(() => {
             uploadBtn.textContent = originalText;
+            // The button will be re-enabled by updateUploadButton if new photos are taken
         }, 3000);
 
     } catch (error) {
         console.error('Upload error:', error);
-        uploadBtn.textContent = originalText;
-    } finally {
-        uploadBtn.disabled = false; // Re-enable button in case of failure
+        uploadBtn.textContent = 'Upload Failed. Try Again.';
+        // Re-enable the button on failure so the user can retry
+        uploadBtn.disabled = false;
     }
 }
 
