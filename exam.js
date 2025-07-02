@@ -1043,6 +1043,8 @@ async function processScannedAnswersBackground(scanSession, examId) {
 /**
  * Processes the scanned answers (migrated from Edge Function)
  */
+// exam.js
+
 async function processScannedAnswers(examId) {
     showSpinner(true, spinnerStudent);
     clearLog('Processing scanned answers...', statusLogStudent);
@@ -1054,17 +1056,25 @@ async function processScannedAnswers(examId) {
             throw new Error('Session token and Exam ID are required');
         }
 
-        // Fetch scan session details
+        // --- START: MODIFIED CODE ---
+        // Fetch scan session details using a secure RPC call to bypass RLS
         log('Fetching scan session details...', statusLogStudent);
-        const { data: scanSessionData, error: sessionError } = await sb
-            .from('scan_sessions')
-            .select('id, student_id, student_name, student_number, uploaded_image_paths, expires_at')
-            .eq('session_token', sessionToken)
-            .single();
+        const { data: rpcResult, error: sessionError } = await sb
+            .rpc('get_session_details_by_token', { token_arg: sessionToken });
+
+        if (sessionError) {
+            // If the RPC call itself fails, throw that error
+            throw new Error(`Failed to fetch session details: ${sessionError.message}`);
+        }
+
+        // The RPC function returns an array. If it's empty, the session wasn't found.
+        const scanSessionData = rpcResult && rpcResult.length > 0 ? rpcResult[0] : null;
+        // --- END: MODIFIED CODE ---
 
         scanSession = scanSessionData;
-        if (sessionError || !scanSession) {
-            throw new Error(`Scan session not found or expired: ${sessionError?.message || 'Unknown error'}`);
+        if (!scanSession) {
+            // We create a more user-friendly error message here
+            throw new Error('Scan session not found or expired. The token may be invalid.');
         }
 
         if (new Date(scanSession.expires_at) < new Date()) {
