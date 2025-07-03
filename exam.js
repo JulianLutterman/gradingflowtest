@@ -970,7 +970,7 @@ async function processScannedAnswersBackground(scanSession, examId) {
         // Call GCF with timeout handling
         log('Calling external Cloud Function for processing...', statusLogStudent);
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 minute timeout
+        const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minute timeout
 
         try {
             const gcfResponse = await fetch(STUDENT_ANSWERS_GCF_URL, {
