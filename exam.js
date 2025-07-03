@@ -535,46 +535,6 @@ async function fetchExamDataForModelJson(examId) {
 
 // --- DATA PROCESSING AND UPLOAD FUNCTIONS (UNCHANGED, except processAndUploadStudentAnswers is now in Edge Function) ---
 
-async function processAndUploadAppendices(examId, appendices, zip) {
-    log('Preparing to save appendices to database...', statusLogAppendix);
-    const { data: questions, error: qError } = await sb.from('questions').select('id, question_number').eq('exam_id', examId);
-    if (qError) throw new Error(`Could not fetch question IDs: ${qError.message}`);
-    const questionMap = new Map(questions.map(q => [q.question_number, q.id]));
-    const appendicesToInsert = [];
-    for (const app of appendices) {
-        const questionId = questionMap.get(app.question_number);
-        if (!questionId) {
-            log(`⚠️ Warning: Could not find question_id for question_number "${app.question_number}". Skipping this appendix.`, statusLogAppendix);
-            continue;
-        }
-        let appVisualUrl = null;
-        if (app.app_visual) {
-            const visualFile = zip.file(app.app_visual);
-            if (visualFile) {
-                log(`Uploading appendix visual: ${app.app_visual}`, statusLogAppendix);
-                const filePath = `public/${examId}/appendices/${Date.now()}_${app.app_visual}`;
-                const fileBlob = await visualFile.async('blob');
-                const fileToUpload = new File([fileBlob], app.app_visual, { type: `image/${app.app_visual.split('.').pop()}` });
-                const { error: uploadError } = await sb.storage.from(STORAGE_BUCKET).upload(filePath, fileToUpload);
-                if (uploadError) throw new Error(`Failed to upload ${app.app_visual}: ${uploadError.message}`);
-                const { data: urlData } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(filePath);
-                appVisualUrl = urlData.publicUrl;
-                log(`Visual uploaded to: ${appVisualUrl}`, statusLogAppendix);
-            } else {
-                log(`⚠️ Warning: Visual file ${app.app_visual} not found in zip.`, statusLogAppendix);
-            }
-        }
-        appendicesToInsert.push({ question_id: questionId, app_title: app.app_title, app_text: app.app_text, app_visual: appVisualUrl });
-    }
-    if (appendicesToInsert.length > 0) {
-        log(`Inserting ${appendicesToInsert.length} appendix records...`, statusLogAppendix);
-        const { error: insertError } = await sb.from('appendices').insert(appendicesToInsert);
-        if (insertError) throw new Error(`Failed to insert appendices: ${insertError.message}`);
-    } else {
-        log('No valid appendices were found to insert.', statusLogAppendix);
-    }
-}
-
 async function processAndUploadModel(examId, modelQuestions, zip) {
     log('Matching model data to existing questions...', statusLogModel);
 
@@ -613,6 +573,39 @@ async function processAndUploadModel(examId, modelQuestions, zip) {
                 log(`⚠️ Warning: Could not find matching sub-question for Q#${q_model.question_number}. Skipping.`, statusLogModel);
                 continue;
             }
+
+            // --- NEW LOGIC TO CALCULATE AND UPDATE MAX_SUB_POINTS ---
+            if (sq_model.model_alternatives && sq_model.model_alternatives.length > 0) {
+                // Find the alternative with alternative_number 1.
+                let primaryAlternative = sq_model.model_alternatives.find(alt => alt.alternative_number === 1);
+                
+                // If no alternative #1 is explicitly defined, fall back to the first one in the array.
+                if (!primaryAlternative) {
+                    primaryAlternative = sq_model.model_alternatives[0];
+                    log(`  - Note: No alternative #1 found for Q#${q_model.question_number}. Using first available alternative for point calculation.`, statusLogModel);
+                }
+
+                if (primaryAlternative && primaryAlternative.model_components && primaryAlternative.model_components.length > 0) {
+                    // Sum the points from the components of this single alternative.
+                    const calculatedMaxPoints = primaryAlternative.model_components.reduce((sum, comp) => {
+                        return sum + (Number(comp.component_points) || 0);
+                    }, 0);
+
+                    // Update the max_sub_points in the database for this sub_question.
+                    log(`  - Updating max points for sub-question to ${calculatedMaxPoints}...`, statusLogModel);
+                    const { error: updatePointsError } = await sb
+                        .from('sub_questions')
+                        .update({ max_sub_points: calculatedMaxPoints })
+                        .eq('id', sub_question_id);
+
+                    if (updatePointsError) {
+                        // Log a warning but don't stop the whole process.
+                        log(`⚠️ Warning: Could not update max_sub_points for sub-question ID ${sub_question_id}: ${updatePointsError.message}`, statusLogModel);
+                    }
+                }
+            }
+            // --- END OF NEW LOGIC ---
+
             if (!sq_model.model_alternatives || sq_model.model_alternatives.length === 0) continue;
             log(`Processing model for Q#${q_model.question_number}...`, statusLogModel);
             for (const alt_model of sq_model.model_alternatives) {
