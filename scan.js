@@ -372,8 +372,6 @@ window.addEventListener('pagehide', stopCamera);
  */
 function renderPreviews() {
     imagePreviews.innerHTML = ''; // Clear existing previews
-
-    updateNoImagesMessage(); // Update the "No images" message visibility
     updateUploadButton(); // Update the upload button's disabled state
 
     if (allImagesForSession.length === 0) {
@@ -412,14 +410,6 @@ function renderPreviews() {
 function updateUploadButton() {
     const hasNewImages = allImagesForSession.some(item => item.type === 'new');
     uploadBtn.disabled = !hasNewImages;
-}
-
-/**
- * Toggles the visibility of the "No images uploaded yet" message.
- */
-function updateNoImagesMessage() {
-    const hasImages = allImagesForSession.length > 0;
-    noImagesMessage.classList.toggle('hidden', hasImages);
 }
 
 /**
