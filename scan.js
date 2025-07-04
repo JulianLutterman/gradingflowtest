@@ -202,7 +202,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         studentInfo.textContent = `${session.student_name || session.student_number || 'Unknown'}`;
         renderPreviews(); // Display existing images
-        updateUploadButton(); // Update upload button state
 
     } catch (error) {
         console.error('Initialization error:', error);
@@ -371,7 +370,6 @@ window.addEventListener('pagehide', stopCamera);
  */
 function renderPreviews() {
     imagePreviews.innerHTML = ''; // Clear existing previews
-    updateUploadButton(); // Update the upload button's disabled state
 
     if (allImagesForSession.length === 0) {
         return; // No images to render
