@@ -460,7 +460,7 @@ async function uploadImages() {
 
         // --- SUCCESS STATE ---
         renderPreviews();
-        uploadBtn.textContent = 'Uploaded Successfully! You may close this page.';
+        uploadBtn.textContent = 'Upload Successful! You may close this page.';
         uploadBtn.classList.add('uploaded'); // Add final state class
         uploadBtn.disabled = true; // Keep disabled, but new class will style it
         isUploading = false;
