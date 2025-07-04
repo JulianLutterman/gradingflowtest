@@ -404,14 +404,6 @@ function renderPreviews() {
 }
 
 /**
- * Updates the state of the main "Upload All New Images" button.
- */
-function updateUploadButton() {
-    const hasNewImages = allImagesForSession.some(item => item.type === 'new');
-    uploadBtn.disabled = !hasNewImages;
-}
-
-/**
  * Uploads all newly captured images to Supabase Storage and updates the session record.
  */
 /**
@@ -470,7 +462,6 @@ async function uploadImages() {
         // --- END: REPLACEMENT LOGIC ---
 
         renderPreviews(); // Re-render to reflect 'uploaded' status for all images
-        updateUploadButton(); // Update button state (should be disabled)
 
         // Change button text to show success
         uploadBtn.textContent = 'Uploaded Successfully! You may close this page.';
