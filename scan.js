@@ -484,7 +484,7 @@ async function uploadImages() {
         updateUploadButton(); // Update button state (should be disabled)
 
         // Change button text to show success
-        uploadBtn.textContent = 'Images Uploaded Successfully!';
+        uploadBtn.textContent = 'Uploaded Successfully! You may close this page.';
         setTimeout(() => {
             uploadBtn.textContent = originalText;
             // The button will be re-enabled by updateUploadButton if new photos are taken
