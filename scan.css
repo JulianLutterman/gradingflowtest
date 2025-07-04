@@ -17,7 +17,7 @@ button {
     margin-bottom: 20px;
     font-weight: bold;
     text-align: center; /* Center student info */
-    padding: 20px 0;
+    padding: 20px 0 15px 0;
     background-color: #d6e7ff;
     border-radius: 0 0 25px 25px;
     font-size: 16px;
@@ -152,7 +152,7 @@ button {
     background: #14110f;
     color: #f6f5f3;
     border: none;
-    padding: 12px 20px; /* Slightly adjusted padding */
+    padding: 18px 0; /* Slightly adjusted padding */
     border-radius: 15px;
     cursor: pointer;
     font-size: 16px;
