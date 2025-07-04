@@ -1,8 +1,10 @@
 body {
-    font-family: Arial, sans-serif;
+    font-family: "Quicksand", sans-serif;
+    font-optical-sizing: auto;
+    font-style: normal;
     max-width: 100%; /* Limits overall width on larger screens */
     margin: 0 auto; /* Centers the content */
-    padding: 15px; /* Slightly reduced padding for mobile */
+    padding: 0 15px 15px 15px; /* Slightly reduced padding for mobile */
     box-sizing: border-box; /* Include padding in element's total width */
 }
 
@@ -10,6 +12,9 @@ body {
     margin-bottom: 20px;
     font-weight: bold;
     text-align: center; /* Center student info */
+    padding: 20px 0 15px 0;
+    background-color: #d6e7ff;
+    border-radius: 0 0 25px 25px;
 }
 
 /* Styles for the camera activation button */
@@ -19,11 +24,11 @@ body {
 }
 
 #activateCameraBtn {
-    background: #007bff;
-    color: white;
+    background: #0066ff;
+    color: #f8f1ff;
     border: none;
-    padding: 15px 30px;
-    border-radius: 8px;
+    padding: 200px 30px;
+    border-radius: 25px;
     cursor: pointer;
     font-size: 18px;
     font-weight: bold;
@@ -136,11 +141,11 @@ body {
 }
 
 .upload-btn {
-    background: #007bff;
-    color: white;
+    background: #14110f;
+    color: #f6f5f3;
     border: none;
     padding: 12px 20px; /* Slightly adjusted padding */
-    border-radius: 5px;
+    border-radius: 15px;
     cursor: pointer;
     font-size: 16px;
     width: 100%; /* Make buttons full width */
@@ -152,7 +157,7 @@ body {
     }
 
     .upload-btn:disabled {
-        background: #6c757d;
+        background: #f6f5f3;
         cursor: not-allowed;
     }
 
