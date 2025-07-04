@@ -14,6 +14,7 @@ let sessionToken = null;
 let allImagesForSession = [];
 let cameraStream = null;
 let bestRearCamera = null;
+let isUploading = false; // ADD THIS LINE: Flag to prevent multiple uploads
 
 // DOM elements
 const studentInfo = document.getElementById('studentInfo');
@@ -202,6 +203,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         studentInfo.textContent = `${session.student_name || session.student_number || 'Unknown'}`;
         renderPreviews(); // Display existing images
+        updateUploadButton(); // Update upload button state
 
     } catch (error) {
         console.error('Initialization error:', error);
@@ -370,6 +372,7 @@ window.addEventListener('pagehide', stopCamera);
  */
 function renderPreviews() {
     imagePreviews.innerHTML = ''; // Clear existing previews
+    updateUploadButton(); // Update the upload button's disabled state
 
     if (allImagesForSession.length === 0) {
         return; // No images to render
@@ -402,19 +405,30 @@ function renderPreviews() {
 }
 
 /**
- * Uploads all newly captured images to Supabase Storage and updates the session record.
+ * Updates the state of the main "Upload All New Images" button.
  */
+function updateUploadButton() {
+    const hasNewImages = allImagesForSession.some(item => item.type === 'new');
+    uploadBtn.disabled = !hasNewImages;
+}
+
+// --- START: MODIFIED FUNCTION ---
 /**
  * Uploads all newly captured images to Supabase Storage and updates the session record.
  */
 async function uploadImages() {
+    // Prevent multiple uploads if one is already in progress
+    if (isUploading) {
+        return;
+    }
+
     const newFilesToUpload = allImagesForSession.filter(item => item.type === 'new');
 
     if (newFilesToUpload.length === 0) {
         return;
     }
 
-    uploadBtn.disabled = true;
+    isUploading = true; // Set flag to block other clicks
     const originalText = uploadBtn.textContent;
     uploadBtn.textContent = 'Uploading...';
 
@@ -426,55 +440,48 @@ async function uploadImages() {
             const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
             const filePath = `temp_scans/${sessionToken}/${fileName}`;
 
-            // Step 1: Upload file to Supabase Storage (this part is fine)
             const { error: uploadError } = await sb.storage
                 .from(STORAGE_BUCKET)
                 .upload(filePath, file);
 
             if (uploadError) throw uploadError;
 
-            // Get public URL of the uploaded file
             const { data: urlData } = sb.storage
                 .from(STORAGE_BUCKET)
                 .getPublicUrl(filePath);
 
             uploadedUrls.push(urlData.publicUrl);
 
-            // Update the item's type and data in our local array
             item.type = 'uploaded';
             item.data = urlData.publicUrl;
         }
 
-        // --- START: REPLACEMENT LOGIC ---
-        // Step 2: Call the secure RPC function to update the database
-        // This replaces the direct .select() and .update() calls that were failing.
         const { error: rpcError } = await sb.rpc('append_images_to_session', {
             session_id_arg: scanSessionId,
-            new_urls_arg: uploadedUrls // Pass the array of new URLs
+            new_urls_arg: uploadedUrls
         });
 
         if (rpcError) {
-            // If the RPC call fails, throw the error
             throw rpcError;
         }
-        // --- END: REPLACEMENT LOGIC ---
 
-        renderPreviews(); // Re-render to reflect 'uploaded' status for all images
+        renderPreviews();
+        updateUploadButton();
 
-        // Change button text to show success
         uploadBtn.textContent = 'Uploaded Successfully! You may close this page.';
         setTimeout(() => {
             uploadBtn.textContent = originalText;
-            // The button will be re-enabled by updateUploadButton if new photos are taken
         }, 3000);
 
     } catch (error) {
         console.error('Upload error:', error);
         uploadBtn.textContent = 'Upload Failed. Try Again.';
-        // Re-enable the button on failure so the user can retry
-        uploadBtn.disabled = false;
+    } finally {
+        // Ensure the flag is always reset, whether upload succeeds or fails
+        isUploading = false;
     }
 }
+// --- END: MODIFIED FUNCTION ---
 
 /**
  * Removes an image from the local list and, if uploaded, from Supabase Storage and DB.
