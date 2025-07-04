@@ -416,6 +416,9 @@ function updateUploadButton() {
 /**
  * Uploads all newly captured images to Supabase Storage and updates the session record.
  */
+/**
+ * Uploads all newly captured images to Supabase Storage and updates the session record.
+ */
 async function uploadImages() {
     // Prevent multiple uploads if one is already in progress
     if (isUploading) {
@@ -466,12 +469,9 @@ async function uploadImages() {
         }
 
         renderPreviews();
-        updateUploadButton();
+        // updateUploadButton(); // REMOVE THIS LINE - This was causing the button to "disappear" too early.
 
         uploadBtn.textContent = 'Uploaded Successfully! You may close this page.';
-        setTimeout(() => {
-            uploadBtn.textContent = originalText;
-        }, 3000);
 
     } catch (error) {
         console.error('Upload error:', error);
