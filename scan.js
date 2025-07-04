@@ -202,7 +202,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         studentInfo.textContent = `${session.student_name || session.student_number || 'Unknown'}`;
         renderPreviews(); // Display existing images
-        updateNoImagesMessage(); // Update message based on images
         updateUploadButton(); // Update upload button state
 
     } catch (error) {
