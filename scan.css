@@ -3,7 +3,6 @@
     --color-background: #F6F5F3; /* Light cream for main background, buttons, flash */
     --color-text-dark: #14110F; /* Dark charcoal for text, borders, and success states */
     --color-text-light: #F6F5F3; /* Same as background, used for text on dark surfaces */
-    --color-text-alt-light: #f8f1ff; /* Light lavender for text on primary button */
     --color-primary: #0066ff; /* Main blue for buttons */
     --color-primary-hover: #0056b3; /* Darker blue for hover states */
     --color-info-bg: #d6e7ff; /* Light blue for the student info banner */
@@ -47,7 +46,7 @@ button {
 #activateCameraBtn {
     font-family: "Quicksand", sans-serif;
     background: var(--color-primary);
-    color: var(--color-text-alt-light);
+    color: var(--color-text-light);
     border: none;
     padding: 200px 30px;
     border-radius: 25px;
@@ -269,4 +268,3 @@ button {
         max-width: 300px; /* Slightly smaller max-width for main button on larger screens */
     }
 }
-
