@@ -1,3 +1,17 @@
+:root {
+    /* Color Palette Variables */
+    --color-background: #F6F5F3; /* Light cream for main background, buttons, flash */
+    --color-text-dark: #14110F; /* Dark charcoal for text, borders, and success states */
+    --color-text-light: #F6F5F3; /* Same as background, used for text on dark surfaces */
+    --color-text-alt-light: #f8f1ff; /* Light lavender for text on primary button */
+    --color-primary: #0066ff; /* Main blue for buttons */
+    --color-primary-hover: #0056b3; /* Darker blue for hover states */
+    --color-info-bg: #d6e7ff; /* Light blue for the student info banner */
+    --color-danger: #E3170A; /* Red for remove/delete buttons */
+    --color-disabled-bg: #dcd8d0; /* Beige for disabled upload button */
+    --color-disabled-alt-bg: #ccc; /* Gray for other disabled elements */
+}
+
 body {
     font-family: "Quicksand", sans-serif;
     font-optical-sizing: auto;
@@ -6,7 +20,7 @@ body {
     margin: 0 auto; /* Centers the content */
     padding: 0 15px 15px 15px; /* Slightly reduced padding for mobile */
     box-sizing: border-box; /* Include padding in element's total width */
-    background-color: #F6F5F3;
+    background-color: var(--color-background);
 }
 
 button {
@@ -18,7 +32,7 @@ button {
     font-weight: bold;
     text-align: center; /* Center student info */
     padding: 18px 0 14px 0;
-    background-color: #d6e7ff;
+    background-color: var(--color-info-bg);
     border-radius: 0 0 25px 25px;
     font-size: 16px;
     margin: 0 12%;
@@ -32,8 +46,8 @@ button {
 
 #activateCameraBtn {
     font-family: "Quicksand", sans-serif;
-    background: #0066ff;
-    color: #f8f1ff;
+    background: var(--color-primary);
+    color: var(--color-text-alt-light);
     border: none;
     padding: 200px 30px;
     border-radius: 25px;
@@ -43,7 +57,7 @@ button {
 }
 
     #activateCameraBtn:hover {
-        background: #0056b3;
+        background: var(--color-primary-hover);
     }
 
 /* Styles for the camera feed and container */
@@ -51,7 +65,7 @@ button {
     position: relative;
     width: 100%; /* Takes full width of its parent */
     margin: 0 auto;
-    background-color: #14110F;
+    background-color: var(--color-text-dark);
     border-radius: 25px;
     overflow: hidden;
     display: flex; /* Use flexbox for centering content */
@@ -65,12 +79,12 @@ button {
     width: 100%;
     height: 100%; /* Take full height of container */
     display: block;
-    background-color: #14110F;
+    background-color: var(--color-text-dark);
     object-fit: cover; /* Ensures video fills the container without distortion */
 }
 
 .camera-placeholder {
-    color: #F6F5F3;
+    color: var(--color-text-light);
     font-size: 16;
     text-align: center;
     padding: 20px;
@@ -84,7 +98,7 @@ button {
     transform: translateX(-50%);
     width: 70px;
     height: 70px;
-    background: #F6F5F3;
+    background: var(--color-background);
     border-radius: 50%;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -96,22 +110,22 @@ button {
     }
 
     #takePhotoBtn:disabled {
-        background: #ccc;
-        border-color: #ccc;
+        background: var(--color-disabled-alt-bg);
+        border-color: var(--color-disabled-alt-bg);
         cursor: not-allowed;
         opacity: 0.6;
     }
 
-#takePhotoBtn:focus {
-    -webkit-tap-highlight-color: transparent; /* Removes the gray/blue tap effect */
-    outline: none; /* Removes the focus outline */
-    box-shadow: none;
-}
-    
+    #takePhotoBtn:focus {
+        -webkit-tap-highlight-color: transparent; /* Removes the gray/blue tap effect */
+        outline: none; /* Removes the focus outline */
+        box-shadow: none;
+    }
 
-        #takePhotoBtn:disabled:hover {
-            transform: translateX(-50%) scale(1);
-        }
+
+    #takePhotoBtn:disabled:hover {
+        transform: translateX(-50%) scale(1);
+    }
 
 /* Flash effect for photo capture */
 .camera-flash {
@@ -120,7 +134,7 @@ button {
     left: 0;
     width: 100%;
     height: 100%;
-    background: #F6F5F3;
+    background: var(--color-background);
     opacity: 0;
     pointer-events: none;
     z-index: 5;
@@ -162,23 +176,23 @@ button {
 
 /* State 2: Enabled (Ready to upload) */
 #uploadBtn {
-    background-color: #0066FF;
-    color: #F6F5F3;
+    background-color: var(--color-primary);
+    color: var(--color-text-light);
 }
 
-/* State 1: Initial Disabled (and during upload) */
-#uploadBtn:disabled {
-    background-color: #dcd8d0;
-    color: #14110F;
-    cursor: not-allowed;
-}
+    /* State 1: Initial Disabled (and during upload) */
+    #uploadBtn:disabled {
+        background-color: var(--color-disabled-bg);
+        color: var(--color-text-dark);
+        cursor: not-allowed;
+    }
 
-/* State 4: Success (Overrides disabled style) */
-#uploadBtn.uploaded {
-    background-color: #14110F;
-    color: #F6F5F3;
-    cursor: default; /* Show it's a final state */
-}
+    /* State 4: Success (Overrides disabled style) */
+    #uploadBtn.uploaded {
+        background-color: var(--color-text-dark);
+        color: var(--color-text-light);
+        cursor: default; /* Show it's a final state */
+    }
 
 /* Main upload button at the bottom */
 #uploadBtn {
@@ -203,14 +217,14 @@ button {
 
 .preview-item {
     position: relative;
-    border: 2px solid #14110F;
+    border: 2px solid var(--color-text-dark);
     border-radius: 15px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background-color: #F6F5F3;
+    background-color: var(--color-background);
 }
 
     .preview-item img {
@@ -223,8 +237,8 @@ button {
     position: absolute;
     top: 5px;
     right: 5px;
-    background: #E3170A; /* Slightly transparent red */
-    color: #F6F5F3;
+    background: var(--color-danger);
+    color: var(--color-text-light);
     border: none;
     border-radius: 50%;
     width: 28px; /* Slightly larger for easier tapping */
@@ -255,3 +269,4 @@ button {
         max-width: 300px; /* Slightly smaller max-width for main button on larger screens */
     }
 }
+
