@@ -25,6 +25,7 @@ body {
 }
 
 #activateCameraBtn {
+    font-family: "Quicksand", sans-serif;
     background: #0066ff;
     color: #f8f1ff;
     border: none;
