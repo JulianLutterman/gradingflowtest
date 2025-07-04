@@ -88,7 +88,6 @@ button {
     background: #F6F5F3;
     border-radius: 50%;
     cursor: pointer;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     transition: all 0.2s ease;
     z-index: 10;
 }
@@ -104,9 +103,15 @@ button {
         opacity: 0.6;
     }
 
+#takePhotoBtn:focus {
+    -webkit-tap-highlight-color: transparent; /* Removes the gray/blue tap effect */
+    outline: none; /* Removes the focus outline */
+    box-shadow: none;
+}
+    
+
         #takePhotoBtn:disabled:hover {
             transform: translateX(-50%) scale(1);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }
 
 /* Flash effect for photo capture */
