@@ -6,6 +6,7 @@ body {
     margin: 0 auto; /* Centers the content */
     padding: 0 15px 15px 15px; /* Slightly reduced padding for mobile */
     box-sizing: border-box; /* Include padding in element's total width */
+    background-color: #F6F5F3;
 }
 
 .student-info {
