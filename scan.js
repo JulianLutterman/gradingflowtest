@@ -14,7 +14,7 @@ let sessionToken = null;
 let allImagesForSession = [];
 let cameraStream = null;
 let bestRearCamera = null;
-let isUploading = false; // ADD THIS LINE: Flag to prevent multiple uploads
+let isUploading = false;
 
 // DOM elements
 const studentInfo = document.getElementById('studentInfo');
@@ -255,16 +255,10 @@ async function startCamera() {
 
         // Wait for video to load and get actual settings
         cameraFeed.onloadedmetadata = () => {
-            // --- START: NEW LOGIC TO SET CONTAINER ASPECT RATIO ---
             const videoWidth = cameraFeed.videoWidth;
             const videoHeight = cameraFeed.videoHeight;
-
-            // Calculate the true aspect ratio of the video stream
             const aspectRatio = videoWidth / videoHeight;
-
-            // Set the container's aspect ratio to match the video's
             cameraContainer.style.aspectRatio = aspectRatio;
-            // --- END: NEW LOGIC ---
 
             const track = stream.getVideoTracks()[0];
             const settings = track.getSettings();
@@ -337,18 +331,14 @@ function takePhoto() {
 
     const context = cameraCanvas.getContext('2d');
 
-    // Use the actual video dimensions for maximum quality
     const videoWidth = cameraFeed.videoWidth;
     const videoHeight = cameraFeed.videoHeight;
 
-    // Set canvas to match video resolution exactly
     cameraCanvas.width = videoWidth;
     cameraCanvas.height = videoHeight;
 
-    // Draw the current video frame onto the canvas at full resolution
     context.drawImage(cameraFeed, 0, 0, videoWidth, videoHeight);
 
-    // Convert canvas content to a high-quality Blob
     cameraCanvas.toBlob((blob) => {
         if (blob) {
             const file = new File([blob], `scan_${Date.now()}.jpg`, { type: 'image/jpeg' });
@@ -360,7 +350,7 @@ function takePhoto() {
             allImagesForSession.push(newImage);
             renderPreviews();
         }
-    }, 'image/jpeg', 0.95); // High quality JPEG (95%)
+    }, 'image/jpeg', 0.95);
 }
 
 // Stop camera when navigating away from the page
@@ -371,11 +361,11 @@ window.addEventListener('pagehide', stopCamera);
  * Renders all images (newly captured and already uploaded) in the preview section.
  */
 function renderPreviews() {
-    imagePreviews.innerHTML = ''; // Clear existing previews
-    updateUploadButton(); // Update the upload button's disabled state
+    imagePreviews.innerHTML = '';
+    updateUploadButton();
 
     if (allImagesForSession.length === 0) {
-        return; // No images to render
+        return;
     }
 
     allImagesForSession.forEach(item => {
@@ -383,57 +373,58 @@ function renderPreviews() {
         previewItem.className = 'preview-item';
 
         const img = document.createElement('img');
-        // For new images, create an object URL; for uploaded, use the direct URL
         img.src = item.type === 'new' ? URL.createObjectURL(item.data) : item.data;
         img.alt = 'Preview';
 
         const removeBtn = document.createElement('button');
         removeBtn.className = 'remove-btn';
         removeBtn.textContent = '×';
-        removeBtn.onclick = () => removeImage(item.id); // Pass the unique ID for removal
+        removeBtn.onclick = () => removeImage(item.id);
 
         previewItem.appendChild(img);
         previewItem.appendChild(removeBtn);
 
         imagePreviews.appendChild(previewItem);
 
-        // Revoke object URL for 'new' images after they are loaded to free memory
         if (item.type === 'new') {
             img.onload = () => URL.revokeObjectURL(img.src);
         }
     });
 }
 
+// --- START: MODIFIED FUNCTION ---
 /**
- * Updates the state of the main "Upload All New Images" button.
+ * Updates the state of the main "Upload Scans" button.
  */
 function updateUploadButton() {
+    // If the button is already in the final success state, do nothing.
+    if (uploadBtn.classList.contains('uploaded')) {
+        return;
+    }
     const hasNewImages = allImagesForSession.some(item => item.type === 'new');
     uploadBtn.disabled = !hasNewImages;
 }
+// --- END: MODIFIED FUNCTION ---
+
 
 // --- START: MODIFIED FUNCTION ---
 /**
  * Uploads all newly captured images to Supabase Storage and updates the session record.
- */
-/**
- * Uploads all newly captured images to Supabase Storage and updates the session record.
+ * Manages the button's visual state throughout the process.
  */
 async function uploadImages() {
-    // Prevent multiple uploads if one is already in progress
     if (isUploading) {
         return;
     }
-
     const newFilesToUpload = allImagesForSession.filter(item => item.type === 'new');
-
     if (newFilesToUpload.length === 0) {
         return;
     }
 
-    isUploading = true; // Set flag to block other clicks
-    const originalText = uploadBtn.textContent;
+    isUploading = true;
+    uploadBtn.disabled = true; // Disable button, will turn grey
     uploadBtn.textContent = 'Uploading...';
+    uploadBtn.classList.remove('uploaded'); // Reset state in case of re-upload
 
     try {
         const uploadedUrls = [];
@@ -455,6 +446,7 @@ async function uploadImages() {
 
             uploadedUrls.push(urlData.publicUrl);
 
+            // Mark as uploaded locally
             item.type = 'uploaded';
             item.data = urlData.publicUrl;
         }
@@ -464,24 +456,26 @@ async function uploadImages() {
             new_urls_arg: uploadedUrls
         });
 
-        if (rpcError) {
-            throw rpcError;
-        }
+        if (rpcError) throw rpcError;
 
+        // --- SUCCESS STATE ---
         renderPreviews();
-        // updateUploadButton(); // REMOVE THIS LINE - This was causing the button to "disappear" too early.
-
         uploadBtn.textContent = 'Uploaded Successfully! You may close this page.';
+        uploadBtn.classList.add('uploaded'); // Add final state class
+        uploadBtn.disabled = true; // Keep disabled, but new class will style it
+        isUploading = false;
 
     } catch (error) {
         console.error('Upload error:', error);
-        uploadBtn.textContent = 'Upload Failed. Try Again.';
-    } finally {
-        // Ensure the flag is always reset, whether upload succeeds or fails
+        // --- FAILURE STATE ---
+        alert('Upload failed. Please check your connection and try again.');
+        uploadBtn.textContent = 'Upload Scans'; // Revert to original text
+        uploadBtn.disabled = false; // Re-enable button, will turn blue
         isUploading = false;
     }
 }
 // --- END: MODIFIED FUNCTION ---
+
 
 /**
  * Removes an image from the local list and, if uploaded, from Supabase Storage and DB.
@@ -489,23 +483,19 @@ async function uploadImages() {
  */
 async function removeImage(idToRemove) {
     const indexToRemove = allImagesForSession.findIndex(item => item.id === idToRemove);
-    if (indexToRemove === -1) return; // Image not found
+    if (indexToRemove === -1) return;
 
     const itemToRemove = allImagesForSession[indexToRemove];
 
     if (itemToRemove.type === 'uploaded') {
-        // If it's an already uploaded image, delete from Supabase Storage and DB
         const urlToRemove = itemToRemove.data;
-        // Extract filename from the URL to construct the storage path
         const filename = urlToRemove.split('/').pop();
         const filePath = `temp_scans/${sessionToken}/${filename}`;
 
         try {
-            // Delete from Supabase Storage
             const { error: deleteError } = await sb.storage.from(STORAGE_BUCKET).remove([filePath]);
             if (deleteError) throw deleteError;
 
-            // Fetch current paths from DB to ensure we're updating the latest version
             const { data: currentSessionData, error: fetchError } = await sb
                 .from('scan_sessions')
                 .select('uploaded_image_paths')
@@ -515,10 +505,8 @@ async function removeImage(idToRemove) {
             if (fetchError) throw fetchError;
 
             const existingPaths = currentSessionData.uploaded_image_paths || [];
-            // Filter out the URL of the image being removed
             const updatedPaths = existingPaths.filter(path => path !== urlToRemove);
 
-            // Update the scan_sessions table with the new list of paths
             const { error: updateError } = await sb
                 .from('scan_sessions')
                 .update({ uploaded_image_paths: updatedPaths })
@@ -528,11 +516,10 @@ async function removeImage(idToRemove) {
 
         } catch (error) {
             console.error('Remove image error:', error);
-            return; // Stop if deletion failed
+            return;
         }
     }
 
-    // Remove from local array and re-render the previews
     allImagesForSession.splice(indexToRemove, 1);
     renderPreviews();
 }
