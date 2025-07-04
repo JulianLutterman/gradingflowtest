@@ -148,6 +148,7 @@ button {
 
 .upload-btn {
     font-family: "Quicksand", sans-serif;
+    font-weight: bold;
     background: #14110f;
     color: #f6f5f3;
     border: none;
@@ -189,14 +190,14 @@ button {
 
 .preview-item {
     position: relative;
-    border: 1px solid #ddd;
-    border-radius: 5px;
+    border: 1px solid #14110F;
+    border-radius: 15px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background-color: #f9f9f9;
+    background-color: #F6F5F3;
 }
 
     .preview-item img {
@@ -209,8 +210,8 @@ button {
     position: absolute;
     top: 5px;
     right: 5px;
-    background: rgba(255, 0, 0, 0.8); /* Slightly transparent red */
-    color: white;
+    background: #E3170A; /* Slightly transparent red */
+    color: #F6F5F3;
     border: none;
     border-radius: 50%;
     width: 28px; /* Slightly larger for easier tapping */
@@ -228,7 +229,7 @@ button {
     border-radius: 5px;
     margin: 10px 0;
     text-align: center;
-    font-size: 0.95em;
+    font-size: 16px;
 }
 
 .status-success {
