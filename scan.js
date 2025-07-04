@@ -38,11 +38,6 @@ function generateUUID() {
     });
 }
 
-// Show status messages (removed - keeping function for compatibility)
-function showStatus(message, type) {
-    // Status messages removed per user request
-}
-
 async function findBestRearCamera() {
     try {
         const devices = await navigator.mediaDevices.enumerateDevices();
