@@ -912,6 +912,7 @@ function stopScanPolling() {
 /**
  * Checks the current status of the scan session
  */
+// REPLACE the existing checkScanStatus function in exam.js with this:
 async function checkScanStatus(examId) {
     if (!currentScanSessionToken) return;
 
@@ -931,6 +932,15 @@ async function checkScanStatus(examId) {
         if (session.status === 'uploaded') {
             setButtonText(generateScanLinkButtonText, 'Images detected!');
             stopScanPolling();
+
+            // Animate out the QR code area
+            scanLinkArea.classList.add('hiding');
+            setTimeout(() => {
+                scanLinkArea.classList.add('hidden');
+                scanLinkArea.classList.remove('hiding'); // Reset for next time
+            }, 500); // Duration should match CSS transition
+
+            // Continue processing in the background
             await processScannedAnswers(examId);
         }
 
@@ -1057,15 +1067,6 @@ async function processScannedAnswers(examId) {
         if (scanSession?.id) {
             await sb.from('scan_sessions').update({ status: 'failed', error_message: error.message }).eq('id', scanSession.id);
         }
-    } finally {
-        showSpinner(false, spinnerStudent);
-        setTimeout(() => {
-            studentAnswersForm.reset();
-            scanLinkArea.classList.add('hidden');
-            generateScanLinkButton.disabled = false;
-            setButtonText(generateScanLinkButtonText, DEFAULT_SCAN_BUTTON_TEXT);
-            currentScanSessionToken = null;
-        }, isError ? 5000 : 3000);
     }
 }
 
