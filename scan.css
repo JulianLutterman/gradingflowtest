@@ -4,12 +4,15 @@
     --color-text-dark: #14110F; /* Dark charcoal for text, borders, and success states */
     --color-text-light: #F6F5F3; /* Same as background, used for text on dark surfaces */
     --color-primary: #0066ff; /* Main blue for buttons */
-    --color-primary-hover: #0056b3; /* Darker blue for hover states */
     --color-info-bg: #d6e7ff; /* Light blue for the student info banner */
-    --color-danger: #E3170A; /* Red for remove/delete buttons */
+    --color-light-blue-two: #c2daff;
+    --color-blue-pastel: #334195;
+    --color-blue-pastel-light-one: #7684d0;
+    --color-blue-pastel-light-two: #959fdb;
+    --color-danger-light: #FDDAD8;
     --color-disabled-bg: #dcd8d0; /* Beige for disabled upload button */
-    --color-disabled-alt-bg: #ccc; /* Gray for other disabled elements */
 }
+
 
 body {
     font-family: "Quicksand", sans-serif;
@@ -55,15 +58,11 @@ button {
     font-weight: bold;
 }
 
-    #activateCameraBtn:hover {
-        background: var(--color-primary-hover);
-    }
-
 /* Styles for the camera feed and container */
 .camera-container {
     position: relative;
     width: 100%; /* Takes full width of its parent */
-    margin: 0 auto;
+    margin: 20px auto;
     background-color: var(--color-text-dark);
     border-radius: 25px;
     overflow: hidden;
@@ -173,25 +172,19 @@ button {
     transition: background-color 0.3s, color 0.3s;
 }
 
-/* State 2: Enabled (Ready to upload) */
-#uploadBtn {
-    background-color: var(--color-primary);
-    color: var(--color-text-light);
-}
-
     /* State 1: Initial Disabled (and during upload) */
     #uploadBtn:disabled {
-        background-color: var(--color-disabled-bg);
-        color: var(--color-text-dark);
         cursor: not-allowed;
+        transform: translateY(4px) translateX(-2px);
+        box-shadow: -2px 4px 0 var(--color-blue-pastel);
     }
 
     /* State 4: Success (Overrides disabled style) */
-    #uploadBtn.uploaded {
-        background-color: var(--color-text-dark);
-        color: var(--color-text-light);
-        cursor: default; /* Show it's a final state */
-    }
+#uploadBtn.uploaded {
+    cursor: not-allowed;
+    transform: translateY(4px) translateX(-2px);
+    box-shadow: -2px 4px 0 var(--color-blue-pastel);
+}
 
 /* Main upload button at the bottom */
 #uploadBtn {
@@ -202,7 +195,26 @@ button {
     display: block; /* Ensure it takes full width */
     margin-left: auto; /* Center it */
     margin-right: auto; /* Center it */
+    align-items: center;
+    justify-content: center;
+    background: var(--color-blue-pastel-light-one);
+    color: var(--color-text-light);
+    text-decoration: none;
+    font-weight: 800;
+    border-radius: 15px;
+    border: 3px solid var(--color-blue-pastel-light-two);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    position: relative;
+    /* Physical button effect */
+    box-shadow: -4px 8px 0 var(--color-blue-pastel);
+    transform: translateY(0);
 }
+
+    #uploadBtn:hover {
+        transform: translateY(4px) translateX(-2px);
+        box-shadow: -2px 4px 0 var(--color-blue-pastel);
+    }
 
 /* --- END: MODIFIED BUTTON STYLES --- */
 
