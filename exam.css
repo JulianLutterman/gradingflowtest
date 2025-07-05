@@ -257,6 +257,18 @@ button {
         box-shadow: -2px 4px 0 var(--color-blue-pastel);
     }
 
+/* ADD THIS to exam.css */
+#scan-link-area {
+    /* Add transition for smooth animation */
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+    #scan-link-area.hiding {
+        /* The state during the animation */
+        opacity: 0;
+        transform: scale(0.9);
+    }
+
 /* --- MODIFIED: Styles for the large grading button --- */
 #grade-all-button {
     /* Inherits .container and .pushable-button styles */
