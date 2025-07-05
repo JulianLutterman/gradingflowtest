@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+﻿
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -333,9 +334,9 @@
                 card.href = `exam.html?id=${exam.id}`;
                 card.className = 'exam-card';
                 card.innerHTML = `
-                            <h3>${exam.exam_name}</h3>
-                            <p>Uploaded on: ${new Date(exam.created_at).toLocaleDateString()}</p>
-                        `;
+                                <h3>${exam.exam_name}</h3>
+                                <p>Uploaded on: ${new Date(exam.created_at).toLocaleDateString()}</p>
+                            `;
                 examCardsContainer.appendChild(card);
             });
         }
