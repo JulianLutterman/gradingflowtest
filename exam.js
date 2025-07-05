@@ -25,12 +25,12 @@ const questionsContainer = document.getElementById('questions-container');
 // Appendix Form
 const appendixForm = document.getElementById('appendix-form');
 const submitAppendixButton = document.getElementById('submit-appendix-button');
-const statusLogAppendix = document.getElementById('status-log-appendix');
+const submitAppendixButtonText = document.getElementById('submit-appendix-button-text'); // NEW
 const spinnerAppendix = document.getElementById('spinner-appendix');
 // Model Form
 const modelForm = document.getElementById('model-form');
 const submitModelButton = document.getElementById('submit-model-button');
-const statusLogModel = document.getElementById('status-log-model');
+const submitModelButtonText = document.getElementById('submit-model-button-text'); // NEW
 const spinnerModel = document.getElementById('spinner-model');
 // Modals
 const rulesModal = document.getElementById('rules-modal');
@@ -42,15 +42,15 @@ const appendixModalClose = document.getElementById('appendix-modal-close');
 // Student Answers Form (Modified)
 const studentAnswersForm = document.getElementById('student-answers-form');
 const generateScanLinkButton = document.getElementById('generate-scan-link-button');
-const scanLinkArea = document.getElementById('scan-link-area'); // New
-const qrcodeCanvas = document.getElementById('qrcode-canvas'); // New
-const scanUrlLink = document.getElementById('scan-url'); // New
-const statusLogStudent = document.getElementById('status-log-student');
+const generateScanLinkButtonText = document.getElementById('generate-scan-link-button-text'); // NEW
+const scanLinkArea = document.getElementById('scan-link-area');
+const qrcodeCanvas = document.getElementById('qrcode-canvas');
+const scanUrlLink = document.getElementById('scan-url');
 const spinnerStudent = document.getElementById('spinner-student');
 // Grading Elements
 const gradeAllButton = document.getElementById('grade-all-button');
+const gradeAllButtonText = document.getElementById('grade-all-button-text');
 const spinnerGrading = document.getElementById('spinner-grading');
-const statusLogGrading = document.getElementById('status-log-grading');
 
 // Global variable to store the current scan session token
 let currentScanSessionToken = null;
@@ -58,15 +58,32 @@ let currentScanSessionToken = null;
 let scanPollingInterval = null;
 let scanProcessingTimeout = null;
 
+// NEW: Global constants for default button texts
+const DEFAULT_GRADING_BUTTON_TEXT = 'Grade All Ungraded Submissions';
+const DEFAULT_APPENDIX_BUTTON_TEXT = 'Process and Upload Appendix';
+const DEFAULT_MODEL_BUTTON_TEXT = 'Process and Upload Answer Model';
+const DEFAULT_SCAN_BUTTON_TEXT = 'Generate Scan Link';
+
 
 // --- HELPER FUNCTIONS ---
-const log = (message, targetLog) => {
-    console.log(message);
-    targetLog.textContent += `\n> ${message}`;
-    targetLog.scrollTop = targetLog.scrollHeight;
-};
-const clearLog = (message, targetLog) => { targetLog.textContent = `> ${message}`; };
 const showSpinner = (show, targetSpinner) => { targetSpinner.classList.toggle('hidden', !show); };
+
+// NEW: Generic helper to update a button's text
+const setButtonText = (buttonTextElement, message) => {
+    if (buttonTextElement) {
+        buttonTextElement.textContent = message;
+    }
+    // Also log to console for a persistent history of status changes
+    console.log(`UI Status: ${message}`);
+};
+
+// Renamed for clarity
+const updateGradingButtonText = (message) => {
+    if (gradeAllButtonText) {
+        gradeAllButtonText.textContent = message;
+    }
+    console.log(`Grading Status: ${message}`);
+};
 
 function getFilenameFromUrl(url) {
     if (!url) return null;
@@ -80,15 +97,37 @@ function getFilenameFromUrl(url) {
     }
 }
 
+function setupFileInputFeedback(inputId, displayId) {
+    const fileInput = document.getElementById(inputId);
+    const fileDisplay = document.getElementById(displayId);
+
+    if (fileInput && fileDisplay) {
+        fileInput.addEventListener('change', () => {
+            const files = fileInput.files;
+            if (files.length > 0) {
+                if (files.length === 1) {
+                    fileDisplay.textContent = files[0].name;
+                } else {
+                    fileDisplay.textContent = `${files.length} files selected`;
+                }
+            } else {
+                fileDisplay.textContent = 'No files chosen';
+            }
+        });
+    }
+}
+
 // --- MAIN LOGIC ---
 document.addEventListener('DOMContentLoaded', async () => {
+    setupFileInputFeedback('appendix-files', 'appendix-file-display');
+    setupFileInputFeedback('model-files', 'model-file-display');
+
     const urlParams = new URLSearchParams(window.location.search);
     const examId = urlParams.get('id');
 
     if (!examId) {
         examNameTitle.textContent = "Error: No Exam ID provided.";
         questionsContainer.innerHTML = '<p>Please return to the main page and select an exam.</p>';
-        // Hide all upload forms
         document.querySelectorAll('.container').forEach(c => {
             if (c.querySelector('form') || c.querySelector('#grade-all-button')) {
                 c.classList.add('hidden');
@@ -99,7 +138,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     await loadExamDetails(examId);
 
-    // --- MODAL CLOSING LOGIC ---
     [rulesModal, appendixModal].forEach(modal => {
         modal.addEventListener('click', (event) => {
             if (event.target === modal) modal.classList.add('hidden');
@@ -148,25 +186,21 @@ function renderExam(questions) {
         const questionBlock = document.createElement('div');
         questionBlock.className = 'question-block';
 
-        // --- Appendix Button ---
         let appendixButtonHtml = '';
         if (q.appendices && q.appendices.length > 0) {
             const appendixData = JSON.stringify(q.appendices);
             appendixButtonHtml = `<button class="appendix-button" data-appendix='${appendixData}'>Show Appendix</button>`;
         }
 
-        // --- Grid Layout ---
         let gridHtml = '';
         if (q.sub_questions && q.sub_questions.length > 0) {
             const subQuestionCells = q.sub_questions.map(sq => {
-                // --- Column 1: Sub-Question ---
                 let mcqHtml = '';
                 if (sq.mcq_options && sq.mcq_options.length > 0) {
                     mcqHtml = sq.mcq_options.map(opt => `<div class="mcq-option"><strong>${opt.mcq_letter}:</strong> <span class="formatted-text">${opt.mcq_content}</span></div>`).join('');
                 }
                 const subQCell = `<div class="grid-cell"><div class="sub-question-content"><p class="formatted-text"><strong>${sq.sub_q_text_content || ''}</strong></p>${mcqHtml}</div></div>`;
 
-                // --- Column 2: Model Answer ---
                 let modelAnswerHtml = 'No model answer provided.';
                 if (sq.model_alternatives && sq.model_alternatives.length > 0) {
                     sq.model_alternatives.sort((a, b) => a.alternative_number - b.alternative_number);
@@ -184,7 +218,6 @@ function renderExam(questions) {
                 }
                 const modelCell = `<div class="grid-cell">${modelAnswerHtml}</div>`;
 
-                // --- Column 3: Student Answers ---
                 let studentAnswersHtml = 'No answers submitted.';
                 if (sq.student_answers && sq.student_answers.length > 0) {
                     const answersByStudent = sq.student_answers.reduce((acc, ans) => {
@@ -194,7 +227,7 @@ function renderExam(questions) {
                         if (!acc[studentKey]) {
                             acc[studentKey] = { info: student, answers: [] };
                         }
-                        acc[studentKey].answers.push(ans); // Push the whole answer object
+                        acc[studentKey].answers.push(ans);
                         return acc;
                     }, {});
 
@@ -243,7 +276,6 @@ function renderExam(questions) {
         questionsContainer.appendChild(questionBlock);
     });
 
-    // Add event listeners for the new appendix buttons
     document.querySelectorAll('.appendix-button').forEach(button => {
         button.addEventListener('click', (e) => {
             const appendices = JSON.parse(e.target.dataset.appendix);
@@ -267,27 +299,33 @@ function renderExam(questions) {
     });
 }
 
-// --- APPENDIX UPLOAD LOGIC (UNCHANGED) ---
+// --- APPENDIX UPLOAD LOGIC (MODIFIED LOGGING) ---
 appendixForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     submitAppendixButton.disabled = true;
     showSpinner(true, spinnerAppendix);
-    clearLog('Starting appendix processing...', statusLogAppendix);
+    setButtonText(submitAppendixButtonText, 'Starting...');
+
     const urlParams = new URLSearchParams(window.location.search);
     const examId = urlParams.get('id');
     const files = document.getElementById('appendix-files').files;
+    let isError = false;
+
     if (!examId || files.length === 0) {
         alert('Cannot proceed without an Exam ID and at least one file.');
         submitAppendixButton.disabled = false;
         showSpinner(false, spinnerAppendix);
+        setButtonText(submitAppendixButtonText, DEFAULT_APPENDIX_BUTTON_TEXT);
         return;
     }
+
     try {
-        log('Fetching current exam structure...', statusLogAppendix);
+        setButtonText(submitAppendixButtonText, 'Fetching exam...');
         const { data: examData, error: fetchError } = await fetchExamDataForAppendixJson(examId);
         if (fetchError) throw new Error(`Could not fetch exam data: ${fetchError.message}`);
         const examStructureForGcf = { questions: examData.questions };
-        log('Uploading appendix files and exam structure to processing service...', statusLogAppendix);
+
+        setButtonText(submitAppendixButtonText, 'Thinking... (may take 1 minute)');
         const formData = new FormData();
         for (const file of files) { formData.append('files', file); }
         formData.append('exam_structure', JSON.stringify(examStructureForGcf));
@@ -296,7 +334,8 @@ appendixForm.addEventListener('submit', async (e) => {
             const errorText = await gcfResponse.text();
             throw new Error(`Cloud function failed: ${gcfResponse.statusText} - ${errorText}`);
         }
-        log('Processing service returned success. Unzipping results...', statusLogAppendix);
+
+        setButtonText(submitAppendixButtonText, 'Processing...');
         const zipBlob = await gcfResponse.blob();
         const jszip = new JSZip();
         const zip = await jszip.loadAsync(zipBlob);
@@ -304,41 +343,58 @@ appendixForm.addEventListener('submit', async (e) => {
         if (!jsonFile) throw new Error("No JSON file found in the returned zip.");
         const jsonContent = await jsonFile.async('string');
         const appendixData = JSON.parse(jsonContent);
-        log('Successfully parsed appendix structure from JSON.', statusLogAppendix);
+
+        setButtonText(submitAppendixButtonText, 'Saving...');
         await processAndUploadAppendices(examId, appendixData.appendices, zip);
-        log('✅ Appendix successfully uploaded and linked to questions!', statusLogAppendix);
+
+        setButtonText(submitAppendixButtonText, 'Refreshing data...');
         appendixForm.reset();
+        document.getElementById('appendix-file-display').textContent = 'No files chosen';
         await loadExamDetails(examId);
+
     } catch (error) {
-        log(`❌ An error occurred: ${error.message}`, statusLogAppendix);
+        setButtonText(submitAppendixButtonText, `Error!`);
         console.error(error);
+        isError = true;
     } finally {
-        submitAppendixButton.disabled = false;
+        if (!isError) {
+            setButtonText(submitAppendixButtonText, 'Success!');
+        }
         showSpinner(false, spinnerAppendix);
+        setTimeout(() => {
+            submitAppendixButton.disabled = false;
+            setButtonText(submitAppendixButtonText, DEFAULT_APPENDIX_BUTTON_TEXT);
+        }, isError ? 5000 : 3000);
     }
 });
 
-// --- ANSWER MODEL UPLOAD LOGIC (UNCHANGED) ---
+// --- ANSWER MODEL UPLOAD LOGIC (MODIFIED LOGGING) ---
 modelForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     submitModelButton.disabled = true;
     showSpinner(true, spinnerModel);
-    clearLog('Starting answer model processing...', statusLogModel);
+    setButtonText(submitModelButtonText, 'Starting...');
+
     const urlParams = new URLSearchParams(window.location.search);
     const examId = urlParams.get('id');
     const files = document.getElementById('model-files').files;
+    let isError = false;
+
     if (!examId || files.length === 0) {
         alert('Cannot proceed without an Exam ID and at least one file.');
         submitModelButton.disabled = false;
         showSpinner(false, spinnerModel);
+        setButtonText(submitModelButtonText, DEFAULT_MODEL_BUTTON_TEXT);
         return;
     }
+
     try {
-        log('Fetching exam structure for model processing...', statusLogModel);
+        setButtonText(submitModelButtonText, 'Fetching exam...');
         const { data: examStructure, error: fetchError } = await fetchExamDataForModelJson(examId);
         if (fetchError) throw new Error(`Could not fetch exam data for model: ${fetchError.message}`);
         const examStructureForGcf = { questions: examStructure };
-        log('Uploading model files and exam structure to processing service...', statusLogModel);
+
+        setButtonText(submitModelButtonText, 'Thinking... (may take 4 mins)');
         const formData = new FormData();
         for (const file of files) { formData.append('files', file); }
         formData.append('exam_structure', JSON.stringify(examStructureForGcf));
@@ -347,7 +403,8 @@ modelForm.addEventListener('submit', async (e) => {
             const errorText = await gcfResponse.text();
             throw new Error(`Cloud function failed: ${gcfResponse.statusText} - ${errorText}`);
         }
-        log('Processing service returned success. Unzipping results...', statusLogModel);
+
+        setButtonText(submitModelButtonText, 'Processing...');
         const zipBlob = await gcfResponse.blob();
         const jszip = new JSZip();
         const zip = await jszip.loadAsync(zipBlob);
@@ -355,24 +412,36 @@ modelForm.addEventListener('submit', async (e) => {
         if (!jsonFile) throw new Error("No JSON file found in the returned zip.");
         const jsonContent = await jsonFile.async('string');
         const modelData = JSON.parse(jsonContent);
-        log('Successfully parsed answer model from JSON.', statusLogModel);
+
+        setButtonText(submitModelButtonText, 'Saving...');
         await processAndUploadModel(examId, modelData.questions, zip);
-        log('✅ Answer Model successfully uploaded and saved!', statusLogModel);
+
+        setButtonText(submitModelButtonText, 'Refreshing data...');
         modelForm.reset();
+        document.getElementById('model-file-display').textContent = 'No files chosen';
         await loadExamDetails(examId);
+
     } catch (error) {
-        log(`❌ An error occurred: ${error.message}`, statusLogModel);
+        setButtonText(submitModelButtonText, `Error!`);
         console.error(error);
+        isError = true;
     } finally {
-        submitModelButton.disabled = false;
+        if (!isError) {
+            setButtonText(submitModelButtonText, 'Success!');
+        }
         showSpinner(false, spinnerModel);
+        setTimeout(() => {
+            submitModelButton.disabled = false;
+            setButtonText(submitModelButtonText, DEFAULT_MODEL_BUTTON_TEXT);
+        }, isError ? 5000 : 3000);
     }
 });
 
+// --- STUDENT SCAN LINK GENERATION (MODIFIED LOGGING) ---
 generateScanLinkButton.addEventListener('click', async () => {
     generateScanLinkButton.disabled = true;
     showSpinner(true, spinnerStudent);
-    clearLog('Generating scan link...', statusLogStudent);
+    setButtonText(generateScanLinkButtonText, 'Generating link...');
 
     const urlParams = new URLSearchParams(window.location.search);
     const examId = urlParams.get('id');
@@ -383,22 +452,24 @@ generateScanLinkButton.addEventListener('click', async () => {
         alert('Please provide a student name or student number.');
         generateScanLinkButton.disabled = false;
         showSpinner(false, spinnerStudent);
+        setButtonText(generateScanLinkButtonText, DEFAULT_SCAN_BUTTON_TEXT);
         return;
     }
     if (!examId) {
         alert('Cannot proceed without an Exam ID.');
         generateScanLinkButton.disabled = false;
         showSpinner(false, spinnerStudent);
+        setButtonText(generateScanLinkButtonText, DEFAULT_SCAN_BUTTON_TEXT);
         return;
     }
 
     try {
-        log('Calling Edge Function to create scan session...', statusLogStudent);
+        setButtonText(generateScanLinkButtonText, 'Creating session...');
         const response = await fetch(GENERATE_SCAN_SESSION_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}` // Or a service role key if function is protected
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
             },
             body: JSON.stringify({ examId, studentName, studentNumber })
         });
@@ -409,11 +480,10 @@ generateScanLinkButton.addEventListener('click', async () => {
         }
 
         const { session_token } = await response.json();
-        currentScanSessionToken = session_token; // Store the token globally
+        currentScanSessionToken = session_token;
 
         const scanUrl = `${SCAN_PAGE_BASE_URL}?token=${session_token}`;
 
-        log('Scan session created. Generating QR code...', statusLogStudent);
         new QRious({
             element: qrcodeCanvas,
             value: scanUrl,
@@ -424,32 +494,37 @@ generateScanLinkButton.addEventListener('click', async () => {
         scanUrlLink.textContent = scanUrl;
         scanLinkArea.classList.remove('hidden');
 
-        log('QR code and link generated. Waiting for student to scan and upload...', statusLogStudent);
-        log('Monitoring for uploaded images (will auto-process when ready)...', statusLogStudent);
+        showSpinner(false, spinnerStudent); // Hide spinner, but keep button disabled
+        setButtonText(generateScanLinkButtonText, 'Waiting for your scan...');
 
-        // NEW: Start polling for status changes
         startScanPolling(examId);
 
     } catch (error) {
-        log(`❌ An error occurred: ${error.message}`, statusLogStudent);
+        setButtonText(generateScanLinkButtonText, 'Error!');
         console.error(error);
-        generateScanLinkButton.disabled = false;
         showSpinner(false, spinnerStudent);
+        setTimeout(() => {
+            generateScanLinkButton.disabled = false;
+            setButtonText(generateScanLinkButtonText, DEFAULT_SCAN_BUTTON_TEXT);
+        }, 5000);
     }
 });
 
 
-// --- AUTOMATIC GRADING LOGIC (UNCHANGED) ---
+// --- AUTOMATIC GRADING LOGIC (REFACTORED) ---
 gradeAllButton.addEventListener('click', async (e) => {
     e.preventDefault();
     gradeAllButton.disabled = true;
     showSpinner(true, spinnerGrading);
-    clearLog('Starting grading process...', statusLogGrading);
+    updateGradingButtonText('Starting...');
+
     const urlParams = new URLSearchParams(window.location.search);
     const examId = urlParams.get('id');
+    let finalMessage = '';
+    let isError = false;
 
     try {
-        log('Finding ungraded submissions...', statusLogGrading);
+        updateGradingButtonText('Finding submissions...');
         const { data: ungradedExams, error: findError } = await sb
             .from('student_exams')
             .select('id, students(full_name, student_number)')
@@ -457,11 +532,13 @@ gradeAllButton.addEventListener('click', async (e) => {
             .is('total_points_awarded', null);
 
         if (findError) throw findError;
+
         if (!ungradedExams || ungradedExams.length === 0) {
-            log('✅ No new ungraded submissions found.', statusLogGrading);
+            finalMessage = 'No new submissions found.';
             return;
         }
-        log(`Found ${ungradedExams.length} ungraded submission(s). Preparing data for grading...`, statusLogGrading);
+
+        updateGradingButtonText(`Grading ${ungradedExams.length} submission(s)... (may take 1 minute)`);
 
         const gradingPromises = ungradedExams.map(studentExam => {
             const studentIdentifier = studentExam.students.full_name || studentExam.students.student_number;
@@ -470,25 +547,30 @@ gradeAllButton.addEventListener('click', async (e) => {
 
         const results = await Promise.all(gradingPromises);
 
-        let successCount = 0;
-        results.forEach(result => {
-            if (result.status === 'success') {
-                successCount++;
-            } else {
-                log(`❌ Grading failed for student exam ${result.studentExamId}: ${result.error}`, statusLogGrading);
-            }
-        });
+        const successCount = results.filter(r => r.status === 'success').length;
+        const failureCount = results.length - successCount;
 
-        log(`✅ Successfully graded and saved ${successCount} of ${ungradedExams.length} submissions.`, statusLogGrading);
-        log('Refreshing page data...', statusLogGrading);
+        if (failureCount > 0) {
+            finalMessage = `Graded ${successCount}, ${failureCount} failed.`;
+        } else {
+            finalMessage = `All ${successCount} submissions graded.`;
+        }
+
+        updateGradingButtonText('Refreshing data...');
         await loadExamDetails(examId);
 
     } catch (error) {
-        log(`❌ A critical error occurred during the grading process: ${error.message}`, statusLogGrading);
         console.error(error);
+        finalMessage = `Critical Error. See console.`;
+        isError = true;
     } finally {
-        gradeAllButton.disabled = false;
+        updateGradingButtonText(finalMessage);
         showSpinner(false, spinnerGrading);
+
+        setTimeout(() => {
+            gradeAllButton.disabled = false;
+            updateGradingButtonText(DEFAULT_GRADING_BUTTON_TEXT);
+        }, isError ? 5000 : 3000);
     }
 });
 
@@ -531,33 +613,22 @@ async function fetchExamDataForModelJson(examId) {
     return sb.from('questions').select(`question_number, sub_questions (sub_q_text_content)`).eq('exam_id', examId).order('question_number', { ascending: true });
 }
 
-// Removed fetchExamDataForStudentAnswerJson as it's now handled by process-scanned-session Edge Function
-
-// --- DATA PROCESSING AND UPLOAD FUNCTIONS (UNCHANGED, except processAndUploadStudentAnswers is now in Edge Function) ---
+// --- DATA PROCESSING AND UPLOAD FUNCTIONS ---
 
 async function processAndUploadModel(examId, modelQuestions, zip) {
-    log('Matching model data to existing questions...', statusLogModel);
-
+    setButtonText(submitModelButtonText, 'Processing rules...');
     const rulesFile = zip.file('grading_rules.txt');
     if (rulesFile) {
         try {
-            log('Found grading_rules.txt. Reading content...', statusLogModel);
             const rulesContent = await rulesFile.async('string');
-            log('Updating exam with grading regulations...', statusLogModel);
             const { error: updateError } = await sb
                 .from('exams')
                 .update({ grading_regulations: rulesContent })
                 .eq('id', examId);
-
-            if (updateError) {
-                throw updateError;
-            }
-            log('Successfully saved grading regulations.', statusLogModel);
+            if (updateError) throw updateError;
         } catch (error) {
-            log(`⚠️ Warning: Could not save grading regulations: ${error.message}`, statusLogModel);
+            console.warn(`Could not save grading regulations: ${error.message}`);
         }
-    } else {
-        log('No grading_rules.txt found in the zip file. Skipping regulations update.', statusLogModel);
     }
 
     const { data: dbQuestions, error: fetchError } = await sb.from('questions').select('id, question_number, sub_questions(id, sub_q_text_content)').eq('exam_id', examId);
@@ -566,48 +637,26 @@ async function processAndUploadModel(examId, modelQuestions, zip) {
         qMap[q.question_number] = q.sub_questions.reduce((sqMap, sq) => { sqMap[sq.sub_q_text_content] = sq.id; return sqMap; }, {});
         return qMap;
     }, {});
+
     for (const q_model of modelQuestions) {
         for (const sq_model of q_model.sub_questions) {
             const sub_question_id = subQuestionLookup[q_model.question_number]?.[sq_model.sub_q_text_content];
             if (!sub_question_id) {
-                log(`⚠️ Warning: Could not find matching sub-question for Q#${q_model.question_number}. Skipping.`, statusLogModel);
+                console.warn(`Could not find matching sub-question for Q#${q_model.question_number}. Skipping.`);
                 continue;
             }
 
-            // --- NEW LOGIC TO CALCULATE AND UPDATE MAX_SUB_POINTS ---
             if (sq_model.model_alternatives && sq_model.model_alternatives.length > 0) {
-                // Find the alternative with alternative_number 1.
-                let primaryAlternative = sq_model.model_alternatives.find(alt => alt.alternative_number === 1);
-                
-                // If no alternative #1 is explicitly defined, fall back to the first one in the array.
-                if (!primaryAlternative) {
-                    primaryAlternative = sq_model.model_alternatives[0];
-                    log(`  - Note: No alternative #1 found for Q#${q_model.question_number}. Using first available alternative for point calculation.`, statusLogModel);
-                }
-
-                if (primaryAlternative && primaryAlternative.model_components && primaryAlternative.model_components.length > 0) {
-                    // Sum the points from the components of this single alternative.
-                    const calculatedMaxPoints = primaryAlternative.model_components.reduce((sum, comp) => {
-                        return sum + (Number(comp.component_points) || 0);
-                    }, 0);
-
-                    // Update the max_sub_points in the database for this sub_question.
-                    log(`  - Updating max points for sub-question to ${calculatedMaxPoints}...`, statusLogModel);
-                    const { error: updatePointsError } = await sb
-                        .from('sub_questions')
-                        .update({ max_sub_points: calculatedMaxPoints })
-                        .eq('id', sub_question_id);
-
-                    if (updatePointsError) {
-                        // Log a warning but don't stop the whole process.
-                        log(`⚠️ Warning: Could not update max_sub_points for sub-question ID ${sub_question_id}: ${updatePointsError.message}`, statusLogModel);
-                    }
+                let primaryAlternative = sq_model.model_alternatives.find(alt => alt.alternative_number === 1) || sq_model.model_alternatives[0];
+                if (primaryAlternative && primaryAlternative.model_components?.length > 0) {
+                    const calculatedMaxPoints = primaryAlternative.model_components.reduce((sum, comp) => sum + (Number(comp.component_points) || 0), 0);
+                    const { error: updatePointsError } = await sb.from('sub_questions').update({ max_sub_points: calculatedMaxPoints }).eq('id', sub_question_id);
+                    if (updatePointsError) console.warn(`Could not update max_sub_points for sub-question ID ${sub_question_id}: ${updatePointsError.message}`);
                 }
             }
-            // --- END OF NEW LOGIC ---
 
             if (!sq_model.model_alternatives || sq_model.model_alternatives.length === 0) continue;
-            log(`Processing model for Q#${q_model.question_number}...`, statusLogModel);
+            setButtonText(submitModelButtonText, `Saving Q#${q_model.question_number}...`);
             for (const alt_model of sq_model.model_alternatives) {
                 const { data: newAlternative, error: altError } = await sb.from('model_alternatives').insert({ sub_question_id: sub_question_id, alternative_number: alt_model.alternative_number, extra_comment: alt_model.extra_comment }).select('id').single();
                 if (altError) throw new Error(`Failed to insert model alternative: ${altError.message}`);
@@ -619,7 +668,6 @@ async function processAndUploadModel(examId, modelQuestions, zip) {
                     if (comp_model.component_visual) {
                         const visualFile = zip.file(comp_model.component_visual);
                         if (visualFile) {
-                            log(`  - Uploading model visual: ${comp_model.component_visual}`, statusLogModel);
                             const filePath = `public/${examId}/models/${Date.now()}_${comp_model.component_visual}`;
                             const fileBlob = await visualFile.async('blob');
                             const fileToUpload = new File([fileBlob], comp_model.component_visual, { type: `image/${comp_model.component_visual.split('.').pop()}` });
@@ -628,13 +676,12 @@ async function processAndUploadModel(examId, modelQuestions, zip) {
                             const { data: urlData } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(filePath);
                             componentVisualUrl = urlData.publicUrl;
                         } else {
-                            log(`  - ⚠️ Warning: Visual file ${comp_model.component_visual} not found in zip.`, statusLogModel);
+                            console.warn(`Visual file ${comp_model.component_visual} not found in zip.`);
                         }
                     }
                     componentsToInsert.push({ alternative_id: alternative_id, component_text: comp_model.component_text, component_visual: componentVisualUrl, component_points: comp_model.component_points, component_order: comp_model.component_order });
                 }
                 if (componentsToInsert.length > 0) {
-                    log(`  - Inserting ${componentsToInsert.length} model components...`, statusLogModel);
                     const { error: compError } = await sb.from('model_components').insert(componentsToInsert);
                     if (compError) throw new Error(`Failed to insert model components: ${compError.message}`);
                 }
@@ -643,25 +690,21 @@ async function processAndUploadModel(examId, modelQuestions, zip) {
     }
 }
 
-// processAndUploadStudentAnswers function is now handled by the process-scanned-session Edge Function.
-
-// --- GRADING HELPER FUNCTIONS (UNCHANGED) ---
+// --- GRADING HELPER FUNCTIONS (REFACTORED) ---
 
 async function processSingleStudent(examId, studentExamId, studentIdentifier) {
     try {
-        // A. Fetch the data in the required JSON structure
-        log(`Fetching data for ${studentIdentifier}...`, statusLogGrading);
+        console.log(`Fetching data for ${studentIdentifier}...`);
         const { data: gradingData, error: dataError } = await fetchGradingDataForStudent(examId, studentExamId);
         if (dataError) throw new Error(`Data fetch failed: ${dataError.message}`);
         if (!gradingData || !gradingData.questions || gradingData.questions.length === 0) {
-            log(`No answer data found for ${studentIdentifier}. Marking as graded with 0 points.`, statusLogGrading);
+            console.log(`No answer data found for ${studentIdentifier}. Marking as graded with 0 points.`);
             await sb.from('student_exams').update({ total_points_awarded: 0, status: 'graded' }).eq('id', studentExamId);
             return { status: 'success', studentExamId };
         }
 
-        // B. Collect all image URLs and fetch them, and build sub-question ID map
         const imageUrls = new Set();
-        const subQuestionAnswerIdMap = new Map(); // Map<sub_question_id, student_answer_id>
+        const subQuestionAnswerIdMap = new Map();
 
         JSON.stringify(gradingData, (key, value) => {
             if (value && typeof value === 'string' && value.startsWith('http')) {
@@ -679,7 +722,7 @@ async function processSingleStudent(examId, studentExamId, studentIdentifier) {
             return value;
         });
 
-        const imageBlobs = new Map(); // Map<filename, blob>
+        const imageBlobs = new Map();
         const fetchImagePromises = Array.from(imageUrls).map(async (url) => {
             const filename = getFilenameFromUrl(url);
             if (filename) {
@@ -690,15 +733,13 @@ async function processSingleStudent(examId, studentExamId, studentIdentifier) {
             }
         });
         await Promise.all(fetchImagePromises);
-        log(`Fetched ${imageBlobs.size} unique images for ${studentIdentifier}.`, statusLogGrading);
+        console.log(`Fetched ${imageBlobs.size} unique images for ${studentIdentifier}.`);
 
-        // C. Call the GCF
-        log(`Sending data to AI for grading (${studentIdentifier})...`, statusLogGrading);
+        console.log(`Sending data to AI for grading (${studentIdentifier})...`);
         const gcfResponse = await callGradingGcf(gradingData, imageBlobs);
 
-        // D. Process the response and update the DB
         await updateGradingResultsInDb(studentExamId, gcfResponse, subQuestionAnswerIdMap);
-        log(`✅ Saved results for ${studentIdentifier}.`, statusLogGrading);
+        console.log(`Saved results for ${studentIdentifier}.`);
 
         return { status: 'success', studentExamId };
     } catch (error) {
@@ -708,7 +749,6 @@ async function processSingleStudent(examId, studentExamId, studentIdentifier) {
 }
 
 async function fetchGradingDataForStudent(examId, studentExamId) {
-    // 1. Fetch the base exam structure with model answers etc.
     const { data: examBase, error: baseError } = await sb
         .from('exams')
         .select(`
@@ -730,7 +770,6 @@ async function fetchGradingDataForStudent(examId, studentExamId) {
 
     if (baseError) throw baseError;
 
-    // 2. Fetch all answers for this specific student exam.
     const { data: studentAnswers, error: answersError } = await sb
         .from('student_answers')
         .select('id, sub_question_id, answer_text, answer_visual')
@@ -738,18 +777,15 @@ async function fetchGradingDataForStudent(examId, studentExamId) {
 
     if (answersError) throw answersError;
 
-    // 3. Create a map for easy lookup.
     const answersMap = new Map(studentAnswers.map(ans => [ans.sub_question_id, {
         id: ans.id,
         answer_text: ans.answer_text,
         answer_visual: ans.answer_visual
     }]));
 
-    // 4. Inject the student answers into the base structure.
     examBase.questions.forEach(q => {
         q.sub_questions.forEach(sq => {
             const studentAns = answersMap.get(sq.id);
-            // The GCF expects an array for student_answers
             sq.student_answers = studentAns ? [studentAns] : [];
         });
     });
@@ -785,11 +821,9 @@ async function updateGradingResultsInDb(studentExamId, gcfResponse, subQuestionT
         throw new Error("Invalid response from grading service.");
     }
 
-    // The GCF now returns the full question structure
     const allSubQuestionResults = gcfResponse.questions.flatMap(q => q.sub_questions || []);
 
     for (const subQResult of allSubQuestionResults) {
-        // Use the reliable sub_question_id for matching
         const studentAnswerId = subQuestionToAnswerIdMap.get(subQResult.sub_question_id);
 
         if (studentAnswerId && subQResult.student_answers) {
@@ -803,8 +837,7 @@ async function updateGradingResultsInDb(studentExamId, gcfResponse, subQuestionT
             });
             totalPoints += points;
         } else if (subQResult.student_answers && subQResult.student_answers.feedback_comment.startsWith("ERROR:")) {
-            // Log errors from the GCF if a sub-question failed to grade
-            log(`⚠️ GCF Error on sub-question ID ${subQResult.sub_question_id}: ${subQResult.student_answers.feedback_comment}`, statusLogGrading);
+            console.warn(`GCF Error on sub-question ID ${subQResult.sub_question_id}: ${subQResult.student_answers.feedback_comment}`);
         }
     }
 
@@ -840,26 +873,25 @@ async function updateGradingResultsInDb(studentExamId, gcfResponse, subQuestionT
 * Starts polling the scan session for status changes
 */
 function startScanPolling(examId) {
-    // Clear any existing polling
     stopScanPolling();
 
-    // Set up 10-minute timeout
     scanProcessingTimeout = setTimeout(() => {
         stopScanPolling();
-        log('⏰ Scan session timed out after 10 minutes. Please try again if needed.', statusLogStudent);
-        generateScanLinkButton.disabled = false;
-        showSpinner(false, spinnerStudent);
-    }, 10 * 60 * 1000); // 10 minutes
+        setButtonText(generateScanLinkButtonText, 'Timed out.');
+        setTimeout(() => {
+            generateScanLinkButton.disabled = false;
+            setButtonText(generateScanLinkButtonText, DEFAULT_SCAN_BUTTON_TEXT);
+            scanLinkArea.classList.add('hidden');
+        }, 4000);
+    }, 10 * 60 * 1000);
 
-    // Start polling every 5 seconds
     scanPollingInterval = setInterval(async () => {
         try {
             await checkScanStatus(examId);
         } catch (error) {
             console.error('Error during scan polling:', error);
-            // Continue polling even if there's an error
         }
-    }, 5000); // 5 seconds
+    }, 5000);
 }
 
 /**
@@ -885,9 +917,7 @@ async function checkScanStatus(examId) {
     try {
         const response = await fetch(`${SUPABASE_URL}/functions/v1/get-scan-session?token=${currentScanSessionToken}`, {
             method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-            }
+            headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
         });
 
         if (!response.ok) {
@@ -897,11 +927,10 @@ async function checkScanStatus(examId) {
 
         const session = await response.json();
 
-        // Check if status changed to 'uploaded'
         if (session.status === 'uploaded') {
-            log('📸 Images detected! Starting automatic processing...', statusLogStudent);
-            stopScanPolling(); // Stop polling
-            await processScannedAnswers(examId); // Process automatically
+            setButtonText(generateScanLinkButtonText, 'Images detected!');
+            stopScanPolling();
+            await processScannedAnswers(examId);
         }
 
     } catch (error) {
@@ -912,65 +941,44 @@ async function checkScanStatus(examId) {
 /**
  * Processes the scanned answers (moved from the old button click handler)
  */
-// Background processing function (migrated from Edge Function)
 async function processScannedAnswersBackground(scanSession, examId) {
     try {
-        log('Starting background processing...', statusLogStudent);
-
-        // Fetch exam structure for the GCF
-        log('Fetching exam structure...', statusLogStudent);
+        setButtonText(generateScanLinkButtonText, 'Fetching exam...');
         const { data: examStructure, error: fetchExamError } = await sb
             .from('questions')
-            .select(`
-                question_number,
-                sub_questions (
-                    sub_q_text_content
-                )
-            `)
+            .select(`question_number, sub_questions(sub_q_text_content)`)
             .eq('exam_id', examId)
             .order('question_number', { ascending: true });
 
         if (fetchExamError) throw fetchExamError;
-
         const examStructureForGcf = { questions: examStructure };
 
-        // Download images in parallel with limited concurrency
-        log('Downloading images...', statusLogStudent);
+        setButtonText(generateScanLinkButtonText, 'Downloading images...');
         const formData = new FormData();
         formData.append('exam_structure', JSON.stringify(examStructureForGcf));
 
         const downloadPromises = scanSession.uploaded_image_paths.map(async (imageUrl) => {
             const filename = imageUrl.split('/').pop();
-            try {
-                const { data: imageBlob, error: downloadError } = await sb.storage
-                    .from(STORAGE_BUCKET)
-                    .download(`temp_scans/${currentScanSessionToken}/${filename}`);
-
-                if (downloadError) {
-                    console.warn(`Failed to download image ${filename}: ${downloadError.message}`);
-                    return null;
-                }
-
-                return { filename, blob: imageBlob };
-            } catch (error) {
-                console.warn(`Error downloading image ${filename}:`, error);
+            const { data: imageBlob, error: downloadError } = await sb.storage
+                .from(STORAGE_BUCKET)
+                .download(`temp_scans/${currentScanSessionToken}/${filename}`);
+            if (downloadError) {
+                console.warn(`Failed to download image ${filename}: ${downloadError.message}`);
                 return null;
             }
+            return { filename, blob: imageBlob };
         });
 
-        // Wait for all downloads with timeout
         const downloadResults = await Promise.allSettled(downloadPromises);
-        downloadResults.forEach((result, index) => {
+        downloadResults.forEach(result => {
             if (result.status === 'fulfilled' && result.value) {
-                const { filename, blob } = result.value;
-                formData.append('files', blob, filename);
+                formData.append('files', result.value.blob, result.value.filename);
             }
         });
 
-        // Call GCF with timeout handling
-        log('Calling external Cloud Function for processing...', statusLogStudent);
+        setButtonText(generateScanLinkButtonText, 'Thinking... (may take 4 minutes)');
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minute timeout
+        const timeoutId = setTimeout(() => controller.abort(), 300000);
 
         try {
             const gcfResponse = await fetch(STUDENT_ANSWERS_GCF_URL, {
@@ -978,156 +986,85 @@ async function processScannedAnswersBackground(scanSession, examId) {
                 body: formData,
                 signal: controller.signal
             });
-
             clearTimeout(timeoutId);
-
             if (!gcfResponse.ok) {
                 const errorText = await gcfResponse.text();
                 throw new Error(`Cloud function failed: ${gcfResponse.statusText} - ${errorText}`);
             }
 
-            // Process ZIP response from GCF
-            log('Processing response from Cloud Function...', statusLogStudent);
+            setButtonText(generateScanLinkButtonText, 'Parsing results...');
             const zipBlob = await gcfResponse.blob();
             const jszip = new JSZip();
             const zip = await jszip.loadAsync(zipBlob);
-
-            // Find the JSON file within the zip
-            const jsonFile = Object.values(zip.files).find(file =>
-                file.name.endsWith('.json') && !file.dir
-            );
-
-            if (!jsonFile) {
-                throw new Error('Could not find the JSON file inside the ZIP response from the GCF.');
-            }
-
-            // Read and parse JSON content
+            const jsonFile = Object.values(zip.files).find(file => file.name.endsWith('.json') && !file.dir);
+            if (!jsonFile) throw new Error('Could not find JSON in ZIP response.');
             const jsonContent = await jsonFile.async('string');
             const responseData = JSON.parse(jsonContent);
 
-            // Process the response and save to student_answers table
-            log('Saving student answers to database...', statusLogStudent);
+            setButtonText(generateScanLinkButtonText, 'Saving answers...');
             await saveStudentAnswersFromScan(scanSession, examId, responseData);
 
-            // Update scan session status to completed
-            await sb.from('scan_sessions').update({
-                status: 'completed'
-            }).eq('id', scanSession.id);
-
-            // Clean up in background (don't wait for it)
+            await sb.from('scan_sessions').update({ status: 'completed' }).eq('id', scanSession.id);
             cleanupTempFiles(scanSession);
-
-            log('Background processing completed successfully.', statusLogStudent);
 
         } catch (error) {
             clearTimeout(timeoutId);
             if (error.name === 'AbortError') {
-                throw new Error('Processing timed out - please try again with fewer or smaller images');
+                throw new Error('Processing timed out - please try again with fewer/smaller images');
             }
             throw error;
         }
-
     } catch (error) {
         console.error('Background processing failed:', error);
         throw error;
     }
 }
 
-/**
- * Processes the scanned answers (migrated from Edge Function)
- */
-// exam.js
-
 async function processScannedAnswers(examId) {
     showSpinner(true, spinnerStudent);
-    clearLog('Processing scanned answers...', statusLogStudent);
-
+    setButtonText(generateScanLinkButtonText, 'Processing...');
+    let isError = false;
     let scanSession;
+
     try {
         const sessionToken = currentScanSessionToken;
-        if (!sessionToken || !examId) {
-            throw new Error('Session token and Exam ID are required');
-        }
+        if (!sessionToken || !examId) throw new Error('Session token and Exam ID are required');
 
-        // --- START: MODIFIED CODE ---
-        // Fetch scan session details using a secure RPC call to bypass RLS
-        log('Fetching scan session details...', statusLogStudent);
         const { data: rpcResult, error: sessionError } = await sb
             .rpc('get_session_details_by_token', { token_arg: sessionToken });
+        if (sessionError) throw new Error(`Failed to fetch session details: ${sessionError.message}`);
+        scanSession = rpcResult?.[0];
+        if (!scanSession) throw new Error('Scan session not found or expired.');
+        if (new Date(scanSession.expires_at) < new Date()) throw new Error('Scan session has expired.');
 
-        if (sessionError) {
-            // If the RPC call itself fails, throw that error
-            throw new Error(`Failed to fetch session details: ${sessionError.message}`);
-        }
+        await sb.from('scan_sessions').update({ status: 'processing' }).eq('id', scanSession.id);
 
-        // The RPC function returns an array. If it's empty, the session wasn't found.
-        const scanSessionData = rpcResult && rpcResult.length > 0 ? rpcResult[0] : null;
-        // --- END: MODIFIED CODE ---
-
-        scanSession = scanSessionData;
-        if (!scanSession) {
-            // We create a more user-friendly error message here
-            throw new Error('Scan session not found or expired. The token may be invalid.');
-        }
-
-        if (new Date(scanSession.expires_at) < new Date()) {
-            throw new Error('Scan session has expired.');
-        }
-
-        // Update session status to processing
-        log('Updating session status to processing...', statusLogStudent);
-        await sb.from('scan_sessions').update({
-            status: 'processing'
-        }).eq('id', scanSession.id);
-
-        // Check if images exist
         if (!scanSession.uploaded_image_paths || scanSession.uploaded_image_paths.length === 0) {
-            await sb.from('scan_sessions').update({
-                status: 'completed'
-            }).eq('id', scanSession.id);
-
-            log('✅ No images uploaded for this session.', statusLogStudent);
-
-            // Clean up UI
-            studentAnswersForm.reset();
-            scanLinkArea.classList.add('hidden');
-            currentScanSessionToken = null;
-            return;
+            await sb.from('scan_sessions').update({ status: 'completed' }).eq('id', scanSession.id);
+            setButtonText(generateScanLinkButtonText, 'No images uploaded.');
+        } else {
+            await processScannedAnswersBackground(scanSession, examId);
+            setButtonText(generateScanLinkButtonText, 'Processed!');
         }
 
-        // Start processing
-        await processScannedAnswersBackground(scanSession, examId);
-
-        log('✅ Scanned answers processed successfully!', statusLogStudent);
-
-        // Clean up UI
-        studentAnswersForm.reset();
-        scanLinkArea.classList.add('hidden');
-        currentScanSessionToken = null;
-
-        // Reload exam details to show new answers
         await loadExamDetails(examId);
 
     } catch (error) {
         console.error('Error processing scanned session:', error.message);
-
-        // Update session status to failed if possible
+        setButtonText(generateScanLinkButtonText, 'Error!');
+        isError = true;
         if (scanSession?.id) {
-            try {
-                await sb.from('scan_sessions').update({
-                    status: 'failed',
-                    error_message: error.message
-                }).eq('id', scanSession.id);
-            } catch (updateError) {
-                console.error('Failed to update session status to failed:', updateError.message);
-            }
+            await sb.from('scan_sessions').update({ status: 'failed', error_message: error.message }).eq('id', scanSession.id);
         }
-
-        log(`❌ An error occurred during processing: ${error.message}`, statusLogStudent);
-        console.error(error);
     } finally {
-        generateScanLinkButton.disabled = false;
         showSpinner(false, spinnerStudent);
+        setTimeout(() => {
+            studentAnswersForm.reset();
+            scanLinkArea.classList.add('hidden');
+            generateScanLinkButton.disabled = false;
+            setButtonText(generateScanLinkButtonText, DEFAULT_SCAN_BUTTON_TEXT);
+            currentScanSessionToken = null;
+        }, isError ? 5000 : 3000);
     }
 }
 
@@ -1135,7 +1072,6 @@ async function processScannedAnswers(examId) {
 async function saveStudentAnswersFromScan(scanSession, examId, responseData) {
     let studentExamId;
 
-    // Find or create student_exam record
     const { data: existingStudentExam, error: seError } = await sb
         .from('student_exams')
         .select('id')
@@ -1147,32 +1083,23 @@ async function saveStudentAnswersFromScan(scanSession, examId, responseData) {
 
     if (existingStudentExam) {
         studentExamId = existingStudentExam.id;
-        // Delete existing answers
         await sb.from('student_answers').delete().eq('student_exam_id', studentExamId);
     } else {
         const { data: newStudentExam, error: createSeError } = await sb
             .from('student_exams')
-            .insert({
-                student_id: scanSession.student_id,
-                exam_id: examId,
-                status: 'submitted'
-            })
+            .insert({ student_id: scanSession.student_id, exam_id: examId, status: 'submitted' })
             .select('id')
             .single();
-
         if (createSeError) throw new Error(`Could not create student_exam record: ${createSeError.message}`);
         studentExamId = newStudentExam.id;
     }
 
-    // Fetch database questions for matching
     const { data: dbQuestions, error: fetchQError } = await sb
         .from('questions')
         .select('id, question_number, sub_questions(id, sub_q_text_content)')
         .eq('exam_id', examId);
-
     if (fetchQError) throw new Error(`Could not fetch exam structure for matching: ${fetchQError.message}`);
 
-    // Create lookup map for sub-questions
     const subQuestionLookup = dbQuestions.reduce((qMap, q) => {
         qMap[q.question_number] = q.sub_questions.reduce((sqMap, sq) => {
             sqMap[sq.sub_q_text_content] = sq.id;
@@ -1181,18 +1108,14 @@ async function saveStudentAnswersFromScan(scanSession, examId, responseData) {
         return qMap;
     }, {});
 
-    // Prepare answers for insertion
     const answersToInsert = [];
-
     for (const q_res of responseData.questions) {
         for (const sq_res of q_res.sub_questions) {
             const sub_question_id = subQuestionLookup[q_res.question_number]?.[sq_res.sub_q_text_content];
-
             if (!sub_question_id) {
                 console.warn(`Warning: Could not find matching sub-question for Q#${q_res.question_number}. Skipping.`);
                 continue;
             }
-
             if (sq_res.student_answers) {
                 answersToInsert.push({
                     student_exam_id: studentExamId,
@@ -1203,10 +1126,8 @@ async function saveStudentAnswersFromScan(scanSession, examId, responseData) {
             }
         }
     }
-
-    // Batch insert answers
+    
     if (answersToInsert.length > 0) {
-        // Insert in batches of 100 to avoid payload limits
         const batchSize = 100;
         for (let i = 0; i < answersToInsert.length; i += batchSize) {
             const batch = answersToInsert.slice(i, i + batchSize);
@@ -1228,11 +1149,9 @@ async function cleanupTempFiles(scanSession) {
         }
     } catch (error) {
         console.error('Failed to cleanup temp files:', error);
-        // Don't throw - this is non-critical
     }
 }
 
-// ADD this after the existing window event listeners
 window.addEventListener('beforeunload', () => {
-    stopScanPolling(); // Clean up polling when page is closed
+    stopScanPolling();
 });
