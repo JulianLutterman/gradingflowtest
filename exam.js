@@ -493,6 +493,7 @@ generateScanLinkButton.addEventListener('click', async () => {
         scanUrlLink.href = scanUrl;
         scanUrlLink.textContent = scanUrl;
         scanLinkArea.classList.remove('hidden');
+        scanLinkArea.classList.remove('hiding'); // Ensure it's visible
 
         showSpinner(false, spinnerStudent); // Hide spinner, but keep button disabled
         setButtonText(generateScanLinkButtonText, 'Waiting for your scan...');
@@ -912,7 +913,6 @@ function stopScanPolling() {
 /**
  * Checks the current status of the scan session
  */
-// REPLACE the existing checkScanStatus function in exam.js with this:
 async function checkScanStatus(examId) {
     if (!currentScanSessionToken) return;
 
@@ -931,16 +931,18 @@ async function checkScanStatus(examId) {
 
         if (session.status === 'uploaded') {
             setButtonText(generateScanLinkButtonText, 'Images detected!');
+            
+            // MODIFIED: Start the hide animation as soon as upload is detected
+            if (scanLinkArea && !scanLinkArea.classList.contains('hiding')) {
+                scanLinkArea.classList.add('hiding');
+                // After the animation, add the 'hidden' class to fully remove it from the layout
+                setTimeout(() => {
+                    scanLinkArea.classList.add('hidden');
+                    scanLinkArea.classList.remove('hiding'); // Clean up the animation class
+                }, 600); // This duration must match the CSS transition duration
+            }
+
             stopScanPolling();
-
-            // Animate out the QR code area
-            scanLinkArea.classList.add('hiding');
-            setTimeout(() => {
-                scanLinkArea.classList.add('hidden');
-                scanLinkArea.classList.remove('hiding'); // Reset for next time
-            }, 500); // Duration should match CSS transition
-
-            // Continue processing in the background
             await processScannedAnswers(examId);
         }
 
@@ -1067,6 +1069,16 @@ async function processScannedAnswers(examId) {
         if (scanSession?.id) {
             await sb.from('scan_sessions').update({ status: 'failed', error_message: error.message }).eq('id', scanSession.id);
         }
+    } finally {
+        showSpinner(false, spinnerStudent);
+        setTimeout(() => {
+            studentAnswersForm.reset();
+            // MODIFIED: This line is removed, as the animation handles hiding the element now.
+            // scanLinkArea.classList.add('hidden'); 
+            generateScanLinkButton.disabled = false;
+            setButtonText(generateScanLinkButtonText, DEFAULT_SCAN_BUTTON_TEXT);
+            currentScanSessionToken = null;
+        }, isError ? 5000 : 3000);
     }
 }
 
