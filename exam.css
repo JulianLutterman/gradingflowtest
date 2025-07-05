@@ -285,6 +285,17 @@ button {
         height: 1.5em;
     }
 
+#grade-all-button:disabled {
+    cursor: not-allowed;
+    transform: translateY(-6px) translateX(4px);
+    box-shadow: -4px 6px 0 var(--color-green-pastel);
+}
+
+#grade-all-button-text {
+    font-size: 1.7rem;
+    font-weight: 800;
+}
+
 #questions-container {
     margin-top: 2rem;
 }
@@ -471,4 +482,3 @@ h5 {
     border-radius: 6px;
     margin-top: 1rem;
 }
-
