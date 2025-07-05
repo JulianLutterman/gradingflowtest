@@ -296,19 +296,20 @@ button {
     font-weight: 800;
 }
 
-/* --- NEW: Styles for QR Code Area Animation --- */
+/* --- Styles for QR Code Area Animation --- */
 #scan-link-area {
     text-align: center;
     margin-top: 1.5rem;
     overflow: hidden; /* Crucial for the max-height animation */
     max-height: 350px; /* A safe max height for the transition to work from */
-    transition: max-height 0.6s ease-in-out, opacity 0.4s ease-in, transform 0.6s ease-in-out, margin-top 0.6s ease-in-out;
+    /* MODIFIED: Opacity transition removed */
+    transition: max-height 0.6s ease-in-out, transform 0.6s ease-in-out, margin-top 0.6s ease-in-out;
     transform-origin: top center;
 }
 
 #scan-link-area.hiding {
     max-height: 0;
-    opacity: 0;
+    /* MODIFIED: Opacity rule removed */
     transform: translateY(-50px); /* A slight upward push as it collapses */
     margin-top: 0 !important; /* Override the default margin to complete the collapse */
 }
