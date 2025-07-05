@@ -538,7 +538,8 @@ gradeAllButton.addEventListener('click', async (e) => {
             return;
         }
 
-        updateGradingButtonText(`Grading ${ungradedExams.length} submission(s)... (may take 1 minute)`);
+        updateGradingButtonText(`Grading ${ungradedExams.length} submission(s)...\n(may take 1 minute)`);
+
 
         const gradingPromises = ungradedExams.map(studentExam => {
             const studentIdentifier = studentExam.students.full_name || studentExam.students.student_number;
