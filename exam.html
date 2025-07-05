@@ -1,127 +1,128 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Exam Details</title>
-    <!-- Supabase JS Client -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- JSZip for handling zip files -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <!-- Marked for Markdown rendering -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <!-- QRious for QR code generation -->
-    <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Exam Details</title>
+        <!-- Supabase JS Client -->
+        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+        <!-- JSZip for handling zip files -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+        <!-- Marked for Markdown rendering -->
+        <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+        <!-- QRious for QR code generation -->
+        <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
 
-    <!-- === KaTeX Library Tags === -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV" crossorigin="anonymous">
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8" crossorigin="anonymous"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05" crossorigin="anonymous"></script>
+        <!-- === KaTeX Library Tags === -->
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV" crossorigin="anonymous">
+        <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8" crossorigin="anonymous"></script>
+        <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05" crossorigin="anonymous"></script>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&display=swap" rel="stylesheet">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&display=swap" rel="stylesheet">
 
 
-    <link rel="stylesheet" href="exam.css">
-</head>
-<body>
+        <link rel="stylesheet" href="exam.css">
+    </head>
+    <body>
 
-    <div class="page-header-container">
-        <a href="index.html">← Back to All Exams</a>
-    </div>
+        <div class="page-header-container">
+            <a href="index.html">← Back to All Exams</a>
+        </div>
 
-    <!-- Wrapper for the 4-column grid -->
-    <div class="actions-grid-container">
-        <!-- Column 2: Answer Model -->
+        <!-- Wrapper for the 4-column grid -->
+        <div class="actions-grid-container">
+            <!-- Column 2: Answer Model -->
+            <div class="container">
+                <h2>Upload Answer Model</h2>
+                <form id="model-form">
+                    <div class="form-group">
+                        <label for="model-files">Answer Model File(s) (PDF or Images)</label>
+                        <input type="file" id="model-files" class="file-input-hidden" accept=".pdf,image/*" multiple required>
+                        <label for="model-files" class="file-input-label">Choose Files</label>
+                        <span id="model-file-display" class="file-name-display">No files chosen</span>
+                    </div>
+                    <button class="pushable-button" type="submit" id="submit-model-button">
+                        <div id="spinner-model" class="spinner spinner-light hidden"></div>
+                        <span id="submit-model-button-text">Add Answer Model</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Column 1: Appendix -->
+            <div class="container">
+                <h2>Upload Appendix</h2>
+                <form id="appendix-form">
+                    <div class="form-group">
+                        <label for="appendix-files">Appendix File(s) (PDF or Images)</label>
+                        <input type="file" id="appendix-files" class="file-input-hidden" accept=".pdf,image/*" multiple required>
+                        <label for="appendix-files" class="file-input-label">Choose Files</label>
+                        <span id="appendix-file-display" class="file-name-display">No files chosen</span>
+                    </div>
+                    <button class="pushable-button" type="submit" id="submit-appendix-button">
+                        <div id="spinner-appendix" class="spinner spinner-light hidden"></div>
+                        <span id="submit-appendix-button-text">Add Appendix</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Column 3: Student Answers -->
+            <div class="container">
+                <h2>Upload Student Answers</h2>
+                <form id="student-answers-form">
+                    <div class="form-group">
+                        <label for="student-name">Student Full Name</label>
+                        <input type="text" id="student-name" placeholder="e.g., Jane Doe">
+                    </div>
+                    <div class="form-group">
+                        <label for="student-number">Student Number</label>
+                        <input type="text" id="student-number" placeholder="e.g., s1234567">
+                    </div>
+                    <button class="pushable-button" type="button" id="generate-scan-link-button">
+                        <div id="spinner-student" class="spinner spinner-light hidden"></div>
+                        <span id="generate-scan-link-button-text">Scan Answers</span>
+                    </button>
+                    <!-- MODIFIED: Inline style removed -->
+                    <div id="scan-link-area" class="hidden">
+                        <p>Scan this QR code with your phone to upload answers:</p>
+                        <canvas id="qrcode-canvas" style="width: 200px; height: 200px; margin: 1rem auto; display: block;"></canvas>
+                        <p>Or open this link on your phone: <a id="scan-url" href="#" target="_blank"></a></p>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Column 4: Automatic Grading (MODIFIED) -->
+            <!-- The container IS the button now. It inherits grid properties and acts as a single, large clickable element. -->
+            <button class="container pushable-button" id="grade-all-button">
+                <div id="spinner-grading" class="spinner spinner-light hidden"></div>
+                <span id="grade-all-button-text">Grade New Submissions</span>
+            </button>
+
+        </div><!-- End of the 4-column grid -->
+
+
         <div class="container">
-            <h2>Upload Answer Model</h2>
-            <form id="model-form">
-                <div class="form-group">
-                    <label for="model-files">Answer Model File(s) (PDF or Images)</label>
-                    <input type="file" id="model-files" class="file-input-hidden" accept=".pdf,image/*" multiple required>
-                    <label for="model-files" class="file-input-label">Choose Files</label>
-                    <span id="model-file-display" class="file-name-display">No files chosen</span>
-                </div>
-                <button class="pushable-button" type="submit" id="submit-model-button">
-                    <div id="spinner-model" class="spinner spinner-light hidden"></div>
-                    <span id="submit-model-button-text">Add Answer Model</span>
-                </button>
-            </form>
+            <h1 id="exam-name-title">Loading Exam...</h1>
+            <button id="show-rules-button" class="hidden" style="margin: 0 auto 1rem auto; display: block; background-color: #ffc107; color: #212529;">Show Grading Regulations</button>
+            <div id="questions-container"></div>
         </div>
 
-        <!-- Column 1: Appendix -->
-        <div class="container">
-            <h2>Upload Appendix</h2>
-            <form id="appendix-form">
-                <div class="form-group">
-                    <label for="appendix-files">Appendix File(s) (PDF or Images)</label>
-                    <input type="file" id="appendix-files" class="file-input-hidden" accept=".pdf,image/*" multiple required>
-                    <label for="appendix-files" class="file-input-label">Choose Files</label>
-                    <span id="appendix-file-display" class="file-name-display">No files chosen</span>
-                </div>
-                <button class="pushable-button" type="submit" id="submit-appendix-button">
-                    <div id="spinner-appendix" class="spinner spinner-light hidden"></div>
-                    <span id="submit-appendix-button-text">Add Appendix</span>
-                </button>
-            </form>
+        <!-- Modals -->
+        <div id="rules-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <span class="modal-close" id="rules-modal-close">×</span>
+                <h2>Grading Regulations</h2>
+                <div id="rules-modal-text" class="formatted-text"></div>
+            </div>
         </div>
-
-        <!-- Column 3: Student Answers -->
-        <div class="container">
-            <h2>Upload Student Answers</h2>
-            <form id="student-answers-form">
-                <div class="form-group">
-                    <label for="student-name">Student Full Name</label>
-                    <input type="text" id="student-name" placeholder="e.g., Jane Doe">
-                </div>
-                <div class="form-group">
-                    <label for="student-number">Student Number</label>
-                    <input type="text" id="student-number" placeholder="e.g., s1234567">
-                </div>
-                <button class="pushable-button" type="button" id="generate-scan-link-button">
-                    <div id="spinner-student" class="spinner spinner-light hidden"></div>
-                    <span id="generate-scan-link-button-text">Scan Answers</span>
-                </button>
-                <div id="scan-link-area" class="hidden" style="text-align: center; margin-top: 1.5rem;">
-                    <p>Scan this QR code with your phone to upload answers:</p>
-                    <canvas id="qrcode-canvas" style="width: 200px; height: 200px; margin: 1rem auto; display: block;"></canvas>
-                    <p>Or open this link on your phone: <a id="scan-url" href="#" target="_blank"></a></p>
-                </div>
-            </form>
+        <div id="appendix-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <span class="modal-close" id="appendix-modal-close">×</span>
+                <h2 id="appendix-modal-title">Appendix</h2>
+                <div id="appendix-modal-content" class="formatted-text"></div>
+            </div>
         </div>
-
-        <!-- Column 4: Automatic Grading (MODIFIED) -->
-        <!-- The container IS the button now. It inherits grid properties and acts as a single, large clickable element. -->
-        <button class="container pushable-button" id="grade-all-button">
-            <div id="spinner-grading" class="spinner spinner-light hidden"></div>
-            <span id="grade-all-button-text">Grade New Submissions</span>
-        </button>
-
-    </div><!-- End of the 4-column grid -->
-
-
-    <div class="container">
-        <h1 id="exam-name-title">Loading Exam...</h1>
-        <button id="show-rules-button" class="hidden" style="margin: 0 auto 1rem auto; display: block; background-color: #ffc107; color: #212529;">Show Grading Regulations</button>
-        <div id="questions-container"></div>
-    </div>
-
-    <!-- Modals -->
-    <div id="rules-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <span class="modal-close" id="rules-modal-close">×</span>
-            <h2>Grading Regulations</h2>
-            <div id="rules-modal-text" class="formatted-text"></div>
-        </div>
-    </div>
-    <div id="appendix-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <span class="modal-close" id="appendix-modal-close">×</span>
-            <h2 id="appendix-modal-title">Appendix</h2>
-            <div id="appendix-modal-content" class="formatted-text"></div>
-        </div>
-    </div>
-</body>
-<script src="exam.js"></script>
+    </body>
+    <script src="exam.js"></script>
 </html>
