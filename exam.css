@@ -1,17 +1,22 @@
 :root {
     /* Color Palette Variables */
-    --color-background: #F6F5F3; /* Light cream for main background, buttons, flash */
+    --color-background: #F7F7FF; /* Light cream for main background, buttons, flash */
+    --color-background-border: #ebebff;
+    --color-background-border-between: #d6d6ff;
+    --color-background-box-shadow: #c2c2ff;
     --color-text-dark: #14110F; /* Dark charcoal for text, borders, and success states */
-    --color-text-light: #F6F5F3; /* Same as background, used for text on dark surfaces */
+    --color-text-light: #F7F7FF; /* Same as background, used for text on dark surfaces */
     --color-primary: #0066ff; /* Main blue for buttons */
-    --color-info-bg: #d6e7ff; /* Light blue for the student info banner */
     --color-light-blue-two: #c2daff;
+    --color-lighter-blue: #d6e7ff;
     --color-blue-pastel: #334195;
     --color-blue-pastel-light-one: #7684d0;
     --color-blue-pastel-light-two: #959fdb;
     --color-green-pastel: #02a147;
     --color-green-pastel-light-one: #02ca59;
     --color-green-pastel-light-two: #02de62;
+    --color-green-pastel-light-three: rgba(235, 255, 243, 0.4);
+    --color-danger: #E3170A;
     --color-danger-light: #FDDAD8;
     --color-disabled-bg: #dcd8d0; /* Beige for disabled upload button */
 }
@@ -23,7 +28,7 @@ body {
     background-color: var(--color-background);
     color: var(--color-text-dark);
     margin: 0;
-    padding: 2rem 0;
+    padding: 0 0 2rem 0;
 }
 
 .page-header-container {
@@ -33,11 +38,10 @@ body {
 }
 
 .container {
-    background: #ffffff;
-    padding: 2rem 2.5%;
+    background: var(--color-background);
+    padding: 2rem 0;
     border-radius: 25px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
-    max-width: 90%; /* Increased width for columns */
+    max-width: 95%; /* Increased width for columns */
     margin: 0 auto 2rem auto;
     display: flex; /* Make containers flexible for better content alignment */
     flex-direction: column;
@@ -46,35 +50,63 @@ body {
 .actions-grid-container {
     display: grid;
     grid-template-columns: repeat(4, 1fr); /* 4 columns on large screens */
-    gap: 2rem;
-    max-width: 95%;
+    gap: 1rem;
+    max-width: 89%;
     margin: 0 auto 2rem auto;
+    background-color: var(--color-background-box-shadow);
+    padding: 30px 3% 45px 3%;
+    border-radius: 0 0 25px 25px;
 }
 
     /* Override styles for containers within the grid */
-    .actions-grid-container > .container,
     .actions-grid-container > #grade-all-button { /* Target the button directly */
         max-width: 100%; /* Let the grid column define the width */
         margin: 0; /* Let the grid gap handle spacing */
-        padding: 1.5rem 2rem 2rem 2rem; /* Slightly reduced padding for better fit */
+        padding: 2rem 2rem; /* Slightly reduced padding for better fit */
     }
+
+    /* Override styles for containers within the grid */
+    .actions-grid-container > .container {
+        max-width: 100%; /* Let the grid column define the width */
+        margin: 0; /* Let the grid gap handle spacing */
+        padding: 0 1rem; /* Slightly reduced padding for better fit */
+        background-color: var(--color-background-box-shadow);
+    }
+
 
 @media (max-width: 1400px) {
     .actions-grid-container {
         grid-template-columns: repeat(2, 1fr); /* 2 columns on tablets */
     }
+
+        /* Hide the separator after the second item, as it's now at the end of a row */
+        .actions-grid-container > .container:nth-child(2)::after {
+            display: none;
+        }
 }
 
 @media (max-width: 800px) {
     .actions-grid-container {
         grid-template-columns: 1fr; /* 1 column on mobile */
     }
-}
 
+        /* Hide the remaining separator on mobile */
+        .actions-grid-container > .container:nth-child(1)::after {
+            display: none;
+        }
+}
 
 h1, h2 {
     text-align: center;
     color: var(--color-text-dark);
+    font-size: 1.7rem;
+}
+
+h1 {
+    font-size: 3em;
+    font-weight: 900;
+    text-transform: uppercase;
+    margin: 0;
 }
 
 h2 {
@@ -171,7 +203,7 @@ label {
 
 input[type="text"], input[type="file"] {
     padding: 0.8rem;
-    background-color: var(--color-info-bg);
+    background-color: var(--color-background-border-between);
     border-radius: 15px;
     font-size: 1rem;
     outline: none;
@@ -182,7 +214,7 @@ input[type="text"], input[type="file"] {
 }
 
     input[type="text"]:focus {
-        background-color: var(--color-light-blue-two);
+        background-color: var(--color-background-border);
     }
 
 .file-input-hidden {
@@ -198,7 +230,7 @@ input[type="text"], input[type="file"] {
     padding: 0.9rem;
     border: none;
     border-radius: 15px;
-    background-color: var(--color-info-bg);
+    background-color: var(--color-background-border-between);
     color: var(--color-text-dark);
     font-size: 1rem;
     font-weight: 600;
@@ -209,7 +241,7 @@ input[type="text"], input[type="file"] {
 }
 
     .file-input-label:hover {
-        background-color: var(--color-light-blue-two);
+        background-color: var(--color-background-border);
     }
 
 button {
@@ -234,7 +266,7 @@ button {
         box-shadow: -2px 4px 0 var(--color-blue-pastel);
     }
 
-.pushable-button {
+.pushable-button, #show-rules-button {
     display: flex; /* MODIFIED */
     align-items: center; /* MODIFIED */
     justify-content: center; /* MODIFIED */
@@ -252,8 +284,17 @@ button {
     transform: translateY(0) translateX(0);
 }
 
+#show-rules-button {
+    transform: translateY(-3px) translateX(0);
+}
+
     .pushable-button:hover {
         transform: translateY(4px) translateX(-2px);
+        box-shadow: -2px 4px 0 var(--color-blue-pastel);
+    }
+
+    #show-rules-button:hover {
+        transform: translateY(1px) translateX(-2px);
         box-shadow: -2px 4px 0 var(--color-blue-pastel);
     }
 
@@ -262,7 +303,8 @@ button {
     /* Inherits .container and .pushable-button styles */
     background: var(--color-green-pastel-light-one);
     color: var(--color-text-light);
-    border: 3px solid var(--color-green-pastel-light-two);
+    border: 5px solid var(--color-green-pastel-light-two);
+    border-radius: 25px;
     box-shadow: -8px 12px 0 var(--color-green-pastel);
     /* Layout properties to center content in the large button */
     display: flex;
@@ -271,11 +313,12 @@ button {
     align-items: center;
     gap: 1rem;
     text-align: center;
-    transform: translateY(-12px) translateX(8px);
+    transform: translateY(-4px) translateX(4px);
+    margin: 1.5rem 2rem 2rem 2rem;
 }
 
     #grade-all-button:hover {
-        transform: translateY(-6px) translateX(4px);
+        transform: translateY(2px) translateX(0);
         box-shadow: -4px 6px 0 var(--color-green-pastel);
     }
 
@@ -285,15 +328,20 @@ button {
         height: 1.5em;
     }
 
-#grade-all-button:disabled {
-    cursor: not-allowed;
-    transform: translateY(-6px) translateX(4px);
-    box-shadow: -4px 6px 0 var(--color-green-pastel);
-}
+    #grade-all-button:disabled {
+        cursor: not-allowed;
+        transform: translateY(-6px) translateX(4px);
+        box-shadow: -4px 6px 0 var(--color-green-pastel);
+    }
 
 #grade-all-button-text {
     font-size: 1.7rem;
     font-weight: 800;
+}
+
+#show-rules-button {
+    width: fit-content;
+    margin-left: 40px;
 }
 
 /* --- Styles for QR Code Area Animation --- */
@@ -307,32 +355,35 @@ button {
     transform-origin: top center;
 }
 
-#scan-link-area.hiding {
-    max-height: 0;
-    /* MODIFIED: Opacity rule removed */
-    transform: translateY(-50px); /* A slight upward push as it collapses */
-    margin-top: 0 !important; /* Override the default margin to complete the collapse */
-}
+    #scan-link-area.hiding {
+        max-height: 0;
+        /* MODIFIED: Opacity rule removed */
+        transform: translateY(-50px); /* A slight upward push as it collapses */
+        margin-top: 0 !important; /* Override the default margin to complete the collapse */
+    }
 
+.title-wrapper {
+    display: flex;
+    flex-direction: row;
+}
 
 #questions-container {
     margin-top: 2rem;
 }
 
 .question-block {
-    border: 2px solid var(--color-text-dark);
     color: var(--color-text-dark);
-    border-radius: 15px;
-    padding: 1.5rem;
+    border-radius: 25px;
+    padding: 1.5rem 1.5rem 0 1.5rem;
     margin-bottom: 1.5rem;
-    background: var(--color-disabled-bg);
+    background: var(--color-lighter-blue);
 }
 
 .question-header {
-    font-size: 1.2rem;
-    font-weight: bold;
+    font-size: 1.8rem;
+    font-weight: 900;
     color: var(--color-primary);
-    border-bottom: 2px solid var(--color-text-dark);
+    border-bottom: 3px solid var(--color-light-blue-two);
     padding-bottom: 0.5rem;
     margin-bottom: 1rem;
     display: flex;
@@ -341,7 +392,7 @@ button {
 }
 
 .context-visual {
-    max-width: 50%;
+    max-width: 40%;
     height: auto;
     border-radius: 25px;
     margin-top: 1rem;
@@ -350,6 +401,12 @@ button {
 .formatted-text {
     white-space: pre-wrap;
     word-wrap: break-word;
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+.formatted-text em {
+    font-size: 0.95rem;
 }
 
 .sub-question-grid {
@@ -358,7 +415,7 @@ button {
     gap: 1.5rem;
     margin-top: 1.5rem;
     padding-top: 1.5rem;
-    border-top: 2px solid var(--color-text-dark);
+    border-top: 3px solid var(--color-light-blue-two);
 }
 
 .grid-header {
@@ -366,21 +423,20 @@ button {
     font-size: 1.1rem;
     color: var(--color-text-dark);
     padding-bottom: 0.75rem;
-    border-bottom: 2px solid var(--color-text-dark);
-    margin-bottom: 1rem;
+    border-bottom: 3px solid var(--color-light-blue-two);
 }
 
 .grid-cell {
     padding-bottom: 1.5rem;
-    border-bottom: 1px dashed var(--color-text-dark);
 }
+
+
 
 .sub-question-grid .grid-cell:nth-last-child(-n+3) {
     border-bottom: none;
 }
 
 .sub-question-content {
-    padding: 0.5rem;
 }
 
 .mcq-option {
@@ -389,24 +445,28 @@ button {
 
 h5 {
     margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 0.95rem;
 }
 
 .model-answer-section {
-    padding-top: 20px;
-    background-color: var(--color-info-bg);
-    border-radius: 15px;
-    height: 100%;
 }
 
 .model-alternative {
-    border-left: 2px solid var(--color-primary);
-    padding: 0 15px;
+    padding: 15px;
+    background-color: var(--color-light-blue-two);
+    border-radius: 15px;
+    margin-bottom: 20px;
 }
 
 .model-component {
-    padding: 0.75rem;
-    border-bottom: 2px solid var(--color-text-dark);
-    border-top: 2px solid var(--color-text-dark);
+    padding: 0.75rem 0 0.15rem 0;
+    margin-left: 0.75rem;
+    border-bottom: 2px solid var(--color-lighter-blue);
+    display: flex; /* changed from inline-flex to flex */
+    justify-content: space-between; /* distributes items left and right */
+    width: calc(100% - 1.5rem);
+    align-items: center; /* vertically centers items */
 }
 
     .model-component p {
@@ -415,12 +475,16 @@ h5 {
 
 .points-badge {
     font-weight: bold;
-    color: var(--color-danger);
-    font-size: 0.9em;
-    background-color: var(--color-danger-light);
-    padding: 3px 8px;
-    border-radius: 12px;
+    color: var(--color-green-pastel);
+    font-size: 0.95em;
+    background-color: var(--color-green-pastel-light-three);
+    padding: 5px 10px;
+    border-radius: 15px;
     display: inline-block;
+    right: 0;
+    margin-bottom: 0.15rem;
+    margin-left: 0.5rem;
+    min-width: fit-content;
 }
 
 .model-component img {
@@ -430,29 +494,40 @@ h5 {
     border-radius: 4px;
 }
 
-.student-answers-section {
-    padding: 0.5rem;
-    background-color: #f5f3f9;
-    border: 1px solid #dcd6e6;
-    border-radius: 6px;
-    height: 100%;
+/* --- MODIFIED: Styles for the large grading button --- */
+.student-answer-dropdown summary {
+    /* Inherits .container and .pushable-button styles */
+    background: var(--color-blue-pastel-light-one);
+    color: var(--color-text-light);
+    border: 3px solid var(--color-blue-pastel-light-two);
+    border-radius: 10px;
+    box-shadow: -4px 5px 0 var(--color-blue-pastel);
+    /* Layout properties to center content in the large button */
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    transform: translateY(-5px) translateX(4px);
+    cursor: pointer;
+    padding: 7px;
+    font-weight: 900;
+    transition-duration: 0.2s;
 }
 
-.student-answer-dropdown summary {
-    cursor: pointer;
-    font-weight: bold;
-    padding: 0.5rem;
-    background-color: #fff;
-    border-radius: 4px;
-    border: 1px solid #e0e0e0;
+    .student-answer-dropdown summary:hover {
+        transform: translateY(-2px) translateX(2px);
+        box-shadow: -2px 2px 0 var(--color-blue-pastel);
+    }
+
+.student-answer-dropdown[open] > summary {
+    transform: translateY(-2px) translateX(2px);
+    box-shadow: -2px 2px 0 var(--color-blue-pastel);
 }
 
 .student-answer-item {
-    padding: 0.75rem;
-    background: #fff;
-    border-radius: 4px;
-    margin: 0.5rem 0;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    padding: 1rem;
+    background-color: var(--color-light-blue-two);
+    border-radius: 10px;
+    margin: 0 0 1rem 0;
 }
 
 .student-answer-visual {
@@ -464,24 +539,24 @@ h5 {
 }
 
 .points-awarded-badge {
-    font-weight: bold;
-    color: #fff;
-    font-size: 0.9em;
-    background-color: #6f42c1; /* Purple */
-    padding: 4px 10px;
-    border-radius: 12px;
+    color: var(--color-green-pastel);
+    font-size: 0.95em;
+    background-color: var(--color-green-pastel-light-three);
+    padding: 5px 10px;
+    border-radius: 15px;
     display: inline-block;
+    font-weight: bold;
     margin-top: 0.75rem;
 }
 
 .feedback-comment {
     margin-top: 0.75rem;
     padding: 0.75rem;
-    background-color: #fff9e6;
-    border-left: 4px solid #ffc107;
+    background-color: var(--color-green-pastel-light-three);
+    border-left: 4px solid var(--color-green-pastel);
     font-style: italic;
-    color: #555;
-    border-radius: 0 4px 4px 0;
+    color: var(--color-green-pastel);
+    border-radius: 0 10px 10px 0;
 }
 
 .appendix-button {
