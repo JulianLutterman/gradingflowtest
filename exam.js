@@ -1245,7 +1245,7 @@ async function processScannedAnswersBackground(scanSession, examId) {
             const responseData = JSON.parse(jsonContent);
 
             setButtonText(generateScanLinkButtonText, 'Saving answers...');
-            await saveStudentAnswersFromScan(scanSession, examId, responseData);
+            await saveStudentAnswersFromScan(scanSession, examId, responseData, zip);
 
             await sb.from('scan_sessions').update({ status: 'completed' }).eq('id', scanSession.id);
             cleanupTempFiles(scanSession);
@@ -1313,9 +1313,10 @@ async function processScannedAnswers(examId) {
 }
 
 // Function for saving student answers (migrated from Edge Function)
-async function saveStudentAnswersFromScan(scanSession, examId, responseData) {
+async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip) {
     let studentExamId;
 
+    // Find or create the student_exam record
     const { data: existingStudentExam, error: seError } = await sb
         .from('student_exams')
         .select('id')
@@ -1327,6 +1328,7 @@ async function saveStudentAnswersFromScan(scanSession, examId, responseData) {
 
     if (existingStudentExam) {
         studentExamId = existingStudentExam.id;
+        // Clear out old answers for this student_exam before inserting new ones
         await sb.from('student_answers').delete().eq('student_exam_id', studentExamId);
     } else {
         const { data: newStudentExam, error: createSeError } = await sb
@@ -1338,6 +1340,7 @@ async function saveStudentAnswersFromScan(scanSession, examId, responseData) {
         studentExamId = newStudentExam.id;
     }
 
+    // Get the current exam structure to map text content to sub_question IDs
     const { data: dbQuestions, error: fetchQError } = await sb
         .from('questions')
         .select('id, question_number, sub_questions(id, sub_q_text_content)')
@@ -1353,6 +1356,7 @@ async function saveStudentAnswersFromScan(scanSession, examId, responseData) {
     }, {});
 
     const answersToInsert = [];
+    // Use a for...of loop to handle async operations inside
     for (const q_res of responseData.questions) {
         for (const sq_res of q_res.sub_questions) {
             const sub_question_id = subQuestionLookup[q_res.question_number]?.[sq_res.sub_q_text_content];
@@ -1360,18 +1364,58 @@ async function saveStudentAnswersFromScan(scanSession, examId, responseData) {
                 console.warn(`Warning: Could not find matching sub-question for Q#${q_res.question_number}. Skipping.`);
                 continue;
             }
+
             if (sq_res.student_answers) {
+                let answerVisualUrl = null;
+
+                // --- START OF THE FIX ---
+                // Check if the GCF response includes a visual filename
+                if (sq_res.student_answers.answer_visual) {
+                    const visualFilename = sq_res.student_answers.answer_visual;
+                    const visualFile = zip.file(visualFilename); // Find the file in the zip
+
+                    if (visualFile) {
+                        setButtonText(generateScanLinkButtonText, `Uploading ${visualFilename}...`);
+
+                        // Create a unique, permanent path in storage
+                        const filePath = `public/${examId}/answers/${studentExamId}/${Date.now()}_${visualFilename}`;
+                        const fileBlob = await visualFile.async('blob');
+                        const fileToUpload = new File([fileBlob], visualFilename, { type: fileBlob.type });
+
+                        // Upload the file to Supabase Storage
+                        const { error: uploadError } = await sb.storage
+                            .from(STORAGE_BUCKET)
+                            .upload(filePath, fileToUpload);
+
+                        if (uploadError) {
+                            // Don't stop the whole process, just log the error and move on
+                            console.error(`Failed to upload ${visualFilename}: ${uploadError.message}`);
+                        } else {
+                            // Get the public URL of the successfully uploaded file
+                            const { data: urlData } = sb.storage
+                                .from(STORAGE_BUCKET)
+                                .getPublicUrl(filePath);
+                            answerVisualUrl = urlData.publicUrl;
+                            console.log(`Student answer visual uploaded to: ${answerVisualUrl}`);
+                        }
+                    } else {
+                        console.warn(`Warning: Visual file ${visualFilename} mentioned in JSON but not found in zip.`);
+                    }
+                }
+                // --- END OF THE FIX ---
+
                 answersToInsert.push({
                     student_exam_id: studentExamId,
                     sub_question_id: sub_question_id,
                     answer_text: sq_res.student_answers.answer_text || null,
-                    answer_visual: sq_res.student_answers.answer_visual || null
+                    answer_visual: answerVisualUrl // Use the new URL variable here
                 });
             }
         }
     }
 
     if (answersToInsert.length > 0) {
+        // Insert answers in batches to avoid hitting limits
         const batchSize = 100;
         for (let i = 0; i < answersToInsert.length; i += batchSize) {
             const batch = answersToInsert.slice(i, i + batchSize);
