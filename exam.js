@@ -247,7 +247,7 @@ function renderExam(questions) {
                         }).join('');
                         return `<details class="student-answer-dropdown"><summary>${studentIdentifier}</summary>${answersContent}</details>`;
                     }).join('');
-                    studentAnswersHtml = `<div class="student-answers-section">${studentDropdowns}</div>`;
+                    studentAnswersHtml = studentDropdowns;
                 }
                 const studentCell = `<div class="grid-cell">${studentAnswersHtml}</div>`;
 
@@ -931,7 +931,7 @@ async function checkScanStatus(examId) {
 
         if (session.status === 'uploaded') {
             setButtonText(generateScanLinkButtonText, 'Images detected!');
-            
+
             // MODIFIED: Start the hide animation as soon as upload is detected
             if (scanLinkArea && !scanLinkArea.classList.contains('hiding')) {
                 scanLinkArea.classList.add('hiding');
@@ -1140,7 +1140,7 @@ async function saveStudentAnswersFromScan(scanSession, examId, responseData) {
             }
         }
     }
-    
+
     if (answersToInsert.length > 0) {
         const batchSize = 100;
         for (let i = 0; i < answersToInsert.length; i += batchSize) {
