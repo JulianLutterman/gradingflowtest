@@ -1,18 +1,24 @@
 :root {
     /* Color Palette Variables */
-    --color-background: #F6F5F3; /* Light cream for main background, buttons, flash */
+    /* Color Palette Variables */
+    --color-background: #F7F7FF; /* Light cream for main background, buttons, flash */
+    --color-background-border: #ebebff;
+    --color-background-box-shadow: #c2c2ff;
     --color-text-dark: #14110F; /* Dark charcoal for text, borders, and success states */
-    --color-text-light: #F6F5F3; /* Same as background, used for text on dark surfaces */
+    --color-text-light: #F7F7FF; /* Same as background, used for text on dark surfaces */
     --color-primary: #0066ff; /* Main blue for buttons */
-    --color-info-bg: #d6e7ff; /* Light blue for the student info banner */
     --color-light-blue-two: #c2daff;
+    --color-lighter-blue: #d6e7ff;
     --color-blue-pastel: #334195;
     --color-blue-pastel-light-one: #7684d0;
     --color-blue-pastel-light-two: #959fdb;
+    --color-green-pastel: #02a147;
+    --color-green-pastel-light-one: #02ca59;
+    --color-green-pastel-light-two: #02de62;
+    --color-danger: #E3170A;
     --color-danger-light: #FDDAD8;
     --color-disabled-bg: #dcd8d0; /* Beige for disabled upload button */
 }
-
 
 body {
     font-family: "Quicksand", sans-serif;
@@ -34,7 +40,7 @@ button {
     font-weight: bold;
     text-align: center; /* Center student info */
     padding: 18px 0 14px 0;
-    background-color: var(--color-info-bg);
+    background-color: var(--color-lighter-blue);
     border-radius: 0 0 25px 25px;
     font-size: 16px;
     margin: 0 12%;
