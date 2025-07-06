@@ -1313,7 +1313,7 @@ async function processScannedAnswers(examId) {
 }
 
 // Function for saving student answers (migrated from Edge Function)
-// ENHANCED VERSION for DEBUGGING
+// FINAL CORRECTED VERSION
 async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip) {
     console.log("Starting to save student answers. GCF Response:", responseData);
     console.log("ZIP file contains:", Object.keys(zip.files));
@@ -1371,32 +1371,38 @@ async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip
             if (sq_res.student_answers) {
                 let answerVisualUrl = null;
 
-                // --- DEBUGGING BLOCK ---
                 if (sq_res.student_answers.answer_visual) {
                     const visualFilename = sq_res.student_answers.answer_visual;
-                    console.log(`Found visual filename in JSON: '${visualFilename}'`);
-
                     const visualFile = zip.file(visualFilename);
 
                     if (visualFile) {
-                        console.log(`SUCCESS: Found file '${visualFilename}' in the ZIP.`);
                         setButtonText(generateScanLinkButtonText, `Uploading ${visualFilename}...`);
                         
                         const filePath = `public/${examId}/answers/${studentExamId}/${Date.now()}_${visualFilename}`;
-                        console.log(`Attempting to upload to path: ${filePath}`);
-
                         const fileBlob = await visualFile.async('blob');
-                        const fileToUpload = new File([fileBlob], visualFilename, { type: fileBlob.type });
+
+                        // --- START OF THE FIX ---
+                        // Manually determine the MIME type from the filename extension.
+                        const fileExtension = visualFilename.split('.').pop().toLowerCase();
+                        let mimeType = 'application/octet-stream'; // Default
+                        if (fileExtension === 'png') mimeType = 'image/png';
+                        else if (fileExtension === 'jpg' || fileExtension === 'jpeg') mimeType = 'image/jpeg';
+                        else if (fileExtension === 'gif') mimeType = 'image/gif';
+                        else if (fileExtension === 'webp') mimeType = 'image/webp';
+                        
+                        console.log(`Detected extension '${fileExtension}', using MIME type '${mimeType}'`);
+
+                        // Create the File object with the correct MIME type.
+                        const fileToUpload = new File([fileBlob], visualFilename, { type: mimeType });
+                        // --- END OF THE FIX ---
 
                         const { error: uploadError } = await sb.storage
                             .from(STORAGE_BUCKET)
                             .upload(filePath, fileToUpload);
                         
                         if (uploadError) {
-                            // THIS IS THE MOST IMPORTANT LOG
                             console.error(`!!!!!!!! STORAGE UPLOAD FAILED for ${visualFilename} !!!!!!!!`);
                             console.error("Error Details:", uploadError);
-                            // The process will continue, but answerVisualUrl will remain null
                         } else {
                             console.log(`SUCCESS: Storage upload for ${visualFilename} complete.`);
                             const { data: urlData } = sb.storage
@@ -1409,7 +1415,6 @@ async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip
                         console.warn(`WARNING: Visual file '${visualFilename}' was in JSON but NOT FOUND in the ZIP.`);
                     }
                 }
-                // --- END DEBUGGING BLOCK ---
 
                 answersToInsert.push({
                     student_exam_id: studentExamId,
