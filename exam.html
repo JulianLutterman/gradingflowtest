@@ -27,9 +27,9 @@
     </head>
     <body>
 
-        <div class="page-header-container">
-            <a href="index.html">← Back to All Exams</a>
-        </div>
+        <!---<div class="page-header-container">-->
+            <!--<a href="index.html">← Back to All Exams</a>-->
+        <!--</div>-->
 
         <!-- Wrapper for the 4-column grid -->
         <div class="actions-grid-container">
@@ -69,7 +69,7 @@
 
             <!-- Column 3: Student Answers -->
             <div class="container">
-                <h2>Upload Student Answers</h2>
+                <h2>Upload Submissions</h2>
                 <form id="student-answers-form">
                     <div class="form-group">
                         <label for="student-name">Student Full Name</label>
@@ -103,8 +103,10 @@
 
 
         <div class="container">
-            <h1 id="exam-name-title">Loading Exam...</h1>
-            <button id="show-rules-button" class="hidden" style="margin: 0 auto 1rem auto; display: block; background-color: #ffc107; color: #212529;">Show Grading Regulations</button>
+            <div class="title-wrapper">
+                <h1 id="exam-name-title">Loading Exam...</h1>
+                <button id="show-rules-button" class="hidden">Show Grading Regulations</button>
+            </div>
             <div id="questions-container"></div>
         </div>
 
