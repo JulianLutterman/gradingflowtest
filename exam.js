@@ -1313,7 +1313,11 @@ async function processScannedAnswers(examId) {
 }
 
 // Function for saving student answers (migrated from Edge Function)
+// ENHANCED VERSION for DEBUGGING
 async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip) {
+    console.log("Starting to save student answers. GCF Response:", responseData);
+    console.log("ZIP file contains:", Object.keys(zip.files));
+
     let studentExamId;
 
     // Find or create the student_exam record
@@ -1328,7 +1332,6 @@ async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip
 
     if (existingStudentExam) {
         studentExamId = existingStudentExam.id;
-        // Clear out old answers for this student_exam before inserting new ones
         await sb.from('student_answers').delete().eq('student_exam_id', studentExamId);
     } else {
         const { data: newStudentExam, error: createSeError } = await sb
@@ -1339,6 +1342,7 @@ async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip
         if (createSeError) throw new Error(`Could not create student_exam record: ${createSeError.message}`);
         studentExamId = newStudentExam.id;
     }
+    console.log(`Using student_exam_id: ${studentExamId}`);
 
     // Get the current exam structure to map text content to sub_question IDs
     const { data: dbQuestions, error: fetchQError } = await sb
@@ -1356,7 +1360,6 @@ async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip
     }, {});
 
     const answersToInsert = [];
-    // Use a for...of loop to handle async operations inside
     for (const q_res of responseData.questions) {
         for (const sq_res of q_res.sub_questions) {
             const sub_question_id = subQuestionLookup[q_res.question_number]?.[sq_res.sub_q_text_content];
@@ -1368,60 +1371,65 @@ async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip
             if (sq_res.student_answers) {
                 let answerVisualUrl = null;
 
-                // --- START OF THE FIX ---
-                // Check if the GCF response includes a visual filename
+                // --- DEBUGGING BLOCK ---
                 if (sq_res.student_answers.answer_visual) {
                     const visualFilename = sq_res.student_answers.answer_visual;
-                    const visualFile = zip.file(visualFilename); // Find the file in the zip
+                    console.log(`Found visual filename in JSON: '${visualFilename}'`);
+
+                    const visualFile = zip.file(visualFilename);
 
                     if (visualFile) {
+                        console.log(`SUCCESS: Found file '${visualFilename}' in the ZIP.`);
                         setButtonText(generateScanLinkButtonText, `Uploading ${visualFilename}...`);
-
-                        // Create a unique, permanent path in storage
+                        
                         const filePath = `public/${examId}/answers/${studentExamId}/${Date.now()}_${visualFilename}`;
+                        console.log(`Attempting to upload to path: ${filePath}`);
+
                         const fileBlob = await visualFile.async('blob');
                         const fileToUpload = new File([fileBlob], visualFilename, { type: fileBlob.type });
 
-                        // Upload the file to Supabase Storage
                         const { error: uploadError } = await sb.storage
                             .from(STORAGE_BUCKET)
                             .upload(filePath, fileToUpload);
-
+                        
                         if (uploadError) {
-                            // Don't stop the whole process, just log the error and move on
-                            console.error(`Failed to upload ${visualFilename}: ${uploadError.message}`);
+                            // THIS IS THE MOST IMPORTANT LOG
+                            console.error(`!!!!!!!! STORAGE UPLOAD FAILED for ${visualFilename} !!!!!!!!`);
+                            console.error("Error Details:", uploadError);
+                            // The process will continue, but answerVisualUrl will remain null
                         } else {
-                            // Get the public URL of the successfully uploaded file
+                            console.log(`SUCCESS: Storage upload for ${visualFilename} complete.`);
                             const { data: urlData } = sb.storage
                                 .from(STORAGE_BUCKET)
                                 .getPublicUrl(filePath);
                             answerVisualUrl = urlData.publicUrl;
-                            console.log(`Student answer visual uploaded to: ${answerVisualUrl}`);
+                            console.log(`Saved public URL: ${answerVisualUrl}`);
                         }
                     } else {
-                        console.warn(`Warning: Visual file ${visualFilename} mentioned in JSON but not found in zip.`);
+                        console.warn(`WARNING: Visual file '${visualFilename}' was in JSON but NOT FOUND in the ZIP.`);
                     }
                 }
-                // --- END OF THE FIX ---
+                // --- END DEBUGGING BLOCK ---
 
                 answersToInsert.push({
                     student_exam_id: studentExamId,
                     sub_question_id: sub_question_id,
                     answer_text: sq_res.student_answers.answer_text || null,
-                    answer_visual: answerVisualUrl // Use the new URL variable here
+                    answer_visual: answerVisualUrl
                 });
             }
         }
     }
 
     if (answersToInsert.length > 0) {
-        // Insert answers in batches to avoid hitting limits
+        console.log("Preparing to insert these answers into DB:", answersToInsert);
         const batchSize = 100;
         for (let i = 0; i < answersToInsert.length; i += batchSize) {
             const batch = answersToInsert.slice(i, i + batchSize);
             const { error: insertError } = await sb.from('student_answers').insert(batch);
             if (insertError) throw new Error(`Failed to insert student answers batch: ${insertError.message}`);
         }
+        console.log("SUCCESS: All answers inserted into the database.");
     }
 }
 
