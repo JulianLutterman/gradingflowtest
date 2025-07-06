@@ -39,6 +39,10 @@ const rulesModalClose = document.getElementById('rules-modal-close');
 const appendixModal = document.getElementById('appendix-modal');
 const appendixModalContent = document.getElementById('appendix-modal-content');
 const appendixModalClose = document.getElementById('appendix-modal-close');
+const showGradesButton = document.getElementById('show-grades-button');
+const gradesModal = document.getElementById('grades-modal');
+const gradesModalTableContainer = document.getElementById('grades-modal-table-container');
+const gradesModalClose = document.getElementById('grades-modal-close');
 // Student Answers Form (Modified)
 const studentAnswersForm = document.getElementById('student-answers-form');
 const generateScanLinkButton = document.getElementById('generate-scan-link-button');
@@ -57,12 +61,13 @@ let currentScanSessionToken = null;
 // ADD these new global variables:
 let scanPollingInterval = null;
 let scanProcessingTimeout = null;
+let currentExamData = null; // NEW: To store loaded exam data
 
 // NEW: Global constants for default button texts
-const DEFAULT_GRADING_BUTTON_TEXT = 'Grade All Ungraded Submissions';
-const DEFAULT_APPENDIX_BUTTON_TEXT = 'Process and Upload Appendix';
-const DEFAULT_MODEL_BUTTON_TEXT = 'Process and Upload Answer Model';
-const DEFAULT_SCAN_BUTTON_TEXT = 'Generate Scan Link';
+const DEFAULT_GRADING_BUTTON_TEXT = 'Grade New Submissions';
+const DEFAULT_APPENDIX_BUTTON_TEXT = 'Upload Appendix';
+const DEFAULT_MODEL_BUTTON_TEXT = 'Upload Answer Model';
+const DEFAULT_SCAN_BUTTON_TEXT = 'Scan Answers';
 
 
 // --- HELPER FUNCTIONS ---
@@ -138,14 +143,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     await loadExamDetails(examId);
 
-    [rulesModal, appendixModal].forEach(modal => {
+    // MODIFIED: Add the new grades modal to the closing logic
+    [rulesModal, appendixModal, gradesModal].forEach(modal => {
         modal.addEventListener('click', (event) => {
             if (event.target === modal) modal.classList.add('hidden');
         });
     });
-    [rulesModalClose, appendixModalClose].forEach(button => {
+    // MODIFIED: Add the new close button to the closing logic
+    [rulesModalClose, appendixModalClose, gradesModalClose].forEach(button => {
         button.addEventListener('click', () => button.closest('.modal-overlay').classList.add('hidden'));
     });
+
+    // NEW: Add event listener for the "Show Grades" button
+    showGradesButton.addEventListener('click', handleShowGradesClick);
 });
 
 async function loadExamDetails(examId) {
@@ -157,20 +167,106 @@ async function loadExamDetails(examId) {
         return;
     }
 
+    currentExamData = examData; // Store exam data globally for later use
     examNameTitle.textContent = examData.exam_name;
 
+    // NEW: This function now handles showing/hiding both action buttons
+    await checkAndShowActionButtons(examId);
+
+    renderExam(examData.questions);
+}
+
+// NEW: Function to control visibility of action buttons based on data
+async function checkAndShowActionButtons(examId) {
+    // Handle "Show Grading Regulations" button
     const showRulesButton = document.getElementById('show-rules-button');
-    if (examData.grading_regulations) {
+    if (currentExamData && currentExamData.grading_regulations) {
         showRulesButton.classList.remove('hidden');
         showRulesButton.onclick = () => {
-            rulesModalText.innerHTML = marked.parse(examData.grading_regulations);
+            rulesModalText.innerHTML = marked.parse(currentExamData.grading_regulations);
             rulesModal.classList.remove('hidden');
         };
     } else {
         showRulesButton.classList.add('hidden');
     }
 
-    renderExam(examData.questions);
+    // Handle "Show Grades" button
+    try {
+        const { count, error } = await sb
+            .from('student_exams')
+            .select('*', { count: 'exact', head: true })
+            .eq('exam_id', examId)
+            .not('total_points_awarded', 'is', null);
+
+        if (error) throw error;
+
+        if (count > 0) {
+            showGradesButton.classList.remove('hidden');
+        } else {
+            showGradesButton.classList.add('hidden');
+        }
+    } catch (error) {
+        console.error('Could not check for graded exams:', error);
+        showGradesButton.classList.add('hidden');
+    }
+}
+
+// NEW: Function to handle fetching and displaying student grades
+async function handleShowGradesClick() {
+    gradesModalTableContainer.innerHTML = '<p>Loading grades...</p>';
+    gradesModal.classList.remove('hidden');
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const examId = urlParams.get('id');
+
+    if (!examId) {
+        gradesModalTableContainer.innerHTML = '<p>Error: Exam ID not found.</p>';
+        return;
+    }
+
+    try {
+        const { data: grades, error } = await sb
+            .from('student_exams')
+            .select('total_points_awarded, students(full_name, student_number)')
+            .eq('exam_id', examId)
+            .not('total_points_awarded', 'is', null)
+            .order('full_name', { foreignTable: 'students', ascending: true });
+
+        if (error) throw error;
+
+        if (grades && grades.length > 0) {
+            const maxPoints = currentExamData?.max_total_points ?? '?';
+            let tableHtml = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Student Name</th>
+                            <th>Student Number</th>
+                            <th>Points</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            grades.forEach(grade => {
+                const student = grade.students || {};
+                tableHtml += `
+                    <tr>
+                        <td>${student.full_name || 'N/A'}</td>
+                        <td>${student.student_number || 'N/A'}</td>
+                        <td>${grade.total_points_awarded} / ${maxPoints}</td>
+                    </tr>
+                `;
+            });
+            tableHtml += `</tbody></table>`;
+            gradesModalTableContainer.innerHTML = tableHtml;
+        } else {
+            gradesModalTableContainer.innerHTML = '<p>No graded submissions found.</p>';
+        }
+
+    } catch (error) {
+        console.error('Error fetching grades:', error);
+        gradesModalTableContainer.innerHTML = `<p>Error fetching grades: ${error.message}</p>`;
+    }
 }
 
 function renderExam(questions) {
@@ -186,10 +282,13 @@ function renderExam(questions) {
         const questionBlock = document.createElement('div');
         questionBlock.className = 'question-block';
 
+        // ... inside the questions.forEach loop ...
         let appendixButtonHtml = '';
         if (q.appendices && q.appendices.length > 0) {
-            const appendixData = JSON.stringify(q.appendices);
-            appendixButtonHtml = `<button class="appendix-button" data-appendix='${appendixData}'>Show Appendix</button>`;
+            // Give the button a unique ID based on the question's ID.
+            // This is much safer than putting data in an attribute.
+            const buttonId = `appendix-btn-${q.id}`;
+            appendixButtonHtml = `<button id="${buttonId}" class="appendix-button">Show Appendix</button>`;
         }
 
         let gridHtml = '';
@@ -235,7 +334,7 @@ function renderExam(questions) {
                         const studentIdentifier = studentData.info.full_name ? `${studentData.info.full_name} (${studentData.info.student_number || 'No number'})` : studentData.info.student_number;
                         const answersContent = studentData.answers.map(ans => {
                             const correctedText = ans.answer_text ? ans.answer_text.replace(/\\n/g, '\n') : '';
-                            const pointsHtml = ans.sub_points_awarded !== null ? `<div class="points-awarded-badge">Points: ${ans.sub_points_awarded} / ${sq.max_sub_points || '?'}</div>` : '';
+                            const pointsHtml = ans.sub_points_awarded !== null ? `<div class="points-awarded-badge">Points: ${ans.sub_points_awarded}/${sq.max_sub_points || '?'}</div>` : '';
                             const feedbackHtml = ans.feedback_comment ? `<div class="feedback-comment formatted-text">${ans.feedback_comment}</div>` : '';
                             return `
                                                         <div class="student-answer-item">
@@ -263,9 +362,16 @@ function renderExam(questions) {
                                         </div>`;
         }
 
+        // Create the points badge HTML if max_total_points exists
+        const pointsBadgeHtml = q.max_total_points ?
+            `<span class="question-points-badge">Points: ${q.max_total_points}</span>` : '';
+
         questionBlock.innerHTML = `
                                     <div class="question-header">
-                                        <span>Question ${q.question_number}</span>
+                                        <div class="question-title-wrapper">
+                                            <span>Question ${q.question_number}</span>
+                                            ${pointsBadgeHtml}
+                                        </div>
                                         ${appendixButtonHtml}
                                     </div>
                                     <p class="formatted-text">${q.context_text || ''}</p>
@@ -276,18 +382,33 @@ function renderExam(questions) {
         questionsContainer.appendChild(questionBlock);
     });
 
-    document.querySelectorAll('.appendix-button').forEach(button => {
-        button.addEventListener('click', (e) => {
-            const appendices = JSON.parse(e.target.dataset.appendix);
-            const contentHtml = appendices.map(app => `
-                                        <h4>${app.app_title || 'Appendix Item'}</h4>
-                                        <p>${app.app_text || ''}</p>
-                                        ${app.app_visual ? `<img src="${app.app_visual}" alt="Appendix visual">` : ''}
-                                        <hr>
-                                    `).join('');
-            appendixModalContent.innerHTML = contentHtml;
-            appendixModal.classList.remove('hidden');
-        });
+    // --- NEW, SAFER WAY TO ATTACH APPENDIX LISTENERS ---
+    // Loop through the original questions data again.
+    questions.forEach(q => {
+        // Check if this question had an appendix.
+        if (q.appendices && q.appendices.length > 0) {
+            // Find the specific button we created for it using its unique ID.
+            const buttonId = `appendix-btn-${q.id}`;
+            const button = document.getElementById(buttonId);
+
+            if (button) {
+                // Add a click listener directly to this button.
+                button.addEventListener('click', () => {
+                    // Because of the "closure", we have direct access to q.appendices.
+                    // No need to parse anything! We use the object directly.
+                    const appendices = q.appendices;
+
+                    const contentHtml = appendices.map(app => `
+                    <h4>${app.app_title || 'Appendix Item'}</h4>
+                    <p>${app.app_text || ''}</p>
+                    ${app.app_visual ? `<img src="${app.app_visual}" alt="Appendix visual">` : ''}
+                `).join('');
+
+                    appendixModalContent.innerHTML = contentHtml;
+                    appendixModal.classList.remove('hidden');
+                });
+            }
+        }
     });
 
     renderMathInElement(questionsContainer, {
@@ -325,7 +446,7 @@ appendixForm.addEventListener('submit', async (e) => {
         if (fetchError) throw new Error(`Could not fetch exam data: ${fetchError.message}`);
         const examStructureForGcf = { questions: examData.questions };
 
-        setButtonText(submitAppendixButtonText, 'Thinking... (may take 1 minute)');
+        setButtonText(submitAppendixButtonText, 'Thinking... (~2 mins)');
         const formData = new FormData();
         for (const file of files) { formData.append('files', file); }
         formData.append('exam_structure', JSON.stringify(examStructureForGcf));
@@ -394,7 +515,7 @@ modelForm.addEventListener('submit', async (e) => {
         if (fetchError) throw new Error(`Could not fetch exam data for model: ${fetchError.message}`);
         const examStructureForGcf = { questions: examStructure };
 
-        setButtonText(submitModelButtonText, 'Thinking... (may take 4 mins)');
+        setButtonText(submitModelButtonText, 'Thinking... (~4 mins)');
         const formData = new FormData();
         for (const file of files) { formData.append('files', file); }
         formData.append('exam_structure', JSON.stringify(examStructureForGcf));
@@ -539,7 +660,7 @@ gradeAllButton.addEventListener('click', async (e) => {
             return;
         }
 
-        updateGradingButtonText(`Grading ${ungradedExams.length} submission(s)...\n(may take 1 minute)`);
+        updateGradingButtonText(`Grading ${ungradedExams.length} submission(s)...\n(~1 min)`);
 
 
         const gradingPromises = ungradedExams.map(studentExam => {
@@ -582,27 +703,28 @@ async function fetchFullExamDetails(examId) {
     return sb
         .from('exams')
         .select(`
-                                    exam_name,
-                                    grading_regulations,
-                                    questions (
-                                        id, question_number, context_text, context_visual, extra_comment,
-                                        appendices ( app_title, app_text, app_visual ),
-                                        sub_questions (
-                                            id, sub_q_text_content, max_sub_points,
-                                            mcq_options ( mcq_letter, mcq_content ),
-                                            model_alternatives (
-                                                alternative_number, extra_comment,
-                                                model_components ( component_text, component_visual, component_points, component_order )
-                                            ),
-                                            student_answers (
-                                                answer_text, answer_visual, sub_points_awarded, feedback_comment,
-                                                student_exams (
-                                                    students ( full_name, student_number )
-                                                )
-                                            )
-                                        )
-                                    )
-                                `)
+            exam_name,
+            grading_regulations,
+            max_total_points, 
+            questions (
+                id, question_number, max_total_points, context_text, context_visual, extra_comment,
+                appendices ( app_title, app_text, app_visual ),
+                sub_questions (
+                    id, sub_q_text_content, max_sub_points,
+                    mcq_options ( mcq_letter, mcq_content ),
+                    model_alternatives (
+                        alternative_number, extra_comment,
+                        model_components ( component_text, component_visual, component_points, component_order )
+                    ),
+                    student_answers (
+                        answer_text, answer_visual, sub_points_awarded, feedback_comment,
+                        student_exams (
+                            students ( full_name, student_number )
+                        )
+                    )
+                )
+            )
+        `)
         .eq('id', examId)
         .single();
 }
@@ -616,6 +738,60 @@ async function fetchExamDataForModelJson(examId) {
 }
 
 // --- DATA PROCESSING AND UPLOAD FUNCTIONS ---
+
+// **** ADD THE MISSING FUNCTION HERE ****
+async function processAndUploadAppendices(examId, appendices, zip) {
+    setButtonText(submitAppendixButtonText, 'Matching appendices...');
+    const { data: questions, error: qError } = await sb.from('questions').select('id, question_number').eq('exam_id', examId);
+    if (qError) throw new Error(`Could not fetch question IDs: ${qError.message}`);
+
+    const questionMap = new Map(questions.map(q => [q.question_number, q.id]));
+    const appendicesToInsert = [];
+
+    for (const app of appendices) {
+        const questionId = questionMap.get(app.question_number);
+        if (!questionId) {
+            console.warn(`Warning: Could not find question_id for question_number "${app.question_number}". Skipping this appendix.`);
+            continue;
+        }
+
+        let appVisualUrl = null;
+        if (app.app_visual) {
+            const visualFile = zip.file(app.app_visual);
+            if (visualFile) {
+                setButtonText(submitAppendixButtonText, `Uploading visuals...`);
+                const filePath = `public/${examId}/appendices/${Date.now()}_${app.app_visual}`;
+                const fileBlob = await visualFile.async('blob');
+                // Use the original filename for the File object
+                const fileToUpload = new File([fileBlob], app.app_visual, { type: `image/${app.app_visual.split('.').pop()}` });
+
+                const { error: uploadError } = await sb.storage.from(STORAGE_BUCKET).upload(filePath, fileToUpload);
+                if (uploadError) throw new Error(`Failed to upload ${app.app_visual}: ${uploadError.message}`);
+
+                const { data: urlData } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(filePath);
+                appVisualUrl = urlData.publicUrl;
+                console.log(`Visual uploaded to: ${appVisualUrl}`);
+            } else {
+                console.warn(`Warning: Visual file ${app.app_visual} not found in zip.`);
+            }
+        }
+        appendicesToInsert.push({
+            question_id: questionId,
+            app_title: app.app_title,
+            app_text: app.app_text,
+            app_visual: appVisualUrl
+        });
+    }
+
+    if (appendicesToInsert.length > 0) {
+        setButtonText(submitAppendixButtonText, `Saving ${appendicesToInsert.length} records...`);
+        const { error: insertError } = await sb.from('appendices').insert(appendicesToInsert);
+        if (insertError) throw new Error(`Failed to insert appendices: ${insertError.message}`);
+    } else {
+        console.log('No valid appendices were found to insert.');
+    }
+}
+
 
 async function processAndUploadModel(examId, modelQuestions, zip) {
     setButtonText(submitModelButtonText, 'Processing rules...');
@@ -690,6 +866,60 @@ async function processAndUploadModel(examId, modelQuestions, zip) {
             }
         }
     }
+
+    // --- NEW: RECALCULATE AND UPDATE TOTAL POINTS ---
+    setButtonText(submitModelButtonText, 'Recalculating totals...');
+
+    // 1. Fetch the questions and their sub-questions with the newly updated points
+    const { data: questionsWithSubPoints, error: refetchError } = await sb
+        .from('questions')
+        .select('id, sub_questions(max_sub_points)')
+        .eq('exam_id', examId);
+
+    if (refetchError) {
+        throw new Error(`Could not re-fetch questions to update totals: ${refetchError.message}`);
+    }
+
+    let newExamTotalPoints = 0;
+    const questionUpdatePromises = [];
+
+    // 2. Calculate new totals for each question and sum them for the whole exam
+    for (const question of questionsWithSubPoints) {
+        const newQuestionTotal = question.sub_questions.reduce((sum, sq) => {
+            return sum + (Number(sq.max_sub_points) || 0);
+        }, 0);
+
+        newExamTotalPoints += newQuestionTotal;
+
+        // 3. Prepare the update promise for this specific question's total
+        questionUpdatePromises.push(
+            sb.from('questions')
+                .update({ max_total_points: newQuestionTotal })
+                .eq('id', question.id)
+        );
+    }
+
+    // 4. Execute all question total updates in parallel
+    if (questionUpdatePromises.length > 0) {
+        const questionUpdateResults = await Promise.all(questionUpdatePromises);
+        const firstError = questionUpdateResults.find(res => res.error);
+        if (firstError) {
+            throw new Error(`Failed to update question totals: ${firstError.error.message}`);
+        }
+    }
+
+    // 5. Update the final total points for the entire exam
+    const { error: examUpdateError } = await sb
+        .from('exams')
+        .update({ max_total_points: newExamTotalPoints })
+        .eq('id', examId);
+
+    if (examUpdateError) {
+        throw new Error(`Failed to update the exam's total points: ${examUpdateError.message}`);
+    }
+
+    console.log(`Successfully recalculated and updated totals. New exam total: ${newExamTotalPoints}`);
+    // --- END OF NEW LOGIC ---
 }
 
 // --- GRADING HELPER FUNCTIONS (REFACTORED) ---
@@ -989,7 +1219,7 @@ async function processScannedAnswersBackground(scanSession, examId) {
             }
         });
 
-        setButtonText(generateScanLinkButtonText, 'Thinking... (may take 4 minutes)');
+        setButtonText(generateScanLinkButtonText, 'Thinking... (~4 mins)');
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 300000);
 
