@@ -24,42 +24,77 @@
 
 /* === CUSTOM SCROLLBAR STYLES === */
 
-/* For WebKit browsers (Chrome, Safari, Edge, etc.) */
-/* We target both the main body and the modal content area */
+/* Default scrollbar styling for WebKit browsers */
 body::-webkit-scrollbar,
 .modal-content::-webkit-scrollbar {
-    width: 14px; /* Sets the width of the scrollbar */
+    width: 74px;
 }
 
-/* The track (the background of the scrollbar) */
 body::-webkit-scrollbar-track,
 .modal-content::-webkit-scrollbar-track {
-    background: var(--color-lighter-blue); /* A soft, non-intrusive background from your palette */
-    border-radius: 25px; /* Match the rounding of your containers */
+    background: transparent;
 }
 
-/* The draggable scrolling handle (the thumb) */
 body::-webkit-scrollbar-thumb,
 .modal-content::-webkit-scrollbar-thumb {
-    background-color: var(--color-blue-pastel-light-one); /* Use a button color for the thumb */
-    border-radius: 15px; /* Match button rounding */
-    border: 3px solid var(--color-lighter-blue); /* Create a border with the track color for a 'floating' effect */
+    background-color: var(--color-light-blue-two);
+    border-radius: 15px;
 }
 
-    /* The thumb on hover */
-    body::-webkit-scrollbar-thumb:hover,
-    .modal-content::-webkit-scrollbar-thumb:hover {
-        background-color: var(--color-blue-pastel); /* Use the darker button shadow color on hover for feedback */
-    }
-
-
-/* For Firefox */
-/* This is less customizable but provides a consistent feel */
-body,
-.modal-content {
-    scrollbar-width: thin; /* 'auto' or 'thin' */
-    scrollbar-color: var(--color-blue-pastel-light-one) var(--color-lighter-blue); /* thumb-color track-color */
+body::-webkit-scrollbar-button,
+.modal-content::-webkit-scrollbar-button {
+    display: none;
+    background: transparent;
+    color: transparent;
 }
+
+/* Hide scrollbar background when modal is present */
+/* Option 1: Hide body scrollbar completely when modal is active */
+body.modal-open::-webkit-scrollbar {
+    width: 0px;
+}
+
+/* Option 2: Make scrollbar completely transparent when modal is active */
+body.modal-open::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+body.modal-open::-webkit-scrollbar-thumb {
+    background-color: transparent;
+}
+
+/* Option 3: Hide scrollbar when it's next to modal overlay */
+.modal-overlay ~ body::-webkit-scrollbar,
+body:has(.modal-overlay)::-webkit-scrollbar {
+    background: transparent;
+}
+
+.modal-overlay ~ body::-webkit-scrollbar-track,
+body:has(.modal-overlay)::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.modal-overlay ~ body::-webkit-scrollbar-thumb,
+body:has(.modal-overlay)::-webkit-scrollbar-thumb {
+    background-color: transparent;
+}
+
+/* Firefox scrollbar styling */
+* {
+    scrollbar-width: auto;
+    scrollbar-color: var(--color-light-blue-two) transparent;
+}
+
+/* Firefox: Hide scrollbar when modal is active */
+body.modal-open {
+    scrollbar-width: none;
+}
+
+/* Alternative: Make Firefox scrollbar transparent when modal is active */
+body.modal-open {
+    scrollbar-color: transparent transparent;
+}
+
 
 body {
     font-family: "Quicksand", sans-serif;
@@ -412,7 +447,7 @@ button {
     text-align: center;
     margin-top: 1.5rem;
     overflow: hidden; /* Crucial for the max-height animation */
-    max-height: 350px; /* A safe max height for the transition to work from */
+    max-height: 500px; /* A safe max height for the transition to work from */
     /* MODIFIED: Opacity transition removed */
     transition: max-height 0.6s ease-in-out, transform 0.6s ease-in-out, margin-top 0.6s ease-in-out;
     transform-origin: top center;
@@ -707,4 +742,3 @@ h5 {
 table td:first-child {
     font-weight: bold;
 }
-

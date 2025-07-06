@@ -1,0 +1,1388 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Details</title>
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- JSZip for handling zip files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <!-- === KaTeX Library Tags === -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV" crossorigin="anonymous">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8" crossorigin="anonymous"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05" crossorigin="anonymous"></script>
+
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 2rem;
+        }
+
+        .container {
+            background: white;
+            padding: 2rem 3rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+            max-width: 90%; /* Increased width for columns */
+            margin: 0 auto 2rem auto;
+        }
+
+        h1, h2 {
+            text-align: center;
+            color: #222;
+        }
+
+        a {
+            color: #007bff;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #007bff;
+            animation: spin 1s ease infinite;
+            margin: 1rem auto;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            width: 90%;
+            max-width: 800px; /* Increased width for appendix */
+            position: relative;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 2rem;
+            font-weight: bold;
+            color: #aaa;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+            .modal-close:hover {
+                color: #333;
+            }
+
+        #status-log, #status-log-appendix, #status-log-model, #status-log-student, #status-log-grading {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            min-height: 100px;
+            font-family: "Courier New", Courier, monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            font-weight: 600;
+        }
+
+        input[type="text"], input[type="file"] {
+            padding: 0.8rem;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        button {
+            padding: 0.9rem;
+            border: none;
+            border-radius: 6px;
+            background-color: #28a745; /* Green for appendix */
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+            button:hover {
+                background-color: #218838;
+            }
+
+            button:disabled {
+                background-color: #a0a0a0;
+                cursor: not-allowed;
+            }
+
+        #submit-model-button {
+            background-color: #17a2b8; /* Teal for model answer */
+        }
+
+            #submit-model-button:hover {
+                background-color: #138496;
+            }
+
+        #submit-student-answers-button {
+            background-color: #6f42c1; /* Purple for student answers */
+        }
+
+            #submit-student-answers-button:hover {
+                background-color: #5a349b;
+            }
+
+        #grade-all-button {
+            background-color: #fd7e14; /* Orange for grading */
+            width: 100%;
+        }
+
+            #grade-all-button:hover {
+                background-color: #e66a00;
+            }
+
+
+        #questions-container {
+            margin-top: 2rem;
+        }
+
+        .question-block {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            background: #fdfdfd;
+        }
+
+        .question-header {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #0056b3;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .context-visual {
+            max-width: 50%;
+            height: auto;
+            border-radius: 6px;
+            margin-top: 1rem;
+        }
+
+        .formatted-text {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        /* --- NEW STYLES FOR 3-COLUMN LAYOUT --- */
+        .sub-question-grid {
+            display: grid;
+            grid-template-columns: 2fr 3fr 3fr;
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 2px solid #f0f0f0;
+        }
+
+        .grid-header {
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: #333;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid #e9ecef;
+            margin-bottom: 1rem;
+        }
+
+        .grid-cell {
+            padding-bottom: 1.5rem; /* Space between rows */
+            border-bottom: 1px dashed #ddd;
+        }
+        /* Remove border from last row of cells */
+        .sub-question-grid .grid-cell:nth-last-child(-n+3) {
+            border-bottom: none;
+        }
+
+        .sub-question-content {
+            padding: 0.5rem;
+        }
+
+        .mcq-option {
+            margin-left: 1rem;
+        }
+
+        h5 {
+            margin-top: 0;
+        }
+
+        .model-answer-section {
+            padding: 0.5rem;
+            background-color: #e9f7ff;
+            border: 1px solid #bce0fd;
+            border-radius: 6px;
+            height: 100%;
+        }
+
+        .model-alternative {
+            border-left: 2px solid #8fcdf9;
+        }
+
+        .model-component {
+            padding: 0.75rem;
+            background: #fff;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+            .model-component p {
+                margin-top: 0;
+            }
+
+        .points-badge {
+            font-weight: bold;
+            color: #218838;
+            font-size: 0.9em;
+            background-color: #e9f7ef;
+            padding: 3px 8px;
+            border-radius: 12px;
+            display: inline-block;
+        }
+
+        .model-component img {
+            max-width: 100%;
+            display: block;
+            margin-top: 0.5rem;
+            border-radius: 4px;
+        }
+
+        .student-answers-section {
+            padding: 0.5rem;
+            background-color: #f5f3f9;
+            border: 1px solid #dcd6e6;
+            border-radius: 6px;
+            height: 100%;
+        }
+
+        .student-answer-dropdown summary {
+            cursor: pointer;
+            font-weight: bold;
+            padding: 0.5rem;
+            background-color: #fff;
+            border-radius: 4px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .student-answer-item {
+            padding: 0.75rem;
+            background: #fff;
+            border-radius: 4px;
+            margin: 0.5rem 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .student-answer-visual {
+            max-width: 100%;
+            max-height: 400px;
+            display: block;
+            margin-top: 0.5rem;
+            border-radius: 4px;
+        }
+
+        /* --- NEW STYLES FOR GRADED ANSWERS --- */
+        .points-awarded-badge {
+            font-weight: bold;
+            color: #fff;
+            font-size: 0.9em;
+            background-color: #6f42c1; /* Purple */
+            padding: 4px 10px;
+            border-radius: 12px;
+            display: inline-block;
+            margin-top: 0.75rem;
+        }
+
+        .feedback-comment {
+            margin-top: 0.75rem;
+            padding: 0.75rem;
+            background-color: #fff9e6;
+            border-left: 4px solid #ffc107;
+            font-style: italic;
+            color: #555;
+            border-radius: 0 4px 4px 0;
+        }
+
+        /* --- NEW STYLES FOR APPENDIX --- */
+        .appendix-button {
+            background-color: #007bff;
+            color: white;
+            font-size: 0.8rem;
+            padding: 0.4rem 0.8rem;
+        }
+
+            .appendix-button:hover {
+                background-color: #0056b3;
+            }
+
+        #appendix-modal-content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 6px;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <a href="index.html">← Back to All Exams</a>
+        <h1 id="exam-name-title">Loading Exam...</h1>
+        <button id="show-rules-button" class="hidden" style="margin: 0 auto 1rem auto; display: block; background-color: #ffc107; color: #212529;">Show Grading Regulations</button>
+        <div id="questions-container"></div>
+    </div>
+
+    <!-- Upload Forms -->
+    <div class="container">
+        <h2>Upload Appendix</h2>
+        <form id="appendix-form">
+            <div class="form-group">
+                <label for="appendix-files">Appendix File(s) (PDF or Images)</label>
+                <input type="file" id="appendix-files" accept=".pdf,image/*" multiple required>
+            </div>
+            <button type="submit" id="submit-appendix-button">Process and Upload Appendix</button>
+        </form>
+        <div id="spinner-appendix" class="spinner hidden"></div>
+        <div id="status-log-appendix">Upload an appendix to link it to questions in this exam.</div>
+    </div>
+    <div class="container">
+        <h2>Upload Answer Model</h2>
+        <form id="model-form">
+            <div class="form-group">
+                <label for="model-files">Answer Model File(s) (PDF or Images)</label>
+                <input type="file" id="model-files" accept=".pdf,image/*" multiple required>
+            </div>
+            <button type="submit" id="submit-model-button">Process and Upload Answer Model</button>
+        </form>
+        <div id="spinner-model" class="spinner hidden"></div>
+        <div id="status-log-model">Upload the official answer model for this exam.</div>
+    </div>
+    <div class="container">
+        <h2>Upload Student Answers</h2>
+        <form id="student-answers-form">
+            <div class="form-group">
+                <label for="student-name">Student Full Name</label>
+                <input type="text" id="student-name" placeholder="e.g., Jane Doe">
+            </div>
+            <div class="form-group">
+                <label for="student-number">Student Number</label>
+                <input type="text" id="student-number" placeholder="e.g., s1234567">
+            </div>
+            <div class="form-group">
+                <label for="student-answer-files">Student's Answer File(s) (Images)</label>
+                <input type="file" id="student-answer-files" accept="image/*" multiple required>
+            </div>
+            <button type="submit" id="submit-student-answers-button">Process and Upload Student Answers</button>
+        </form>
+        <div id="spinner-student" class="spinner hidden"></div>
+        <div id="status-log-student">Upload a student's handwritten answers. Provide at least a name or student number.</div>
+    </div>
+    <div class="container">
+        <h2>Automatic Grading</h2>
+        <p>This will find all submitted student exams that have not yet been graded, send them for AI evaluation, and save the results.</p>
+        <button id="grade-all-button">Grade All Ungraded Submissions</button>
+        <div id="spinner-grading" class="spinner hidden"></div>
+        <div id="status-log-grading">Click the button to start the grading process.</div>
+    </div>
+
+    <!-- Modals -->
+    <div id="rules-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <span class="modal-close" id="rules-modal-close">×</span>
+            <h2>Grading Regulations</h2>
+            <div id="rules-modal-text" class="formatted-text"></div>
+        </div>
+    </div>
+    <div id="appendix-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <span class="modal-close" id="appendix-modal-close">×</span>
+            <h2 id="appendix-modal-title">Appendix</h2>
+            <div id="appendix-modal-content" class="formatted-text"></div>
+        </div>
+    </div>
+
+
+    <script>
+        // --- CONFIGURATION ---
+        const SUPABASE_URL = 'https://uagiatfoiwusxafxskvp.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhZ2lhdGZvaXd1c3hhZnhza3ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyODc0NjYsImV4cCI6MjA2NDg2MzQ2Nn0.b0wIEHgENkhzkp3qHAotqbLTq7BwsqgM7b0ksAl3h1U';
+        const APPENDIX_GCF_URL = 'https://add-appendix-232485517114.europe-west1.run.app';
+        const MODEL_GCF_URL = 'https://add-model-232485517114.europe-west1.run.app';
+        const STUDENT_ANSWERS_GCF_URL = 'https://add-student-answers-232485517114.europe-west1.run.app';
+        const GRADING_GCF_URL = 'https://generate-points-232485517114.europe-west1.run.app';
+        const STORAGE_BUCKET = 'exam-visuals';
+
+        // --- SUPABASE CLIENT ---
+        const { createClient } = supabase;
+        const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // --- DOM ELEMENTS ---
+        const examNameTitle = document.getElementById('exam-name-title');
+        const questionsContainer = document.getElementById('questions-container');
+        // Appendix Form
+        const appendixForm = document.getElementById('appendix-form');
+        const submitAppendixButton = document.getElementById('submit-appendix-button');
+        const statusLogAppendix = document.getElementById('status-log-appendix');
+        const spinnerAppendix = document.getElementById('spinner-appendix');
+        // Model Form
+        const modelForm = document.getElementById('model-form');
+        const submitModelButton = document.getElementById('submit-model-button');
+        const statusLogModel = document.getElementById('status-log-model');
+        const spinnerModel = document.getElementById('spinner-model');
+        // Modals
+        const rulesModal = document.getElementById('rules-modal');
+        const rulesModalText = document.getElementById('rules-modal-text');
+        const rulesModalClose = document.getElementById('rules-modal-close');
+        const appendixModal = document.getElementById('appendix-modal');
+        const appendixModalContent = document.getElementById('appendix-modal-content');
+        const appendixModalClose = document.getElementById('appendix-modal-close');
+        // Student Answers Form
+        const studentAnswersForm = document.getElementById('student-answers-form');
+        const submitStudentAnswersButton = document.getElementById('submit-student-answers-button');
+        const statusLogStudent = document.getElementById('status-log-student');
+        const spinnerStudent = document.getElementById('spinner-student');
+        // Grading Elements
+        const gradeAllButton = document.getElementById('grade-all-button');
+        const spinnerGrading = document.getElementById('spinner-grading');
+        const statusLogGrading = document.getElementById('status-log-grading');
+
+
+        // --- HELPER FUNCTIONS ---
+        const log = (message, targetLog) => {
+            console.log(message);
+            targetLog.textContent += `\n> ${message}`;
+            targetLog.scrollTop = targetLog.scrollHeight;
+        };
+        const clearLog = (message, targetLog) => { targetLog.textContent = `> ${message}`; };
+        const showSpinner = (show, targetSpinner) => { targetSpinner.classList.toggle('hidden', !show); };
+
+        function getFilenameFromUrl(url) {
+            if (!url) return null;
+            try {
+                const path = new URL(url).pathname;
+                const parts = path.split('/');
+                return decodeURIComponent(parts[parts.length - 1]);
+            } catch (e) {
+                console.error("Could not parse URL to get filename:", url, e);
+                return null;
+            }
+        }
+
+        // --- MAIN LOGIC ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const examId = urlParams.get('id');
+
+            if (!examId) {
+                examNameTitle.textContent = "Error: No Exam ID provided.";
+                questionsContainer.innerHTML = '<p>Please return to the main page and select an exam.</p>';
+                // Hide all upload forms
+                document.querySelectorAll('.container').forEach(c => {
+                    if (c.querySelector('form') || c.querySelector('#grade-all-button')) {
+                        c.classList.add('hidden');
+                    }
+                });
+                return;
+            }
+
+            await loadExamDetails(examId);
+
+            // --- MODAL CLOSING LOGIC ---
+            [rulesModal, appendixModal].forEach(modal => {
+                modal.addEventListener('click', (event) => {
+                    if (event.target === modal) modal.classList.add('hidden');
+                });
+            });
+            [rulesModalClose, appendixModalClose].forEach(button => {
+                button.addEventListener('click', () => button.closest('.modal-overlay').classList.add('hidden'));
+            });
+        });
+
+        async function loadExamDetails(examId) {
+            const { data: examData, error } = await fetchFullExamDetails(examId);
+
+            if (error) {
+                examNameTitle.textContent = "Error Loading Exam";
+                questionsContainer.innerHTML = `<p>Could not load exam details: ${error.message}</p>`;
+                return;
+            }
+
+            examNameTitle.textContent = examData.exam_name;
+
+            const showRulesButton = document.getElementById('show-rules-button');
+            if (examData.grading_regulations) {
+                showRulesButton.classList.remove('hidden');
+                showRulesButton.onclick = () => {
+                    rulesModalText.innerHTML = marked.parse(examData.grading_regulations);
+                    rulesModal.classList.remove('hidden');
+                };
+            } else {
+                showRulesButton.classList.add('hidden');
+            }
+
+            renderExam(examData.questions);
+        }
+
+        function renderExam(questions) {
+            questionsContainer.innerHTML = '';
+            if (!questions || questions.length === 0) {
+                questionsContainer.innerHTML = '<p>This exam has no questions yet.</p>';
+                return;
+            }
+
+            questions.sort((a, b) => a.question_number.localeCompare(b.question_number, undefined, { numeric: true }));
+
+            questions.forEach(q => {
+                const questionBlock = document.createElement('div');
+                questionBlock.className = 'question-block';
+
+                // --- Appendix Button ---
+                let appendixButtonHtml = '';
+                if (q.appendices && q.appendices.length > 0) {
+                    const appendixData = JSON.stringify(q.appendices);
+                    appendixButtonHtml = `<button class="appendix-button" data-appendix='${appendixData}'>Show Appendix</button>`;
+                }
+
+                // --- Grid Layout ---
+                let gridHtml = '';
+                if (q.sub_questions && q.sub_questions.length > 0) {
+                    const subQuestionCells = q.sub_questions.map(sq => {
+                        // --- Column 1: Sub-Question ---
+                        let mcqHtml = '';
+                        if (sq.mcq_options && sq.mcq_options.length > 0) {
+                            mcqHtml = sq.mcq_options.map(opt => `<div class="mcq-option"><strong>${opt.mcq_letter}:</strong> <span class="formatted-text">${opt.mcq_content}</span></div>`).join('');
+                        }
+                        const subQCell = `<div class="grid-cell"><div class="sub-question-content"><p class="formatted-text"><strong>${sq.sub_q_text_content || ''}</strong></p>${mcqHtml}</div></div>`;
+
+                        // --- Column 2: Model Answer ---
+                        let modelAnswerHtml = 'No model answer provided.';
+                        if (sq.model_alternatives && sq.model_alternatives.length > 0) {
+                            sq.model_alternatives.sort((a, b) => a.alternative_number - b.alternative_number);
+                            const alternativesHtml = sq.model_alternatives.map(alt => {
+                                if (alt.model_components) alt.model_components.sort((a, b) => a.component_order - b.component_order);
+                                const componentsHtml = alt.model_components.map(comp => `
+                                                <div class="model-component">
+                                                    ${comp.component_text ? `<p class="formatted-text">${comp.component_text}</p>` : ''}
+                                                    ${comp.component_visual ? `<img src="${comp.component_visual}" alt="Model component visual">` : ''}
+                                                    <span class="points-badge">Points: ${comp.component_points}</span>
+                                                </div>`).join('');
+                                return `<div class="model-alternative"><h5>Alternative ${alt.alternative_number}</h5>${alt.extra_comment ? `<p class="formatted-text"><em>${alt.extra_comment}</em></p>` : ''}${componentsHtml}</div>`;
+                            }).join('');
+                            modelAnswerHtml = `<div class="model-answer-section">${alternativesHtml}</div>`;
+                        }
+                        const modelCell = `<div class="grid-cell">${modelAnswerHtml}</div>`;
+
+                        // --- Column 3: Student Answers ---
+                        let studentAnswersHtml = 'No answers submitted.';
+                        if (sq.student_answers && sq.student_answers.length > 0) {
+                            const answersByStudent = sq.student_answers.reduce((acc, ans) => {
+                                const student = ans.student_exams?.students;
+                                if (!student) return acc;
+                                const studentKey = student.full_name || student.student_number;
+                                if (!acc[studentKey]) {
+                                    acc[studentKey] = { info: student, answers: [] };
+                                }
+                                acc[studentKey].answers.push(ans); // Push the whole answer object
+                                return acc;
+                            }, {});
+
+                            const studentDropdowns = Object.values(answersByStudent).map(studentData => {
+                                const studentIdentifier = studentData.info.full_name ? `${studentData.info.full_name} (${studentData.info.student_number || 'No number'})` : studentData.info.student_number;
+                                const answersContent = studentData.answers.map(ans => {
+                                    const correctedText = ans.answer_text ? ans.answer_text.replace(/\\n/g, '\n') : '';
+                                    const pointsHtml = ans.sub_points_awarded !== null ? `<div class="points-awarded-badge">Points: ${ans.sub_points_awarded} / ${sq.max_sub_points || '?'}</div>` : '';
+                                    const feedbackHtml = ans.feedback_comment ? `<div class="feedback-comment formatted-text">${ans.feedback_comment}</div>` : '';
+                                    return `
+                                                    <div class="student-answer-item">
+                                                        ${correctedText ? `<p class="formatted-text">${correctedText}</p>` : ''}
+                                                        ${ans.answer_visual ? `<img src="${ans.answer_visual}" alt="Student answer visual" class="student-answer-visual">` : ''}
+                                                        ${pointsHtml}
+                                                        ${feedbackHtml}
+                                                    </div>`;
+                                }).join('');
+                                return `<details class="student-answer-dropdown"><summary>${studentIdentifier}</summary>${answersContent}</details>`;
+                            }).join('');
+                            studentAnswersHtml = `<div class="student-answers-section">${studentDropdowns}</div>`;
+                        }
+                        const studentCell = `<div class="grid-cell">${studentAnswersHtml}</div>`;
+
+                        return subQCell + modelCell + studentCell;
+                    }).join('');
+
+                    gridHtml = `
+                                    <div class="sub-question-grid">
+                                        <div class="grid-header">Sub-Question</div>
+                                        <div class="grid-header">Model Answer</div>
+                                        <div class="grid-header">Student Answers</div>
+                                        ${subQuestionCells}
+                                    </div>`;
+                }
+
+                questionBlock.innerHTML = `
+                                <div class="question-header">
+                                    <span>Question ${q.question_number}</span>
+                                    ${appendixButtonHtml}
+                                </div>
+                                <p class="formatted-text">${q.context_text || ''}</p>
+                                ${q.context_visual ? `<img src="${q.context_visual}" alt="Visual for question ${q.question_number}" class="context-visual">` : ''}
+                                ${q.extra_comment ? `<p class="formatted-text"><em>${q.extra_comment}</em></p>` : ''}
+                                ${gridHtml}
+                            `;
+                questionsContainer.appendChild(questionBlock);
+            });
+
+            // Add event listeners for the new appendix buttons
+            document.querySelectorAll('.appendix-button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const appendices = JSON.parse(e.target.dataset.appendix);
+                    const contentHtml = appendices.map(app => `
+                                    <h4>${app.app_title || 'Appendix Item'}</h4>
+                                    <p>${app.app_text || ''}</p>
+                                    ${app.app_visual ? `<img src="${app.app_visual}" alt="Appendix visual">` : ''}
+                                    <hr>
+                                `).join('');
+                    appendixModalContent.innerHTML = contentHtml;
+                    appendixModal.classList.remove('hidden');
+                });
+            });
+
+            renderMathInElement(questionsContainer, {
+                delimiters: [
+                    { left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false },
+                    { left: '\$$', right: '\$$', display: false }, { left: '\$$', right: '\$$', display: true }
+                ],
+                throwOnError: false
+            });
+        }
+
+        // --- APPENDIX UPLOAD LOGIC ---
+        appendixForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            submitAppendixButton.disabled = true;
+            showSpinner(true, spinnerAppendix);
+            clearLog('Starting appendix processing...', statusLogAppendix);
+            const urlParams = new URLSearchParams(window.location.search);
+            const examId = urlParams.get('id');
+            const files = document.getElementById('appendix-files').files;
+            if (!examId || files.length === 0) {
+                alert('Cannot proceed without an Exam ID and at least one file.');
+                submitAppendixButton.disabled = false;
+                showSpinner(false, spinnerAppendix);
+                return;
+            }
+            try {
+                log('Fetching current exam structure...', statusLogAppendix);
+                const { data: examData, error: fetchError } = await fetchExamDataForAppendixJson(examId);
+                if (fetchError) throw new Error(`Could not fetch exam data: ${fetchError.message}`);
+                const examStructureForGcf = { questions: examData.questions };
+                log('Uploading appendix files and exam structure to processing service...', statusLogAppendix);
+                const formData = new FormData();
+                for (const file of files) { formData.append('files', file); }
+                formData.append('exam_structure', JSON.stringify(examStructureForGcf));
+                const gcfResponse = await fetch(APPENDIX_GCF_URL, { method: 'POST', body: formData });
+                if (!gcfResponse.ok) {
+                    const errorText = await gcfResponse.text();
+                    throw new Error(`Cloud function failed: ${gcfResponse.statusText} - ${errorText}`);
+                }
+                log('Processing service returned success. Unzipping results...', statusLogAppendix);
+                const zipBlob = await gcfResponse.blob();
+                const jszip = new JSZip();
+                const zip = await jszip.loadAsync(zipBlob);
+                const jsonFile = Object.values(zip.files).find(file => file.name.endsWith('.json'));
+                if (!jsonFile) throw new Error("No JSON file found in the returned zip.");
+                const jsonContent = await jsonFile.async('string');
+                const appendixData = JSON.parse(jsonContent);
+                log('Successfully parsed appendix structure from JSON.', statusLogAppendix);
+                await processAndUploadAppendices(examId, appendixData.appendices, zip);
+                log('✅ Appendix successfully uploaded and linked to questions!', statusLogAppendix);
+                appendixForm.reset();
+                await loadExamDetails(examId);
+            } catch (error) {
+                log(`❌ An error occurred: ${error.message}`, statusLogAppendix);
+                console.error(error);
+            } finally {
+                submitAppendixButton.disabled = false;
+                showSpinner(false, spinnerAppendix);
+            }
+        });
+
+        // --- ANSWER MODEL UPLOAD LOGIC ---
+        modelForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            submitModelButton.disabled = true;
+            showSpinner(true, spinnerModel);
+            clearLog('Starting answer model processing...', statusLogModel);
+            const urlParams = new URLSearchParams(window.location.search);
+            const examId = urlParams.get('id');
+            const files = document.getElementById('model-files').files;
+            if (!examId || files.length === 0) {
+                alert('Cannot proceed without an Exam ID and at least one file.');
+                submitModelButton.disabled = false;
+                showSpinner(false, spinnerModel);
+                return;
+            }
+            try {
+                log('Fetching exam structure for model processing...', statusLogModel);
+                const { data: examStructure, error: fetchError } = await fetchExamDataForModelJson(examId);
+                if (fetchError) throw new Error(`Could not fetch exam data for model: ${fetchError.message}`);
+                const examStructureForGcf = { questions: examStructure };
+                log('Uploading model files and exam structure to processing service...', statusLogModel);
+                const formData = new FormData();
+                for (const file of files) { formData.append('files', file); }
+                formData.append('exam_structure', JSON.stringify(examStructureForGcf));
+                const gcfResponse = await fetch(MODEL_GCF_URL, { method: 'POST', body: formData });
+                if (!gcfResponse.ok) {
+                    const errorText = await gcfResponse.text();
+                    throw new Error(`Cloud function failed: ${gcfResponse.statusText} - ${errorText}`);
+                }
+                log('Processing service returned success. Unzipping results...', statusLogModel);
+                const zipBlob = await gcfResponse.blob();
+                const jszip = new JSZip();
+                const zip = await jszip.loadAsync(zipBlob);
+                const jsonFile = Object.values(zip.files).find(file => file.name.endsWith('.json'));
+                if (!jsonFile) throw new Error("No JSON file found in the returned zip.");
+                const jsonContent = await jsonFile.async('string');
+                const modelData = JSON.parse(jsonContent);
+                log('Successfully parsed answer model from JSON.', statusLogModel);
+                await processAndUploadModel(examId, modelData.questions, zip);
+                log('✅ Answer Model successfully uploaded and saved!', statusLogModel);
+                modelForm.reset();
+                await loadExamDetails(examId);
+            } catch (error) {
+                log(`❌ An error occurred: ${error.message}`, statusLogModel);
+                console.error(error);
+            } finally {
+                submitModelButton.disabled = false;
+                showSpinner(false, spinnerModel);
+            }
+        });
+
+        // --- STUDENT ANSWER UPLOAD LOGIC ---
+        studentAnswersForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            submitStudentAnswersButton.disabled = true;
+            showSpinner(true, spinnerStudent);
+            clearLog('Starting student answer processing...', statusLogStudent);
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const examId = urlParams.get('id');
+            const studentName = document.getElementById('student-name').value.trim();
+            const studentNumber = document.getElementById('student-number').value.trim();
+            const files = document.getElementById('student-answer-files').files;
+
+            if (!studentName && !studentNumber) {
+                alert('Please provide a student name or student number.');
+                submitStudentAnswersButton.disabled = false;
+                showSpinner(false, spinnerStudent);
+                return;
+            }
+            if (!examId || files.length === 0) {
+                alert('Cannot proceed without an Exam ID and at least one answer file.');
+                submitStudentAnswersButton.disabled = false;
+                showSpinner(false, spinnerStudent);
+                return;
+            }
+
+            try {
+                log('Fetching exam structure for student answer processing...', statusLogStudent);
+                const { data: examStructure, error: fetchError } = await fetchExamDataForStudentAnswerJson(examId);
+                if (fetchError) throw new Error(`Could not fetch exam data: ${fetchError.message}`);
+                const examStructureForGcf = { questions: examStructure };
+
+                log('Uploading student answer files and exam structure to processing service...', statusLogStudent);
+                const formData = new FormData();
+                for (const file of files) { formData.append('files', file); }
+                formData.append('exam_structure', JSON.stringify(examStructureForGcf));
+
+                const gcfResponse = await fetch(STUDENT_ANSWERS_GCF_URL, { method: 'POST', body: formData });
+                if (!gcfResponse.ok) {
+                    const errorText = await gcfResponse.text();
+                    throw new Error(`Cloud function failed: ${gcfResponse.statusText} - ${errorText}`);
+                }
+
+                log('Processing service returned success. Unzipping results...', statusLogStudent);
+                const zipBlob = await gcfResponse.blob();
+                const jszip = new JSZip();
+                const zip = await jszip.loadAsync(zipBlob);
+                const jsonFile = Object.values(zip.files).find(file => file.name.endsWith('.json'));
+                if (!jsonFile) throw new Error("No JSON file found in the returned zip.");
+                const jsonContent = await jsonFile.async('string');
+                const responseData = JSON.parse(jsonContent);
+                log('Successfully parsed student answers from JSON.', statusLogStudent);
+
+                await processAndUploadStudentAnswers(examId, studentName, studentNumber, responseData, zip);
+
+                log('✅ Student answers successfully uploaded and saved!', statusLogStudent);
+                studentAnswersForm.reset();
+                await loadExamDetails(examId);
+
+            } catch (error) {
+                log(`❌ An error occurred: ${error.message}`, statusLogStudent);
+                console.error(error);
+            } finally {
+                submitStudentAnswersButton.disabled = false;
+                showSpinner(false, spinnerStudent);
+            }
+        });
+
+        // --- AUTOMATIC GRADING LOGIC ---
+        gradeAllButton.addEventListener('click', async (e) => {
+            e.preventDefault();
+            gradeAllButton.disabled = true;
+            showSpinner(true, spinnerGrading);
+            clearLog('Starting grading process...', statusLogGrading);
+            const urlParams = new URLSearchParams(window.location.search);
+            const examId = urlParams.get('id');
+
+            try {
+                log('Finding ungraded submissions...', statusLogGrading);
+                const { data: ungradedExams, error: findError } = await sb
+                    .from('student_exams')
+                    .select('id, students(full_name, student_number)')
+                    .eq('exam_id', examId)
+                    .is('total_points_awarded', null);
+
+                if (findError) throw findError;
+                if (!ungradedExams || ungradedExams.length === 0) {
+                    log('✅ No new ungraded submissions found.', statusLogGrading);
+                    return;
+                }
+                log(`Found ${ungradedExams.length} ungraded submission(s). Preparing data for grading...`, statusLogGrading);
+
+                const gradingPromises = ungradedExams.map(studentExam => {
+                    const studentIdentifier = studentExam.students.full_name || studentExam.students.student_number;
+                    return processSingleStudent(examId, studentExam.id, studentIdentifier);
+                });
+
+                const results = await Promise.all(gradingPromises);
+
+                let successCount = 0;
+                results.forEach(result => {
+                    if (result.status === 'success') {
+                        successCount++;
+                    } else {
+                        log(`❌ Grading failed for student exam ${result.studentExamId}: ${result.error}`, statusLogGrading);
+                    }
+                });
+
+                log(`✅ Successfully graded and saved ${successCount} of ${ungradedExams.length} submissions.`, statusLogGrading);
+                log('Refreshing page data...', statusLogGrading);
+                await loadExamDetails(examId);
+
+            } catch (error) {
+                log(`❌ A critical error occurred during the grading process: ${error.message}`, statusLogGrading);
+                console.error(error);
+            } finally {
+                gradeAllButton.disabled = false;
+                showSpinner(false, spinnerGrading);
+            }
+        });
+
+
+        // --- DATA FETCHING FUNCTIONS ---
+        async function fetchFullExamDetails(examId) {
+            return sb
+                .from('exams')
+                .select(`
+                                exam_name,
+                                grading_regulations,
+                                questions (
+                                    id, question_number, context_text, context_visual, extra_comment,
+                                    appendices ( app_title, app_text, app_visual ),
+                                    sub_questions (
+                                        id, sub_q_text_content, max_sub_points,
+                                        mcq_options ( mcq_letter, mcq_content ),
+                                        model_alternatives (
+                                            alternative_number, extra_comment,
+                                            model_components ( component_text, component_visual, component_points, component_order )
+                                        ),
+                                        student_answers (
+                                            answer_text, answer_visual, sub_points_awarded, feedback_comment,
+                                            student_exams (
+                                                students ( full_name, student_number )
+                                            )
+                                        )
+                                    )
+                                )
+                            `)
+                .eq('id', examId)
+                .single();
+        }
+
+        async function fetchExamDataForAppendixJson(examId) {
+            return sb.from('exams').select(`exam_name, questions (id, question_number, context_text, extra_comment, sub_questions (sub_q_text_content, mcq_options (mcq_letter, mcq_content)))`).eq('id', examId).single();
+        }
+
+        async function fetchExamDataForModelJson(examId) {
+            return sb.from('questions').select(`question_number, sub_questions (sub_q_text_content)`).eq('exam_id', examId).order('question_number', { ascending: true });
+        }
+
+        async function fetchExamDataForStudentAnswerJson(examId) {
+            return sb.from('questions').select(`question_number, sub_questions (sub_q_text_content)`).eq('exam_id', examId).order('question_number', { ascending: true });
+        }
+
+
+        // --- DATA PROCESSING AND UPLOAD FUNCTIONS ---
+
+        async function processAndUploadAppendices(examId, appendices, zip) {
+            log('Preparing to save appendices to database...', statusLogAppendix);
+            const { data: questions, error: qError } = await sb.from('questions').select('id, question_number').eq('exam_id', examId);
+            if (qError) throw new Error(`Could not fetch question IDs: ${qError.message}`);
+            const questionMap = new Map(questions.map(q => [q.question_number, q.id]));
+            const appendicesToInsert = [];
+            for (const app of appendices) {
+                const questionId = questionMap.get(app.question_number);
+                if (!questionId) {
+                    log(`⚠️ Warning: Could not find question_id for question_number "${app.question_number}". Skipping this appendix.`, statusLogAppendix);
+                    continue;
+                }
+                let appVisualUrl = null;
+                if (app.app_visual) {
+                    const visualFile = zip.file(app.app_visual);
+                    if (visualFile) {
+                        log(`Uploading appendix visual: ${app.app_visual}`, statusLogAppendix);
+                        const filePath = `public/${examId}/appendices/${Date.now()}_${app.app_visual}`;
+                        const fileBlob = await visualFile.async('blob');
+                        const fileToUpload = new File([fileBlob], app.app_visual, { type: `image/${app.app_visual.split('.').pop()}` });
+                        const { error: uploadError } = await sb.storage.from(STORAGE_BUCKET).upload(filePath, fileToUpload);
+                        if (uploadError) throw new Error(`Failed to upload ${app.app_visual}: ${uploadError.message}`);
+                        const { data: urlData } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(filePath);
+                        appVisualUrl = urlData.publicUrl;
+                        log(`Visual uploaded to: ${appVisualUrl}`, statusLogAppendix);
+                    } else {
+                        log(`⚠️ Warning: Visual file ${app.app_visual} not found in zip.`, statusLogAppendix);
+                    }
+                }
+                appendicesToInsert.push({ question_id: questionId, app_title: app.app_title, app_text: app.app_text, app_visual: appVisualUrl });
+            }
+            if (appendicesToInsert.length > 0) {
+                log(`Inserting ${appendicesToInsert.length} appendix records...`, statusLogAppendix);
+                const { error: insertError } = await sb.from('appendices').insert(appendicesToInsert);
+                if (insertError) throw new Error(`Failed to insert appendices: ${insertError.message}`);
+            } else {
+                log('No valid appendices were found to insert.', statusLogAppendix);
+            }
+        }
+
+        async function processAndUploadModel(examId, modelQuestions, zip) {
+            log('Matching model data to existing questions...', statusLogModel);
+
+            const rulesFile = zip.file('grading_rules.txt');
+            if (rulesFile) {
+                try {
+                    log('Found grading_rules.txt. Reading content...', statusLogModel);
+                    const rulesContent = await rulesFile.async('string');
+                    log('Updating exam with grading regulations...', statusLogModel);
+                    const { error: updateError } = await sb
+                        .from('exams')
+                        .update({ grading_regulations: rulesContent })
+                        .eq('id', examId);
+
+                    if (updateError) {
+                        throw updateError;
+                    }
+                    log('Successfully saved grading regulations.', statusLogModel);
+                } catch (error) {
+                    log(`⚠️ Warning: Could not save grading regulations: ${error.message}`, statusLogModel);
+                }
+            } else {
+                log('No grading_rules.txt found in the zip file. Skipping regulations update.', statusLogModel);
+            }
+
+            const { data: dbQuestions, error: fetchError } = await sb.from('questions').select('id, question_number, sub_questions(id, sub_q_text_content)').eq('exam_id', examId);
+            if (fetchError) throw new Error(`Could not fetch exam structure for matching: ${fetchError.message}`);
+            const subQuestionLookup = dbQuestions.reduce((qMap, q) => {
+                qMap[q.question_number] = q.sub_questions.reduce((sqMap, sq) => { sqMap[sq.sub_q_text_content] = sq.id; return sqMap; }, {});
+                return qMap;
+            }, {});
+            for (const q_model of modelQuestions) {
+                for (const sq_model of q_model.sub_questions) {
+                    const sub_question_id = subQuestionLookup[q_model.question_number]?.[sq_model.sub_q_text_content];
+                    if (!sub_question_id) {
+                        log(`⚠️ Warning: Could not find matching sub-question for Q#${q_model.question_number}. Skipping.`, statusLogModel);
+                        continue;
+                    }
+                    if (!sq_model.model_alternatives || sq_model.model_alternatives.length === 0) continue;
+                    log(`Processing model for Q#${q_model.question_number}...`, statusLogModel);
+                    for (const alt_model of sq_model.model_alternatives) {
+                        const { data: newAlternative, error: altError } = await sb.from('model_alternatives').insert({ sub_question_id: sub_question_id, alternative_number: alt_model.alternative_number, extra_comment: alt_model.extra_comment }).select('id').single();
+                        if (altError) throw new Error(`Failed to insert model alternative: ${altError.message}`);
+                        const alternative_id = newAlternative.id;
+                        if (!alt_model.model_components || alt_model.model_components.length === 0) continue;
+                        const componentsToInsert = [];
+                        for (const comp_model of alt_model.model_components) {
+                            let componentVisualUrl = null;
+                            if (comp_model.component_visual) {
+                                const visualFile = zip.file(comp_model.component_visual);
+                                if (visualFile) {
+                                    log(`  - Uploading model visual: ${comp_model.component_visual}`, statusLogModel);
+                                    const filePath = `public/${examId}/models/${Date.now()}_${comp_model.component_visual}`;
+                                    const fileBlob = await visualFile.async('blob');
+                                    const fileToUpload = new File([fileBlob], comp_model.component_visual, { type: `image/${comp_model.component_visual.split('.').pop()}` });
+                                    const { error: uploadError } = await sb.storage.from(STORAGE_BUCKET).upload(filePath, fileToUpload);
+                                    if (uploadError) throw new Error(`Failed to upload ${comp_model.component_visual}: ${uploadError.message}`);
+                                    const { data: urlData } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(filePath);
+                                    componentVisualUrl = urlData.publicUrl;
+                                } else {
+                                    log(`  - ⚠️ Warning: Visual file ${comp_model.component_visual} not found in zip.`, statusLogModel);
+                                }
+                            }
+                            componentsToInsert.push({ alternative_id: alternative_id, component_text: comp_model.component_text, component_visual: componentVisualUrl, component_points: comp_model.component_points, component_order: comp_model.component_order });
+                        }
+                        if (componentsToInsert.length > 0) {
+                            log(`  - Inserting ${componentsToInsert.length} model components...`, statusLogModel);
+                            const { error: compError } = await sb.from('model_components').insert(componentsToInsert);
+                            if (compError) throw new Error(`Failed to insert model components: ${compError.message}`);
+                        }
+                    }
+                }
+            }
+        }
+
+        async function processAndUploadStudentAnswers(examId, studentName, studentNumber, responseData, zip) {
+            log('Processing student answers...', statusLogStudent);
+
+            // 1. Find or Create Student
+            let studentQuery = sb.from('students').select('id');
+            const orConditions = [];
+            if (studentName) orConditions.push(`full_name.eq.${studentName}`);
+            if (studentNumber) orConditions.push(`student_number.eq.${studentNumber}`);
+            studentQuery = studentQuery.or(orConditions.join(','));
+
+            let { data: existingStudent, error: findError } = await studentQuery.maybeSingle();
+            if (findError) throw new Error(`Error finding student: ${findError.message}`);
+
+            let studentId;
+            if (existingStudent) {
+                studentId = existingStudent.id;
+                log(`Found existing student with ID: ${studentId}`, statusLogStudent);
+            } else {
+                log(`Creating new student: ${studentName || ''} (${studentNumber || ''})`, statusLogStudent);
+                const { data: newStudent, error: createError } = await sb.from('students').insert({ full_name: studentName || null, student_number: studentNumber || null }).select('id').single();
+                if (createError) throw new Error(`Could not create student: ${createError.message}`);
+                studentId = newStudent.id;
+                log(`Created new student with ID: ${studentId}`, statusLogStudent);
+            }
+
+            // 2. Find or Create student_exams record
+            let { data: studentExam, error: seError } = await sb.from('student_exams').select('id').eq('student_id', studentId).eq('exam_id', examId).maybeSingle();
+            if (seError) throw new Error(`Error finding student_exam record: ${seError.message}`);
+
+            let studentExamId;
+            if (studentExam) {
+                studentExamId = studentExam.id;
+                log(`Found existing student_exam record: ${studentExamId}. Deleting previous answers...`, statusLogStudent);
+                const { error: deleteError } = await sb.from('student_answers').delete().eq('student_exam_id', studentExamId);
+                if (deleteError) throw new Error(`Failed to delete old answers: ${deleteError.message}`);
+            } else {
+                log(`Creating new student_exam record...`, statusLogStudent);
+                const { data: newStudentExam, error: createSeError } = await sb.from('student_exams').insert({ student_id: studentId, exam_id: examId, status: 'submitted' }).select('id').single();
+                if (createSeError) throw new Error(`Could not create student_exam record: ${createSeError.message}`);
+                studentExamId = newStudentExam.id;
+                log(`Created new student_exam record: ${studentExamId}`, statusLogStudent);
+            }
+
+            // 3. Build lookup map and process answers
+            const { data: dbQuestions, error: fetchQError } = await sb.from('questions').select('id, question_number, sub_questions(id, sub_q_text_content)').eq('exam_id', examId);
+            if (fetchQError) throw new Error(`Could not fetch exam structure for matching: ${fetchQError.message}`);
+            const subQuestionLookup = dbQuestions.reduce((qMap, q) => {
+                qMap[q.question_number] = q.sub_questions.reduce((sqMap, sq) => { sqMap[sq.sub_q_text_content] = sq.id; return sqMap; }, {});
+                return qMap;
+            }, {});
+
+            const answersToInsert = [];
+            for (const q_res of responseData.questions) {
+                for (const sq_res of q_res.sub_questions) {
+                    const sub_question_id = subQuestionLookup[q_res.question_number]?.[sq_res.sub_q_text_content];
+                    if (!sub_question_id) {
+                        log(`⚠️ Warning: Could not find matching sub-question for Q#${q_res.question_number}. Skipping.`, statusLogStudent);
+                        continue;
+                    }
+                    if (sq_res.student_answers) {
+                        let answerVisualUrl = null;
+                        if (sq_res.student_answers.answer_visual) {
+                            const visualFilename = sq_res.student_answers.answer_visual;
+                            const visualFile = zip.file(visualFilename);
+                            if (visualFile) {
+                                log(`Uploading student answer visual: ${visualFilename}`, statusLogStudent);
+                                const filePath = `public/${examId}/students/${studentId}/${Date.now()}_${visualFilename}`;
+                                const fileBlob = await visualFile.async('blob');
+                                const fileToUpload = new File([fileBlob], visualFilename, { type: `image/${visualFilename.split('.').pop()}` });
+                                const { error: uploadError } = await sb.storage.from(STORAGE_BUCKET).upload(filePath, fileToUpload);
+                                if (uploadError) throw new Error(`Failed to upload ${visualFilename}: ${uploadError.message}`);
+                                const { data: urlData } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(filePath);
+                                answerVisualUrl = urlData.publicUrl;
+                            } else {
+                                log(`⚠️ Warning: Visual file ${visualFilename} not found in zip.`, statusLogStudent);
+                            }
+                        }
+                        answersToInsert.push({
+                            student_exam_id: studentExamId,
+                            sub_question_id: sub_question_id,
+                            answer_text: sq_res.student_answers.answer_text || null,
+                            answer_visual: answerVisualUrl
+                        });
+                    }
+                }
+            }
+
+            // 4. Bulk insert
+            if (answersToInsert.length > 0) {
+                log(`Inserting ${answersToInsert.length} student answer records...`, statusLogStudent);
+                const { error: insertError } = await sb.from('student_answers').insert(answersToInsert);
+                if (insertError) throw new Error(`Failed to insert student answers: ${insertError.message}`);
+            } else {
+                log('No valid student answers were found to insert.', statusLogStudent);
+            }
+        }
+
+        // --- GRADING HELPER FUNCTIONS ---
+
+        async function processSingleStudent(examId, studentExamId, studentIdentifier) {
+            try {
+                // A. Fetch the data in the required JSON structure
+                log(`Fetching data for ${studentIdentifier}...`, statusLogGrading);
+                const { data: gradingData, error: dataError } = await fetchGradingDataForStudent(examId, studentExamId);
+                if (dataError) throw new Error(`Data fetch failed: ${dataError.message}`);
+                if (!gradingData || !gradingData.questions || gradingData.questions.length === 0) {
+                    log(`No answer data found for ${studentIdentifier}. Marking as graded with 0 points.`, statusLogGrading);
+                    await sb.from('student_exams').update({ total_points_awarded: 0, status: 'graded' }).eq('id', studentExamId);
+                    return { status: 'success', studentExamId };
+                }
+
+                // B. Collect all image URLs and fetch them, and build sub-question ID map
+                const imageUrls = new Set();
+                // +++ ADD THIS LINE +++
+                const subQuestionAnswerIdMap = new Map(); // Map<sub_question_id, student_answer_id>
+
+                JSON.stringify(gradingData, (key, value) => {
+                    if (value && typeof value === 'string' && value.startsWith('http')) {
+                        if (key === 'context_visual' || key === 'component_visual' || key === 'answer_visual') {
+                            imageUrls.add(value);
+                        }
+                    }
+                    if (key === 'sub_questions' && Array.isArray(value)) {
+                        value.forEach(sq => {
+                            if (sq.id && sq.student_answers && sq.student_answers.length > 0) {
+                                subQuestionAnswerIdMap.set(sq.id, sq.student_answers[0].id);
+                            }
+                        });
+                    }
+                    return value;
+                });
+
+                const imageBlobs = new Map(); // Map<filename, blob>
+                const fetchImagePromises = Array.from(imageUrls).map(async (url) => {
+                    const filename = getFilenameFromUrl(url);
+                    if (filename) {
+                        const response = await fetch(url);
+                        if (!response.ok) throw new Error(`Failed to fetch image: ${url}`);
+                        const blob = await response.blob();
+                        imageBlobs.set(filename, blob);
+                    }
+                });
+                await Promise.all(fetchImagePromises);
+                log(`Fetched ${imageBlobs.size} unique images for ${studentIdentifier}.`, statusLogGrading);
+
+                // C. Call the GCF
+                log(`Sending data to AI for grading (${studentIdentifier})...`, statusLogGrading);
+                const gcfResponse = await callGradingGcf(gradingData, imageBlobs);
+
+                // D. Process the response and update the DB
+                await updateGradingResultsInDb(studentExamId, gcfResponse, subQuestionAnswerIdMap);
+                log(`✅ Saved results for ${studentIdentifier}.`, statusLogGrading);
+
+                return { status: 'success', studentExamId };
+            } catch (error) {
+                console.error(`Error processing student_exam ${studentExamId}:`, error);
+                return { status: 'error', studentExamId, error: error.message };
+            }
+        }
+
+        async function fetchGradingDataForStudent(examId, studentExamId) {
+            // 1. Fetch the base exam structure with model answers etc.
+            const { data: examBase, error: baseError } = await sb
+                .from('exams')
+                .select(`
+                                    grading_regulations,
+                                    questions (
+                                        question_number, max_total_points, context_text, context_visual, extra_comment,
+                                        sub_questions (
+                                            id, sub_q_text_content, max_sub_points,
+                                            mcq_options ( mcq_letter, mcq_content ),
+                                            model_alternatives (
+                                                alternative_number, extra_comment,
+                                                model_components ( component_text, component_visual, component_points )
+                                            )
+                                        )
+                                    )
+                                `)
+                .eq('id', examId)
+                .single();
+
+            if (baseError) throw baseError;
+
+            // 2. Fetch all answers for this specific student exam.
+            const { data: studentAnswers, error: answersError } = await sb
+                .from('student_answers')
+                .select('id, sub_question_id, answer_text, answer_visual')
+                .eq('student_exam_id', studentExamId);
+
+            if (answersError) throw answersError;
+
+            // 3. Create a map for easy lookup.
+            const answersMap = new Map(studentAnswers.map(ans => [ans.sub_question_id, {
+                id: ans.id,
+                answer_text: ans.answer_text,
+                answer_visual: ans.answer_visual
+            }]));
+
+            // 4. Inject the student answers into the base structure.
+            examBase.questions.forEach(q => {
+                q.sub_questions.forEach(sq => {
+                    const studentAns = answersMap.get(sq.id);
+                    // The GCF expects an array for student_answers
+                    sq.student_answers = studentAns ? [studentAns] : [];
+                });
+            });
+
+            return { data: examBase, error: null };
+        }
+
+        async function callGradingGcf(gradingData, imageBlobs) {
+            const formData = new FormData();
+            formData.append('grading_data', JSON.stringify(gradingData));
+
+            for (const [filename, blob] of imageBlobs.entries()) {
+                formData.append(filename, blob, filename);
+            }
+
+            const response = await fetch(GRADING_GCF_URL, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Grading service failed: ${response.statusText} - ${errorText}`);
+            }
+            return response.json();
+        }
+
+        async function updateGradingResultsInDb(studentExamId, gcfResponse, subQuestionToAnswerIdMap) {
+            const answerUpdates = [];
+            let totalPoints = 0;
+
+            if (!gcfResponse || !gcfResponse.questions) {
+                throw new Error("Invalid response from grading service.");
+            }
+
+            // The GCF now returns the full question structure
+            const allSubQuestionResults = gcfResponse.questions.flatMap(q => q.sub_questions || []);
+
+            for (const subQResult of allSubQuestionResults) {
+                // Use the reliable sub_question_id for matching
+                const studentAnswerId = subQuestionToAnswerIdMap.get(subQResult.sub_question_id);
+
+                if (studentAnswerId && subQResult.student_answers) {
+                    const points = Number(subQResult.student_answers.sub_points_awarded) || 0;
+                    const feedback = subQResult.student_answers.feedback_comment || '';
+
+                    answerUpdates.push({
+                        id: studentAnswerId,
+                        sub_points_awarded: points,
+                        feedback_comment: feedback
+                    });
+                    totalPoints += points;
+                } else if (subQResult.student_answers && subQResult.student_answers.feedback_comment.startsWith("ERROR:")) {
+                    // Log errors from the GCF if a sub-question failed to grade
+                    log(`⚠️ GCF Error on sub-question ID ${subQResult.sub_question_id}: ${subQResult.student_answers.feedback_comment}`, statusLogGrading);
+                }
+            }
+
+            if (answerUpdates.length > 0) {
+                const updatePromises = answerUpdates.map(update =>
+                    sb.from('student_answers')
+                        .update({
+                            sub_points_awarded: update.sub_points_awarded,
+                            feedback_comment: update.feedback_comment
+                        })
+                        .eq('id', update.id)
+                );
+                const results = await Promise.all(updatePromises);
+                const firstErrorResult = results.find(res => res.error);
+                if (firstErrorResult) {
+                    throw new Error(`Failed to save grading results: ${firstErrorResult.error.message}`);
+                }
+            }
+
+            const { error: examUpdateError } = await sb
+                .from('student_exams')
+                .update({
+                    total_points_awarded: totalPoints,
+                    status: 'graded'
+                })
+                .eq('id', studentExamId);
+
+            if (examUpdateError) throw new Error(`Failed to update final score: ${examUpdateError.message}`);
+        }
+
+    </script>
+
+</body>
+</html>

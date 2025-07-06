@@ -1,4 +1,4 @@
-// --- CONFIGURATION ---
+﻿// --- CONFIGURATION ---
 const SUPABASE_URL = 'https://uagiatfoiwusxafxskvp.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhZ2lhdGZvaXd1c3hhZnhza3ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyODc0NjYsImV4cCI6MjA2NDg2MzQ2Nn0.b0wIEHgENkhzkp3qHAotqbLTq7BwsqgM7b0ksAl3h1U';
 const APPENDIX_GCF_URL = 'https://add-appendix-232485517114.europe-west1.run.app';
@@ -51,6 +51,7 @@ const scanLinkArea = document.getElementById('scan-link-area');
 const qrcodeCanvas = document.getElementById('qrcode-canvas');
 const scanUrlLink = document.getElementById('scan-url');
 const spinnerStudent = document.getElementById('spinner-student');
+const directUploadInput = document.getElementById('direct-upload-files');
 // Grading Elements
 const gradeAllButton = document.getElementById('grade-all-button');
 const gradeAllButtonText = document.getElementById('grade-all-button-text');
@@ -739,7 +740,113 @@ async function fetchExamDataForModelJson(examId) {
 
 // --- DATA PROCESSING AND UPLOAD FUNCTIONS ---
 
-// **** ADD THE MISSING FUNCTION HERE ****
+/**
+ * Handles the direct file upload as an alternative to QR scanning.
+ * This function is triggered when a user selects files in the new input.
+ */
+async function handleDirectUpload(event) {
+    const files = event.target.files;
+    if (!files || files.length === 0) {
+        return; // Do nothing if no files were selected.
+    }
+
+    // A scan session must be active to associate the upload with a student.
+    if (!currentScanSessionToken) {
+        alert('Error: No active scan session. Please click "Scan Answers" again.');
+        event.target.value = ''; // Reset input
+        return;
+    }
+
+    // Immediately stop the QR code polling and update the UI to show processing.
+    stopScanPolling();
+    directUploadInput.disabled = true;
+    setButtonText(generateScanLinkButtonText, 'Uploading...');
+    showSpinner(true, spinnerStudent);
+
+    // Hide the scan area as requested.
+    if (scanLinkArea && !scanLinkArea.classList.contains('hiding')) {
+        scanLinkArea.classList.add('hiding');
+        setTimeout(() => {
+            scanLinkArea.classList.add('hidden');
+            scanLinkArea.classList.remove('hiding');
+        }, 600); // This duration must match your CSS transition.
+    }
+
+    try {
+        const examId = new URLSearchParams(window.location.search).get('id');
+
+        // First, use the token to get the session's primary key (id) and other details.
+        const { data: rpcResult, error: sessionError } = await sb
+            .rpc('get_session_details_by_token', { token_arg: currentScanSessionToken });
+
+        if (sessionError || !rpcResult || rpcResult.length === 0) {
+            throw new Error(`Could not find active session for token: ${sessionError?.message || 'Not found'}`);
+        }
+        const sessionDetails = rpcResult[0];
+        const sessionId = sessionDetails.id;
+
+        const uploadPromises = [];
+        const uploadedFilePaths = [];
+
+        // Upload each selected file to the same temporary storage location as the QR scan.
+        for (const file of files) {
+            const filePath = `temp_scans/${currentScanSessionToken}/${file.name}`;
+            uploadPromises.push(
+                sb.storage.from(STORAGE_BUCKET).upload(filePath, file)
+            );
+        }
+        const results = await Promise.all(uploadPromises);
+
+        // Collect the public URLs of the successfully uploaded files.
+        for (const result of results) {
+            if (result.error) {
+                throw new Error(`Failed to upload a file: ${result.error.message}`);
+            }
+            const { data: urlData } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(result.data.path);
+            uploadedFilePaths.push(urlData.publicUrl);
+        }
+
+        // Update the scan session record to mark it as 'uploaded'.
+        const { error: updateError } = await sb
+            .from('scan_sessions')
+            .update({
+                status: 'uploaded',
+                uploaded_image_paths: uploadedFilePaths
+            })
+            .eq('id', sessionId);
+
+        if (updateError) {
+            throw new Error(`Failed to update scan session status for ID ${sessionId}: ${updateError.message}`);
+        }
+
+        // --- FIX START ---
+        // To avoid a race condition, we augment the session data we already have
+        // with the new file paths and pass it directly to the processing function.
+        const sessionForProcessing = sessionDetails;
+        sessionForProcessing.uploaded_image_paths = uploadedFilePaths;
+
+        // Hand off to the processing function with the preloaded data.
+        await processScannedAnswers(examId, sessionForProcessing);
+        // --- FIX END ---
+
+    } catch (error) {
+        console.error('Direct upload failed:', error);
+        setButtonText(generateScanLinkButtonText, 'Upload Error!');
+        showSpinner(false, spinnerStudent);
+        // Reset the UI after an error to allow the user to try again.
+        setTimeout(() => {
+            generateScanLinkButton.disabled = false;
+            setButtonText(generateScanLinkButtonText, DEFAULT_SCAN_BUTTON_TEXT);
+            currentScanSessionToken = null;
+            directUploadInput.disabled = false;
+            event.target.value = ''; // Clear the file input
+        }, 5000);
+    }
+}
+
+// Add the event listener to the new file input.
+directUploadInput.addEventListener('change', handleDirectUpload);
+
 async function processAndUploadAppendices(examId, appendices, zip) {
     setButtonText(submitAppendixButtonText, 'Matching appendices...');
     const { data: questions, error: qError } = await sb.from('questions').select('id, question_number').eq('exam_id', examId);
@@ -1173,7 +1280,9 @@ async function checkScanStatus(examId) {
             }
 
             stopScanPolling();
-            await processScannedAnswers(examId);
+            // --- FIX ---
+            // Pass the session object we just fetched to avoid another DB read
+            await processScannedAnswers(examId, session);
         }
 
     } catch (error) {
@@ -1263,20 +1372,28 @@ async function processScannedAnswersBackground(scanSession, examId) {
     }
 }
 
-async function processScannedAnswers(examId) {
+// --- FIX START: MODIFIED FUNCTION SIGNATURE AND LOGIC ---
+async function processScannedAnswers(examId, preloadedSession = null) {
     showSpinner(true, spinnerStudent);
     setButtonText(generateScanLinkButtonText, 'Processing...');
     let isError = false;
     let scanSession;
 
     try {
-        const sessionToken = currentScanSessionToken;
-        if (!sessionToken || !examId) throw new Error('Session token and Exam ID are required');
+        if (preloadedSession) {
+            // Use the session object passed directly to avoid a race condition
+            scanSession = preloadedSession;
+        } else {
+            // Original path for polling or other flows: fetch from the DB
+            const sessionToken = currentScanSessionToken;
+            if (!sessionToken || !examId) throw new Error('Session token and Exam ID are required');
 
-        const { data: rpcResult, error: sessionError } = await sb
-            .rpc('get_session_details_by_token', { token_arg: sessionToken });
-        if (sessionError) throw new Error(`Failed to fetch session details: ${sessionError.message}`);
-        scanSession = rpcResult?.[0];
+            const { data: rpcResult, error: sessionError } = await sb
+                .rpc('get_session_details_by_token', { token_arg: sessionToken });
+            if (sessionError) throw new Error(`Failed to fetch session details: ${sessionError.message}`);
+            scanSession = rpcResult?.[0];
+        }
+
         if (!scanSession) throw new Error('Scan session not found or expired.');
         if (new Date(scanSession.expires_at) < new Date()) throw new Error('Scan session has expired.');
 
@@ -1303,16 +1420,19 @@ async function processScannedAnswers(examId) {
         showSpinner(false, spinnerStudent);
         setTimeout(() => {
             studentAnswersForm.reset();
-            // MODIFIED: This line is removed, as the animation handles hiding the element now.
-            // scanLinkArea.classList.add('hidden'); 
             generateScanLinkButton.disabled = false;
             setButtonText(generateScanLinkButtonText, DEFAULT_SCAN_BUTTON_TEXT);
             currentScanSessionToken = null;
+            // Also reset the direct upload input for the next use
+            if (directUploadInput) {
+                directUploadInput.disabled = false;
+                directUploadInput.value = '';
+            }
         }, isError ? 5000 : 3000);
     }
 }
+// --- FIX END ---
 
-// Function for saving student answers (migrated from Edge Function)
 // FINAL CORRECTED VERSION
 async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip) {
     console.log("Starting to save student answers. GCF Response:", responseData);
@@ -1372,34 +1492,35 @@ async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip
                 let answerVisualUrl = null;
 
                 if (sq_res.student_answers.answer_visual) {
-                    const visualFilename = sq_res.student_answers.answer_visual;
-                    const visualFile = zip.file(visualFilename);
+                    // --- START OF THE FIX ---
+                    // Decode the filename from the GCF in case it contains URL-encoded characters like %20 for spaces.
+                    const visualFilename = decodeURIComponent(sq_res.student_answers.answer_visual);
+                    // --- END OF THE FIX ---
+
+                    const visualFile = zip.file(sq_res.student_answers.answer_visual); // Use original encoded name to find in zip
 
                     if (visualFile) {
                         setButtonText(generateScanLinkButtonText, `Uploading ${visualFilename}...`);
-                        
+
                         const filePath = `public/${examId}/answers/${studentExamId}/${Date.now()}_${visualFilename}`;
                         const fileBlob = await visualFile.async('blob');
 
-                        // --- START OF THE FIX ---
-                        // Manually determine the MIME type from the filename extension.
                         const fileExtension = visualFilename.split('.').pop().toLowerCase();
                         let mimeType = 'application/octet-stream'; // Default
                         if (fileExtension === 'png') mimeType = 'image/png';
                         else if (fileExtension === 'jpg' || fileExtension === 'jpeg') mimeType = 'image/jpeg';
                         else if (fileExtension === 'gif') mimeType = 'image/gif';
                         else if (fileExtension === 'webp') mimeType = 'image/webp';
-                        
-                        console.log(`Detected extension '${fileExtension}', using MIME type '${mimeType}'`);
 
-                        // Create the File object with the correct MIME type.
+                        console.log(`Decoded filename: '${visualFilename}', using MIME type '${mimeType}'`);
+
+                        // Create the File object with the correct (decoded) filename and MIME type.
                         const fileToUpload = new File([fileBlob], visualFilename, { type: mimeType });
-                        // --- END OF THE FIX ---
 
                         const { error: uploadError } = await sb.storage
                             .from(STORAGE_BUCKET)
                             .upload(filePath, fileToUpload);
-                        
+
                         if (uploadError) {
                             console.error(`!!!!!!!! STORAGE UPLOAD FAILED for ${visualFilename} !!!!!!!!`);
                             console.error("Error Details:", uploadError);
@@ -1412,7 +1533,8 @@ async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip
                             console.log(`Saved public URL: ${answerVisualUrl}`);
                         }
                     } else {
-                        console.warn(`WARNING: Visual file '${visualFilename}' was in JSON but NOT FOUND in the ZIP.`);
+                        // Note: We still use the original, potentially encoded name to search the zip, as that's the key.
+                        console.warn(`WARNING: Visual file '${sq_res.student_answers.answer_visual}' was in JSON but NOT FOUND in the ZIP.`);
                     }
                 }
 
