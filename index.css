@@ -1,0 +1,272 @@
+:root {
+    /* Color Palette Variables */
+    --color-background: #F7F7FF; /* Light cream for main background, buttons, flash */
+    --color-background-border: #ebebff;
+    --color-background-border-between: #d6d6ff;
+    --color-background-box-shadow: #c2c2ff;
+    --color-text-dark: #14110F; /* Dark charcoal for text, borders, and success states */
+    --color-text-light: #F7F7FF; /* Same as background, used for text on dark surfaces */
+    --color-primary: #0066ff; /* Main blue for buttons */
+    --color-light-blue-two: #c2daff;
+    --color-lighter-blue: #d6e7ff;
+    --color-blue-pastel: #334195;
+    --color-blue-pastel-light-one: #7684d0;
+    --color-blue-pastel-light-two: #959fdb;
+    --color-green-pastel: #02a147;
+    --color-green-pastel-light-one: #02ca59;
+    --color-green-pastel-light-two: #02de62;
+    --color-green-pastel-light-three: rgba(235, 255, 243, 0.4);
+    --color-danger: #E3170A;
+    --color-danger-between: #f86c62;
+    --color-danger-light: #fba39d;
+    --color-disabled-bg: #dcd8d0; /* Beige for disabled upload button */
+}
+
+
+body {
+    font-family: "Quicksand", sans-serif;
+    font-optical-sizing: auto;
+    font-style: normal;
+    background-color: var(--color-background);
+    color: var(--color-text-dark);
+    margin: 0;
+    padding: 2rem 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.container {
+    margin: 0 auto 2rem auto;
+    background-color: var(--color-background-box-shadow);
+    border-radius: 25px;
+    margin: 0; /* Let the grid gap handle spacing */
+    background-color: var(--color-background-box-shadow);
+    padding: 2rem 3rem;
+    width: 100%;
+    max-width: 600px;
+    margin-bottom: 2rem; /* Space between containers */
+}
+
+h1, h2 {
+    text-align: center;
+    color: #222;
+}
+
+h2 {
+    margin: 0;
+}
+
+#login-view h2, #signup-view h2 {
+    margin-bottom: 1rem;
+}
+
+.app-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.auth-forms {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+label {
+    font-weight: 600;
+}
+
+.file-input-hidden {
+    width: 0.1px;
+    height: 0.1px;
+    opacity: 0;
+    overflow: hidden;
+    position: absolute;
+    z-index: -1;
+}
+
+.file-input-label {
+    padding: 0.9rem;
+    border: none;
+    border-radius: 15px;
+    background-color: var(--color-background-border-between);
+    color: var(--color-text-dark);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition-duration: 0.3s;
+    text-align: center;
+    display: inline-block;
+}
+
+    .file-input-label:hover {
+        background-color: var(--color-background-border);
+        transform: translateY(-2px);
+    }
+
+input[type="text"], input[type="email"], input[type="password"], input[type="file"] {
+    padding: 0.8rem;
+    background-color: var(--color-background-border-between);
+    border-radius: 15px;
+    font-size: 1rem;
+    outline: none;
+    border: none;
+    font-family: "Quicksand", sans-serif;
+    font-optical-sizing: auto;
+    font-style: normal;
+    transition-duration: 0.3s;
+}
+
+    input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus, input[type="file"]:focus {
+        background-color: var(--color-background-border);
+    }
+
+button {
+    font-family: "Quicksand", sans-serif;
+    font-optical-sizing: auto;
+    font-style: normal;
+    font-size: 1rem;
+    background: var(--color-danger-between);
+    color: var(--color-text-light);
+    text-decoration: none;
+    font-weight: 800;
+    border-radius: 15px;
+    border: 3px solid var(--color-danger-light);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    position: relative;
+    box-shadow: -4px 8px 0 var(--color-danger);
+    transform: translateY(-4px) translateX(0);
+    padding: 1rem 1.5rem;
+}
+
+    button:hover {
+        transform: translateY(0) translateX(-2px);
+        box-shadow: -2px 4px 0 var(--color-danger);
+    }
+
+    /* ADDED: Disabled state for buttons */
+    button:disabled {
+        cursor: not-allowed;
+    }
+
+
+#submit-exam-button, #login-button, #signup-button {
+    background: var(--color-blue-pastel-light-one);
+    color: var(--color-text-light);
+    border: 3px solid var(--color-blue-pastel-light-two);
+    box-shadow: -4px 8px 0 var(--color-blue-pastel);
+    transform: translateY(0) translateX(4px);
+    padding: 1rem 1.5rem;
+    /* ADDED: Flex properties to align spinner and text */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.8rem;
+}
+
+    #submit-exam-button:hover, #login-button:hover, #signup-button:hover, #submit-exam-button:disabled, #login-button:disabled, #signup-button:disabled {
+        transform: translateY(4px) translateX(2px);
+        box-shadow: -2px 4px 0 var(--color-blue-pastel);
+    }
+
+
+.auth-toggle {
+    text-align: left;
+    margin-top: 1.5rem;
+}
+
+    .auth-toggle a {
+        color: var(--color-primary);
+        cursor: pointer;
+        text-decoration: none;
+    }
+
+        .auth-toggle a:hover {
+            text-decoration: underline;
+        }
+
+#app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 1rem;
+    border-bottom: 3px solid var(--color-background-border-between)
+}
+
+    #app-header span {
+        font-weight: 800;
+    }
+
+.hidden {
+    display: none !important;
+}
+
+/* REMOVED: Old status-log styles */
+
+.spinner {
+    /* MODIFIED: Sized for button, removed auto margin */
+    border: 4px solid rgba(255, 255, 255, 0.4);
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border-left-color: var(--color-text-light);
+    animation: spin 1s ease infinite;
+    margin: 0;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* --- NEW STYLES FOR EXAM CARDS --- */
+#exam-list-section h2 {
+    margin-bottom: 1rem;
+}
+
+
+#exam-cards-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.exam-card {
+    display: block;
+    padding: 1.5rem;
+    border-radius: 15px;
+    text-decoration: none;
+    background-color: var(--color-background-border-between);
+    transition-duration: 0.3s;
+}
+
+    .exam-card:hover {
+        background-color: var(--color-background-border);
+        transform: translateY(-2px);
+    }
+
+    .exam-card h3 {
+        margin: 0 0 0.5rem 0;
+        color: var(--color-primary);
+    }
+
+    .exam-card p {
+        margin: 0;
+        font-size: 0.9rem;
+        color: #666;
+    }
