@@ -34,7 +34,7 @@
                 <h2>Upload Answer Model</h2>
                 <form id="model-form">
                     <div class="form-group">
-                        <label for="model-files">Answer Model File(s) (PDF or Images)</label>
+                        <label for="model-files">Answer Model File(s) (PDF/Images)</label>
                         <input type="file" id="model-files" class="file-input-hidden" accept=".pdf,image/*" multiple required>
                         <label for="model-files" class="file-input-label">Choose Files</label>
                         <span id="model-file-display" class="file-name-display">No files chosen</span>
@@ -51,7 +51,7 @@
                 <h2>Upload Appendix</h2>
                 <form id="appendix-form">
                     <div class="form-group">
-                        <label for="appendix-files">Appendix File(s) (PDF or Images)</label>
+                        <label for="appendix-files">Appendix File(s) (PDF/Images)</label>
                         <input type="file" id="appendix-files" class="file-input-hidden" accept=".pdf,image/*" multiple required>
                         <label for="appendix-files" class="file-input-label">Choose Files</label>
                         <span id="appendix-file-display" class="file-name-display">No files chosen</span>
@@ -105,6 +105,7 @@
             <div class="title-wrapper">
                 <h1 id="exam-name-title">Loading Exam...</h1>
                 <button id="show-rules-button" class="hidden">Show Grading Regulations</button>
+                <button id="show-grades-button" class="hidden pushable-button">Show Points</button>
             </div>
             <div id="questions-container"></div>
         </div>
@@ -122,6 +123,13 @@
                 <span class="modal-close" id="appendix-modal-close">×</span>
                 <h2 id="appendix-modal-title">Appendix</h2>
                 <div id="appendix-modal-content" class="formatted-text"></div>
+            </div>
+        </div>
+        <div id="grades-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <span class="modal-close" id="grades-modal-close">×</span>
+                <h2>Student Grades</h2>
+                <div id="grades-modal-table-container" class="formatted-text"></div>
             </div>
         </div>
     </body>
