@@ -378,7 +378,7 @@ function renderPreviews() {
 
         const removeBtn = document.createElement('button');
         removeBtn.className = 'remove-btn';
-        removeBtn.textContent = '×';
+        removeBtn.textContent = 'ï¿½';
         removeBtn.onclick = () => removeImage(item.id);
 
         previewItem.appendChild(img);
