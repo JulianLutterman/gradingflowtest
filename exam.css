@@ -846,6 +846,7 @@ td .file-input-label {
 
 #multi-scan-qr-area p, #multi-scan-qr-area a {
     margin: 1rem auto;
+    display: block;
 }
 
 #multi-qrcode-canvas {
