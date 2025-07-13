@@ -1659,13 +1659,21 @@ function generateStudentTable(type, rowCount = 10) {
         }
     });
 
+    // ADD THIS NEW BLOCK IN ITS PLACE
     if (type === 'direct') {
-        container.querySelectorAll('input[type="file"]').forEach(input => {
-            input.addEventListener('change', (e) => {
-                const fileCount = e.target.files.length;
-                const label = e.target.nextElementSibling;
-                label.textContent = fileCount > 0 ? `${fileCount} file(s)` : 'Choose Files';
-            });
+        // Use event delegation on the container
+        container.addEventListener('change', function(event) {
+            // Check if the event was triggered by one of our specific file inputs
+            if (event.target.classList.contains('direct-upload-input')) {
+                const inputElement = event.target;
+                const fileCount = inputElement.files.length;
+                const label = inputElement.nextElementSibling; // The <label> is the next sibling
+    
+                // Update the label's text
+                if (label) {
+                    label.textContent = fileCount > 0 ? `${fileCount} file(s)` : 'Choose Files';
+                }
+            }
         });
     }
 }
@@ -1679,7 +1687,7 @@ function generateStudentTableRowHtml(index, type) {
         // The status cell is now clean, without redundant attributes.
         ? `<td class="status-cell">Pending</td>`
         : `<td>
-             <input type="file" id="${fileInputId}" class="file-input-hidden" accept=".pdf,image/*" multiple>
+             <input type="file" id="${fileInputId}" class="file-input-hidden direct-upload-input" accept=".pdf,image/*" multiple>
              <label for="${fileInputId}" class="file-input-label">Choose Files</label>
            </td>`;
 
