@@ -447,6 +447,11 @@ button {
     margin-left: 40px;
 }
 
+#choose-multi-student-button {
+    margin-top: 1rem;
+}
+
+
 /* --- Styles for QR Code Area Animation --- */
 #scan-link-area {
     text-align: center;
