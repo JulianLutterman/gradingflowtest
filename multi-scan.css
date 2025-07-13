@@ -197,6 +197,11 @@ button {
   color: var(--color-text-light);
 }
 
+#nextStudentBtn:disabled {
+    background-color: var(--color-disabled-bg);
+    color: gray;
+}
+
 /* Main upload button at the bottom */
 #uploadBtn {
     margin-top: 20px;
