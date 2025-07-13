@@ -161,6 +161,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupFileInputFeedback('appendix-files', 'appendix-file-display');
     setupFileInputFeedback('model-files', 'model-file-display');
 
+    // --- START OF NEW, CORRECTED CODE ---
+    // This single, delegated event listener on the modal will handle all file inputs,
+    // including those added dynamically, without any conflicts.
+    multiUploadModal.addEventListener('change', (event) => {
+        // Check if the element that triggered the change is a file input within the direct upload table
+        if (event.target.matches('#direct-student-table input[type="file"]')) {
+            const fileInput = event.target;
+            const files = fileInput.files;
+            // The corresponding label is the very next element in the HTML structure
+            const label = fileInput.nextElementSibling;
+
+            if (label) {
+                if (files && files.length > 0) {
+                    // A slightly better way to display the count
+                    label.textContent = files.length === 1 ? `1 file selected` : `${files.length} files selected`;
+                } else {
+                    label.textContent = 'Choose Files';
+                }
+            }
+        }
+    });
+    // --- END OF NEW, CORRECTED CODE ---
+    
     const urlParams = new URLSearchParams(window.location.search);
     const examId = urlParams.get('id');
 
