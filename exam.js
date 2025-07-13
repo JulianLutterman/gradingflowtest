@@ -237,6 +237,24 @@ async function loadExamDetails(examId) {
     multiScanStartButton.addEventListener('click', handleStartMultiScan);
     multiDirectProcessButton.addEventListener('click', handleProcessAllDirectUploads);
 
+    multiDirectUploadArea.addEventListener('change', (event) => {
+        // Check if the element that triggered the change event is a file input inside our table
+        if (event.target.matches('#direct-student-table input[type="file"]')) {
+            const fileInput = event.target;
+            const files = fileInput.files;
+            // The corresponding label is the very next element in the HTML
+            const label = fileInput.nextElementSibling;
+    
+            if (label) {
+                if (files && files.length > 0) {
+                    label.textContent = files.length === 1 ? `1 file` : `${files.length} files`;
+                } else {
+                    label.textContent = 'Choose Files';
+                }
+            }
+        }
+    });
+
     currentExamData = examData; // Store exam data globally for later use
     examNameTitle.textContent = examData.exam_name;
 
@@ -1658,24 +1676,6 @@ function generateStudentTable(type, rowCount = 10) {
             handleDeleteRow(event.target, tableId);
         }
     });
-
-    // ADD THIS NEW BLOCK IN ITS PLACE
-    if (type === 'direct') {
-        // Use event delegation on the container
-        container.addEventListener('change', function(event) {
-            // Check if the event was triggered by one of our specific file inputs
-            if (event.target.classList.contains('direct-upload-input')) {
-                const inputElement = event.target;
-                const fileCount = inputElement.files.length;
-                const label = inputElement.nextElementSibling; // The <label> is the next sibling
-    
-                // Update the label's text
-                if (label) {
-                    label.textContent = fileCount > 0 ? `${fileCount} file(s)` : 'Choose Files';
-                }
-            }
-        });
-    }
 }
 
 function generateStudentTableRowHtml(index, type) {
