@@ -57,6 +57,32 @@ const gradeAllButton = document.getElementById('grade-all-button');
 const gradeAllButtonText = document.getElementById('grade-all-button-text');
 const spinnerGrading = document.getElementById('spinner-grading');
 
+// Multi-Scan
+const submissionChoiceContainer = document.getElementById('submission-choice-container');
+const chooseSingleStudentButton = document.getElementById('choose-single-student-button');
+const chooseMultiStudentButton = document.getElementById('choose-multi-student-button');
+const multiUploadModal = document.getElementById('multi-upload-modal');
+const multiUploadModalClose = document.getElementById('multi-upload-modal-close');
+const multiUploadChoiceArea = document.getElementById('multi-upload-choice-area');
+const multiScanButton = document.getElementById('multi-scan-button');
+const multiDirectUploadButton = document.getElementById('multi-direct-upload-button');
+const multiScanArea = document.getElementById('multi-scan-area');
+const multiScanTableContainer = document.getElementById('multi-scan-table-container');
+const multiScanAddRowButton = document.getElementById('multi-scan-add-row-button');
+const multiScanStartButton = document.getElementById('multi-scan-start-button');
+const multiScanQrArea = document.getElementById('multi-scan-qr-area');
+const multiQrcodeCanvas = document.getElementById('multi-qrcode-canvas');
+const multiScanUrlLink = document.getElementById('multi-scan-url');
+const multiScanProcessButton = document.getElementById('multi-scan-process-button');
+const spinnerMultiProcess = document.getElementById('spinner-multi-process');
+const multiScanProcessButtonText = document.getElementById('multi-scan-process-button-text');
+const multiDirectUploadArea = document.getElementById('multi-direct-upload-area');
+const multiDirectUploadTableContainer = document.getElementById('multi-direct-upload-table-container');
+const multiDirectAddRowButton = document.getElementById('multi-direct-add-row-button');
+const multiDirectProcessButton = document.getElementById('multi-direct-process-button');
+const spinnerMultiDirectProcess = document.getElementById('spinner-multi-direct-process');
+const multiDirectProcessButtonText = document.getElementById('multi-direct-process-button-text');
+
 // Global variable to store the current scan session token
 let currentScanSessionToken = null;
 // ADD these new global variables:
@@ -64,11 +90,16 @@ let scanPollingInterval = null;
 let scanProcessingTimeout = null;
 let currentExamData = null; // NEW: To store loaded exam data
 
+// Multi-Scan
+let currentMultiScanSession = null;
+let multiScanPollingInterval = null;
+
 // NEW: Global constants for default button texts
 const DEFAULT_GRADING_BUTTON_TEXT = 'Grade New Submissions';
 const DEFAULT_APPENDIX_BUTTON_TEXT = 'Upload Appendix';
 const DEFAULT_MODEL_BUTTON_TEXT = 'Upload Answer Model';
 const DEFAULT_SCAN_BUTTON_TEXT = 'Scan Answers';
+const MULTI_SCAN_PAGE_BASE_URL = `${window.location.origin}/multi-scan.html`;
 
 
 // --- HELPER FUNCTIONS ---
@@ -167,6 +198,42 @@ async function loadExamDetails(examId) {
         questionsContainer.innerHTML = `<p>Could not load exam details: ${error.message}</p>`;
         return;
     }
+
+    // NEW: Add event listeners for multi-upload modal
+    multiUploadModal.addEventListener('click', (event) => {
+        if (event.target === multiUploadModal) multiUploadModal.classList.add('hidden');
+    });
+    multiUploadModalClose.addEventListener('click', () => multiUploadModal.classList.add('hidden'));
+    
+    // NEW: Add event listeners for submission choice
+    chooseSingleStudentButton.addEventListener('click', () => {
+        submissionChoiceContainer.classList.add('hidden');
+        studentAnswersForm.classList.remove('hidden');
+    });
+    chooseMultiStudentButton.addEventListener('click', () => {
+        multiUploadModal.classList.remove('hidden');
+        multiUploadChoiceArea.classList.remove('hidden');
+        multiScanArea.classList.add('hidden');
+        multiDirectUploadArea.classList.add('hidden');
+    });
+    
+    // NEW: Add event listeners for multi-upload choices inside the modal
+    multiScanButton.addEventListener('click', () => {
+        multiUploadChoiceArea.classList.add('hidden');
+        multiScanArea.classList.remove('hidden');
+        generateStudentTable('scan');
+    });
+    multiDirectUploadButton.addEventListener('click', () => {
+        multiUploadChoiceArea.classList.add('hidden');
+        multiDirectUploadArea.classList.remove('hidden');
+        generateStudentTable('direct');
+    });
+    
+    // NEW: Add event listeners for table and processing buttons
+    multiScanAddRowButton.addEventListener('click', () => addStudentTableRow('scan'));
+    multiDirectAddRowButton.addEventListener('click', () => addStudentTableRow('direct'));
+    multiScanStartButton.addEventListener('click', handleStartMultiScan);
+    multiDirectProcessButton.addEventListener('click', handleProcessAllDirectUploads);
 
     currentExamData = examData; // Store exam data globally for later use
     examNameTitle.textContent = examData.exam_name;
@@ -1558,6 +1625,247 @@ async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip
         }
         console.log("SUCCESS: All answers inserted into the database.");
     }
+}
+
+// =================================================================
+// --- MULTI-STUDENT UPLOAD WORKFLOW ---
+// =================================================================
+
+function generateStudentTable(type, rowCount = 10) {
+    const container = type === 'scan' ? multiScanTableContainer : multiDirectUploadTableContainer;
+    const tableId = `${type}-student-table`;
+
+    let tableHtml = `<table id="${tableId}" style="width: 100%;"><thead><tr>
+        <th style="width: 5%;">#</th>
+        <th style="width: 35%;">Student Name</th>
+        <th style="width: 30%;">Student Number</th>
+        <th style="width: 30%;">${type === 'scan' ? 'Status' : 'Files'}</th>
+    </tr></thead><tbody>`;
+
+    for (let i = 0; i < rowCount; i++) {
+        tableHtml += generateStudentTableRowHtml(i, type);
+    }
+
+    tableHtml += `</tbody></table>`;
+    container.innerHTML = tableHtml;
+
+    if (type === 'direct') {
+        container.querySelectorAll('input[type="file"]').forEach(input => {
+            input.addEventListener('change', (e) => {
+                const fileCount = e.target.files.length;
+                const label = e.target.nextElementSibling;
+                label.textContent = fileCount > 0 ? `${fileCount} file(s)` : 'Choose Files';
+            });
+        });
+    }
+}
+
+function generateStudentTableRowHtml(index, type) {
+    const fileInputId = `direct-upload-row-${index}`;
+    const actionCell = type === 'scan'
+        ? `<td class="status-cell" data-row-index="${index}">Pending</td>`
+        : `<td>
+             <input type="file" id="${fileInputId}" class="file-input-hidden" accept=".pdf,image/*" multiple>
+             <label for="${fileInputId}" class="file-input-label" style="padding: 0.5rem 1rem; font-size: 0.9rem;">Choose Files</label>
+           </td>`;
+
+    return `<tr data-row-index="${index}">
+        <td>${index + 1}</td>
+        <td><input type="text" class="student-name-input" placeholder="e.g., Jane Doe"></td>
+        <td><input type="text" class="student-number-input" placeholder="e.g., s1234567"></td>
+        ${actionCell}
+    </tr>`;
+}
+
+function addStudentTableRow(type) {
+    const table = document.getElementById(`${type}-student-table`).getElementsByTagName('tbody')[0];
+    const newIndex = table.rows.length;
+    table.insertAdjacentHTML('beforeend', generateStudentTableRowHtml(newIndex, type));
+}
+
+async function handleStartMultiScan() {
+    multiScanStartButton.disabled = true;
+    const rows = document.querySelectorAll('#scan-student-table tbody tr');
+    const students = Array.from(rows).map(row => ({
+        studentName: row.querySelector('.student-name-input').value.trim(),
+        studentNumber: row.querySelector('.student-number-input').value.trim()
+    })).filter(s => s.studentName || s.studentNumber);
+
+    if (students.length === 0) {
+        alert('Please fill in at least one student name or number.');
+        multiScanStartButton.disabled = false;
+        return;
+    }
+
+    const examId = new URLSearchParams(window.location.search).get('id');
+
+    try {
+        const { data, error } = await sb.rpc('create_multi_scan_session', {
+            exam_id_arg: examId,
+            students_arg: students
+        });
+        if (error) throw error;
+
+        currentMultiScanSession = data;
+        const scanUrl = `${MULTI_SCAN_PAGE_BASE_URL}?token=${data.session_token}`;
+
+        new QRious({ element: multiQrcodeCanvas, value: scanUrl, size: 200 });
+        multiScanUrlLink.href = scanUrl;
+        multiScanUrlLink.textContent = "Open Link in New Tab";
+        multiScanQrArea.classList.remove('hidden');
+        multiScanStartButton.classList.add('hidden');
+        startMultiScanPolling();
+    } catch (error) {
+        console.error('Failed to create multi-scan session:', error);
+        alert(`Error: ${error.message}`);
+        multiScanStartButton.disabled = false;
+    }
+}
+
+function startMultiScanPolling() {
+    if (multiScanPollingInterval) clearInterval(multiScanPollingInterval);
+    multiScanPollingInterval = setInterval(async () => {
+        if (!currentMultiScanSession?.session_token) {
+            clearInterval(multiScanPollingInterval);
+            return;
+        }
+        try {
+            const { data: sessionData, error } = await sb.rpc('get_multi_scan_session_by_token', {
+                token_arg: currentMultiScanSession.session_token
+            });
+            if (error) throw error;
+
+            if (sessionData?.students) {
+                const allUploaded = sessionData.students.every(student => {
+                    const statusCell = document.querySelector(`.status-cell[data-row-index="${student.order - 1}"]`);
+                    if (statusCell) {
+                        statusCell.textContent = student.status.charAt(0).toUpperCase() + student.status.slice(1);
+                        if (student.status === 'uploaded') {
+                            statusCell.style.color = 'var(--color-green-pastel)';
+                            statusCell.style.fontWeight = 'bold';
+                        }
+                    }
+                    return student.status === 'uploaded';
+                });
+
+                if (allUploaded) {
+                    clearInterval(multiScanPollingInterval);
+                    multiScanProcessButton.classList.remove('hidden');
+                    multiScanProcessButton.addEventListener('click', () => handleProcessAllSubmissions('scan'));
+                }
+            }
+        } catch (err) {
+            console.error("Polling error:", err);
+            clearInterval(multiScanPollingInterval);
+        }
+    }, 5000);
+}
+
+async function handleProcessAllDirectUploads() {
+    await handleProcessAllSubmissions('direct');
+}
+
+async function handleProcessAllSubmissions(type) {
+    const processButton = type === 'scan' ? multiScanProcessButton : multiDirectProcessButton;
+    const spinner = type === 'scan' ? spinnerMultiProcess : spinnerMultiDirectProcess;
+    const buttonText = type === 'scan' ? multiScanProcessButtonText : multiDirectProcessButtonText;
+
+    processButton.disabled = true;
+    showSpinner(true, spinner);
+    setButtonText(buttonText, 'Processing...');
+
+    const examId = new URLSearchParams(window.location.search).get('id');
+    let submissions = [];
+
+    if (type === 'direct') {
+        const rows = document.querySelectorAll('#direct-student-table tbody tr');
+        submissions = Array.from(rows).map(row => ({
+            studentName: row.querySelector('.student-name-input').value.trim(),
+            studentNumber: row.querySelector('.student-number-input').value.trim(),
+            files: row.querySelector('input[type="file"]').files
+        })).filter(s => (s.studentName || s.studentNumber) && s.files.length > 0);
+    } else { // 'scan'
+        const { data } = await sb.rpc('get_multi_scan_session_by_token', { token_arg: currentMultiScanSession.session_token });
+        submissions = data.students.map(s => ({
+            studentName: s.student_name,
+            studentNumber: s.student_number,
+            uploaded_image_paths: s.uploaded_image_paths
+        }));
+    }
+
+    if (submissions.length === 0) {
+        alert('No valid submissions to process.');
+        processButton.disabled = false;
+        showSpinner(false, spinner);
+        setButtonText(buttonText, 'Process All Submissions');
+        return;
+    }
+
+    try {
+        setButtonText(buttonText, `Processing ${submissions.length} submissions...`);
+        const processingPromises = submissions.map(sub => processSingleSubmission(examId, sub, type));
+        await Promise.all(processingPromises);
+
+        setButtonText(buttonText, 'All processed! Refreshing...');
+        await loadExamDetails(examId);
+        setTimeout(() => multiUploadModal.classList.add('hidden'), 2000);
+    } catch (error) {
+        console.error("Error during multi-submission processing:", error);
+        setButtonText(buttonText, 'Error! See console.');
+    } finally {
+        showSpinner(false, spinner);
+        // Don't re-enable button on success, but do on error after a delay
+    }
+}
+
+async function processSingleSubmission(examId, submission, type) {
+    // 1. Find or create student record
+    const { data: studentData, error: studentError } = await sb.rpc('find_or_create_student', {
+        p_full_name: submission.studentName,
+        p_student_number: submission.studentNumber
+    });
+    if (studentError) throw new Error(`Student handling failed: ${studentError.message}`);
+    const studentId = studentData[0].id;
+
+    // 2. Create a temporary scan session to reuse existing GCF logic
+    const tempToken = generateUUID();
+    const { data: session, error: sessionError } = await sb.from('scan_sessions').insert({
+        exam_id: examId, student_id: studentId, student_name: submission.studentName,
+        student_number: submission.studentNumber, session_token: tempToken,
+        expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString()
+    }).select().single();
+    if (sessionError) throw new Error(`Temp session creation failed: ${sessionError.message}`);
+
+    let uploadedFilePaths = [];
+    if (type === 'direct') {
+        const uploadPromises = Array.from(submission.files).map(file => {
+            const filePath = `temp_scans/${tempToken}/${file.name}`;
+            return sb.storage.from(STORAGE_BUCKET).upload(filePath, file);
+        });
+        const results = await Promise.all(uploadPromises);
+        uploadedFilePaths = results.map(r => {
+            if (r.error) throw new Error(`File upload failed: ${r.error.message}`);
+            return sb.storage.from(STORAGE_BUCKET).getPublicUrl(r.data.path).data.publicUrl;
+        });
+    } else { // 'scan'
+        uploadedFilePaths = submission.uploaded_image_paths;
+    }
+
+    // 3. Update session and call processing logic
+    await sb.from('scan_sessions').update({ uploaded_image_paths: uploadedFilePaths, status: 'uploaded' }).eq('id', session.id);
+    const sessionForProcessing = { ...session, uploaded_image_paths: uploadedFilePaths };
+    currentScanSessionToken = tempToken; // Set global for the background function
+    await processScannedAnswersBackground(sessionForProcessing, examId);
+    console.log(`Successfully processed submission for ${submission.studentName || submission.studentNumber}`);
+}
+
+// Utility function to generate a UUID, needed for the temp token
+function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+    });
 }
 
 async function cleanupTempFiles(scanSession) {
