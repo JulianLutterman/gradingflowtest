@@ -1527,6 +1527,7 @@ async function processScannedAnswers(examId, preloadedSession = null) {
 
 // FINAL CORRECTED VERSION
 // Replace this entire function
+// Replace this entire function in exam.js
 async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip) {
     // The scanSession object now contains the correct, unique student_exam_id
     const studentExamId = scanSession.student_exam_id;
@@ -1538,6 +1539,15 @@ async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip
     console.log("Starting to save student answers. GCF Response:", responseData);
     console.log("ZIP file contains:", Object.keys(zip.files));
     console.log(`Using student_exam_id: ${studentExamId}`);
+
+    // --- START OF THE FIX ---
+    // Standardize the responseData structure. The GCF sometimes returns an array with one object.
+    let processedData = responseData;
+    if (Array.isArray(responseData) && responseData.length > 0) {
+        processedData = responseData[0];
+    }
+    // Now, `processedData` is guaranteed to be the object containing the `questions` array.
+    // --- END OF THE FIX ---
 
     // Get the current exam structure to map text content to sub_question IDs
     const { data: dbQuestions, error: fetchQError } = await sb
@@ -1555,49 +1565,55 @@ async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip
     }, {});
 
     const answersToInsert = [];
-    for (const q_res of responseData.questions) {
-        for (const sq_res of q_res.sub_questions) {
-            const sub_question_id = subQuestionLookup[q_res.question_number]?.[sq_res.sub_q_text_content];
-            if (!sub_question_id) {
-                console.warn(`Warning: Could not find matching sub-question for Q#${q_res.question_number}. Skipping.`);
-                continue;
-            }
-
-            if (sq_res.student_answers) {
-                let answerVisualUrl = null;
-                if (sq_res.student_answers.answer_visual) {
-                    const visualFilename = decodeURIComponent(sq_res.student_answers.answer_visual);
-                    const visualFile = zip.file(sq_res.student_answers.answer_visual);
-                    if (visualFile) {
-                        setButtonText(generateScanLinkButtonText, `Uploading ${visualFilename}...`);
-                        const filePath = `public/${examId}/answers/${studentExamId}/${Date.now()}_${visualFilename}`;
-                        const fileBlob = await visualFile.async('blob');
-                        const fileExtension = visualFilename.split('.').pop().toLowerCase();
-                        let mimeType = 'application/octet-stream';
-                        if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(fileExtension)) {
-                            mimeType = `image/${fileExtension}`;
-                        }
-                        const fileToUpload = new File([fileBlob], visualFilename, { type: mimeType });
-                        const { error: uploadError } = await sb.storage.from(STORAGE_BUCKET).upload(filePath, fileToUpload);
-                        if (uploadError) {
-                            console.error(`Storage upload failed for ${visualFilename}:`, uploadError);
-                        } else {
-                            const { data: urlData } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(filePath);
-                            answerVisualUrl = urlData.publicUrl;
-                        }
-                    } else {
-                        console.warn(`WARNING: Visual file '${sq_res.student_answers.answer_visual}' was in JSON but NOT FOUND in the ZIP.`);
-                    }
+    // Use the standardized `processedData` object here
+    if (!processedData || !processedData.questions || !Array.isArray(processedData.questions)) {
+        console.warn("Warning: No valid questions array found in the processed GCF response. Skipping answer insertion.");
+    } else {
+        for (const q_res of processedData.questions) { // <-- Use processedData
+            for (const sq_res of q_res.sub_questions) {
+                const sub_question_id = subQuestionLookup[q_res.question_number]?.[sq_res.sub_q_text_content];
+                if (!sub_question_id) {
+                    console.warn(`Warning: Could not find matching sub-question for Q#${q_res.question_number}. Skipping.`);
+                    continue;
                 }
-                answersToInsert.push({
-                    student_exam_id: studentExamId, // Use the guaranteed correct ID
-                    sub_question_id: sub_question_id,
-                    answer_text: sq_res.student_answers.answer_text || null,
-                    answer_visual: answerVisualUrl
-                });
+
+                if (sq_res.student_answers) {
+                    let answerVisualUrl = null;
+                    if (sq_res.student_answers.answer_visual) {
+                        const visualFilename = decodeURIComponent(sq_res.student_answers.answer_visual);
+                        const visualFile = zip.file(sq_res.student_answers.answer_visual);
+                        if (visualFile) {
+                            setButtonText(generateScanLinkButtonText, `Uploading ${visualFilename}...`);
+                            const filePath = `public/${examId}/answers/${studentExamId}/${Date.now()}_${visualFilename}`;
+                            const fileBlob = await visualFile.async('blob');
+                            const fileExtension = visualFilename.split('.').pop().toLowerCase();
+                            let mimeType = 'application/octet-stream';
+                            if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(fileExtension)) {
+                                mimeType = `image/${fileExtension}`;
+                            }
+                            const fileToUpload = new File([fileBlob], visualFilename, { type: mimeType });
+                            const { error: uploadError } = await sb.storage.from(STORAGE_BUCKET).upload(filePath, fileToUpload);
+                            if (uploadError) {
+                                console.error(`Storage upload failed for ${visualFilename}:`, uploadError);
+                            } else {
+                                const { data: urlData } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(filePath);
+                                answerVisualUrl = urlData.publicUrl;
+                            }
+                        } else {
+                            console.warn(`WARNING: Visual file '${sq_res.student_answers.answer_visual}' was in JSON but NOT FOUND in the ZIP.`);
+                        }
+                    }
+                    answersToInsert.push({
+                        student_exam_id: studentExamId,
+                        sub_question_id: sub_question_id,
+                        answer_text: sq_res.student_answers.answer_text || null,
+                        answer_visual: answerVisualUrl
+                    });
+                }
             }
         }
     }
+
 
     if (answersToInsert.length > 0) {
         console.log("Preparing to insert these answers into DB:", answersToInsert);
