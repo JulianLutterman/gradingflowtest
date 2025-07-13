@@ -1,4 +1,4 @@
-﻿// --- CONFIGURATION ---
+// --- CONFIGURATION ---
 const SUPABASE_URL = 'https://uagiatfoiwusxafxskvp.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhZ2lhdGZvaXd1c3hhZnhza3ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyODc0NjYsImV4cCI6MjA2NDg2MzQ2Nn0.b0wIEHgENkhzkp3qHAotqbLTq7BwsqgM7b0ksAl3h1U';
 const APPENDIX_GCF_URL = 'https://add-appendix-232485517114.europe-west1.run.app';
