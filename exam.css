@@ -447,8 +447,11 @@ button {
     margin-left: 40px;
 }
 
-#choose-multi-student-button {
-    margin-top: 1rem;
+#submission-choice-container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
 }
 
 
