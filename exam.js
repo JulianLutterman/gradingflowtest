@@ -1362,6 +1362,7 @@ async function checkScanStatus(examId) {
 /**
  * Processes the scanned answers (moved from the old button click handler)
  */
+// Replace the entire function with this one.
 async function processScannedAnswersBackground(scanSession, examId) {
     try {
         setButtonText(generateScanLinkButtonText, 'Fetching exam...');
@@ -1379,23 +1380,45 @@ async function processScannedAnswersBackground(scanSession, examId) {
         formData.append('exam_structure', JSON.stringify(examStructureForGcf));
 
         const downloadPromises = scanSession.uploaded_image_paths.map(async (imageUrl) => {
-            const filename = imageUrl.split('/').pop();
-            const { data: imageBlob, error: downloadError } = await sb.storage
-                .from(STORAGE_BUCKET)
-                .download(`temp_scans/${currentScanSessionToken}/${filename}`);
-            if (downloadError) {
-                console.warn(`Failed to download image ${filename}: ${downloadError.message}`);
+            // --- START OF FIX ---
+            // The download function needs the path *inside* the bucket, not the full URL.
+            // We extract this path by parsing the URL.
+            const url = new URL(imageUrl);
+            const objectPath = url.pathname.split(`/public/${STORAGE_BUCKET}/`)[1];
+
+            if (!objectPath) {
+                console.warn(`Could not parse object path from URL: ${imageUrl}`);
                 return null;
             }
-            return { filename, blob: imageBlob };
+
+            const { data: imageBlob, error: downloadError } = await sb.storage
+                .from(STORAGE_BUCKET)
+                .download(objectPath); // Use the correct, full object path.
+            // --- END OF FIX ---
+
+            if (downloadError) {
+                // Use the original filename for the error message.
+                const filename = imageUrl.split('/').pop();
+                console.warn(`Failed to download image ${filename}:`, downloadError);
+                return null;
+            }
+            // Return both blob and the original filename for appending to FormData
+            return { filename: imageUrl.split('/').pop(), blob: imageBlob };
         });
 
-        const downloadResults = await Promise.allSettled(downloadPromises);
+        const downloadResults = await Promise.all(downloadPromises);
         downloadResults.forEach(result => {
-            if (result.status === 'fulfilled' && result.value) {
-                formData.append('files', result.value.blob, result.value.filename);
+            if (result) { // Check if the result is not null
+                formData.append('files', result.blob, result.filename);
             }
         });
+
+        // --- ROBUSTNESS IMPROVEMENT ---
+        // Check if any files were actually added before calling the GCF.
+        if (!formData.has('files')) {
+            throw new Error("No image files could be downloaded or processed. Aborting GCF call.");
+        }
+        // --- END OF IMPROVEMENT ---
 
         setButtonText(generateScanLinkButtonText, 'Thinking... (~4 mins)');
         const controller = new AbortController();
