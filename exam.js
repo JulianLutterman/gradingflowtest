@@ -1672,12 +1672,12 @@ function generateStudentTable(type, rowCount = 10) {
 
 function generateStudentTableRowHtml(index, type) {
     const fileInputId = `direct-upload-row-${index}`;
-    // We add a data-student-id attribute to the row itself for stable selection.
+    // The data attributes now only belong to the TR element.
     const rowAttributes = `data-row-index="${index}" data-student-id=""`;
 
     const actionCell = type === 'scan'
-        // The status cell also gets the placeholder attribute.
-        ? `<td class="status-cell" ${rowAttributes}>Pending</td>`
+        // The status cell is now clean, without redundant attributes.
+        ? `<td class="status-cell">Pending</td>`
         : `<td>
              <input type="file" id="${fileInputId}" class="file-input-hidden" accept=".pdf,image/*" multiple>
              <label for="${fileInputId}" class="file-input-label" style="padding: 0.5rem 1rem; font-size: 0.9rem;">Choose Files</label>
@@ -1723,24 +1723,18 @@ async function handleStartMultiScan() {
 
         currentMultiScanSession = data;
 
-        // --- START OF FIX: Link HTML rows to DB IDs ---
-        // After creating the session, we get back the student records with their permanent IDs.
-        // We now update our HTML to include these IDs.
+        // Link HTML rows to their new, permanent DB IDs.
         if (data.students && data.students.length > 0) {
+            const tableRows = document.querySelectorAll('#scan-student-table tbody tr');
             data.students.forEach((student, index) => {
-                // Find the original row using the initial, stable row-index.
-                const row = document.querySelector(`tr[data-row-index="${index}"]`);
+                // The order of returned students is guaranteed by the RPC.
+                const row = tableRows[index];
                 if (row) {
-                    // Add the permanent student ID to the row and its status cell.
+                    // Add the permanent student ID to the row itself.
                     row.dataset.studentId = student.id;
-                    const statusCell = row.querySelector('.status-cell');
-                    if (statusCell) {
-                        statusCell.dataset.studentId = student.id;
-                    }
                 }
             });
         }
-        // --- END OF FIX ---
 
         const scanUrl = `${MULTI_SCAN_PAGE_BASE_URL}?token=${data.session_token}`;
 
@@ -1802,26 +1796,34 @@ function startMultiScanPolling() {
             if (error) throw error;
 
             if (sessionData?.students) {
-                const allUploaded = sessionData.students.every(student => {
-                    // --- START OF FIX: Use the stable student ID for selection ---
-                    // This selector is immune to row deletion.
-                    const statusCell = document.querySelector(`.status-cell[data-student-id="${student.id}"]`);
-                    // --- END OF FIX ---
+                let allUploaded = true; // Assume all are uploaded until we find one that is not.
 
-                    if (statusCell) {
-                        statusCell.textContent = student.status.charAt(0).toUpperCase() + student.status.slice(1);
-                        if (student.status === 'uploaded') {
-                            statusCell.style.color = 'var(--color-green-pastel)';
-                            statusCell.style.fontWeight = 'bold';
+                sessionData.students.forEach(student => {
+                    // --- START OF ROBUST SELECTION FIX ---
+                    // 1. Find the correct table row using its unique and permanent student ID.
+                    const row = document.querySelector(`tr[data-student-id="${student.id}"]`);
+                    if (row) {
+                        // 2. Find the status cell *within that specific row*.
+                        const statusCell = row.querySelector('.status-cell');
+                        if (statusCell) {
+                            statusCell.textContent = student.status.charAt(0).toUpperCase() + student.status.slice(1);
+                            if (student.status === 'uploaded') {
+                                statusCell.style.color = 'var(--color-green-pastel)';
+                                statusCell.style.fontWeight = 'bold';
+                            }
                         }
                     }
-                    return student.status === 'uploaded';
+                    // --- END OF ROBUST SELECTION FIX ---
+
+                    // Update the overall status check.
+                    if (student.status !== 'uploaded') {
+                        allUploaded = false;
+                    }
                 });
 
                 if (allUploaded) {
                     clearInterval(multiScanPollingInterval);
                     
-                    // --- START OF FIX: Update the parent session status in the DB ---
                     try {
                         await sb.rpc('update_multi_scan_session_status', {
                             session_token_arg: currentMultiScanSession.session_token,
@@ -1831,10 +1833,10 @@ function startMultiScanPolling() {
                     } catch (rpcError) {
                         console.error("Failed to update session status:", rpcError);
                     }
-                    // --- END OF FIX ---
 
                     multiScanProcessButton.classList.remove('hidden');
-                    multiScanProcessButton.addEventListener('click', () => handleProcessAllSubmissions('scan'));
+                    // Use .onclick to prevent attaching multiple listeners if polling runs again.
+                    multiScanProcessButton.onclick = () => handleProcessAllSubmissions('scan');
                 }
             }
         } catch (err) {
