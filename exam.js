@@ -1635,11 +1635,13 @@ function generateStudentTable(type, rowCount = 10) {
     const container = type === 'scan' ? multiScanTableContainer : multiDirectUploadTableContainer;
     const tableId = `${type}-student-table`;
 
+    // MODIFIED: Added 'Action' header and adjusted column widths
     let tableHtml = `<table id="${tableId}" style="width: 100%;"><thead><tr>
         <th style="width: 5%;">#</th>
         <th style="width: 35%;">Student Name</th>
         <th style="width: 30%;">Student Number</th>
-        <th style="width: 30%;">${type === 'scan' ? 'Status' : 'Files'}</th>
+        <th style="width: 25%;">${type === 'scan' ? 'Status' : 'Files'}</th>
+        <th style="width: 5%;">Action</th>
     </tr></thead><tbody>`;
 
     for (let i = 0; i < rowCount; i++) {
@@ -1648,6 +1650,14 @@ function generateStudentTable(type, rowCount = 10) {
 
     tableHtml += `</tbody></table>`;
     container.innerHTML = tableHtml;
+
+    // NEW: Add event listener for delete buttons using event delegation
+    container.addEventListener('click', function(event) {
+        // Check if a delete button was clicked
+        if (event.target.classList.contains('delete-row-btn')) {
+            handleDeleteRow(event.target, tableId);
+        }
+    });
 
     if (type === 'direct') {
         container.querySelectorAll('input[type="file"]').forEach(input => {
@@ -1669,11 +1679,13 @@ function generateStudentTableRowHtml(index, type) {
              <label for="${fileInputId}" class="file-input-label" style="padding: 0.5rem 1rem; font-size: 0.9rem;">Choose Files</label>
            </td>`;
 
+    // MODIFIED: Added a new <td> for the delete button
     return `<tr data-row-index="${index}">
         <td>${index + 1}</td>
         <td><input type="text" class="student-name-input" placeholder="e.g., Jane Doe"></td>
         <td><input type="text" class="student-number-input" placeholder="e.g., s1234567"></td>
         ${actionCell}
+        <td><button type="button" class="delete-row-btn" style="background: var(--color-danger); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; font-size: 16px;">×</button></td>
     </tr>`;
 }
 
@@ -1720,6 +1732,37 @@ async function handleStartMultiScan() {
         alert(`Error: ${error.message}`);
         multiScanStartButton.disabled = false;
     }
+}
+
+// NEW: Function to handle the deletion of a table row
+function handleDeleteRow(buttonElement, tableId) {
+    // Find the closest parent <tr> element and remove it
+    const row = buttonElement.closest('tr');
+    if (row) {
+        row.remove();
+        // After removing, update the visual numbering of the remaining rows
+        renumberTableRows(tableId);
+    }
+}
+
+// NEW: Function to re-number the first column of a table visually
+function renumberTableRows(tableId) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    
+    // Get all the rows in the table's body
+    const rows = table.querySelectorAll('tbody tr');
+    
+    // Loop through the rows and update the number in the first cell
+    rows.forEach((row, index) => {
+        const numberCell = row.cells[0];
+        if (numberCell) {
+            numberCell.textContent = index + 1;
+        }
+        // IMPORTANT: We do not change the 'data-row-index' attribute.
+        // This ensures that the polling logic for status updates remains
+        // correctly linked to the original row position.
+    });
 }
 
 function startMultiScanPolling() {
