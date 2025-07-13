@@ -198,6 +198,7 @@ button {
 }
 
 #nextStudentBtn:disabled {
+    margin-top: 2rem;
     background-color: var(--color-disabled-bg);
     color: gray;
 }
