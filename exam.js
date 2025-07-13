@@ -206,7 +206,7 @@ async function loadExamDetails(examId) {
         if (event.target === multiUploadModal) multiUploadModal.classList.add('hidden');
     });
     multiUploadModalClose.addEventListener('click', () => multiUploadModal.classList.add('hidden'));
-    
+
     // NEW: Add event listeners for submission choice
     chooseSingleStudentButton.addEventListener('click', () => {
         submissionChoiceContainer.classList.add('hidden');
@@ -218,7 +218,7 @@ async function loadExamDetails(examId) {
         multiScanArea.classList.add('hidden');
         multiDirectUploadArea.classList.add('hidden');
     });
-    
+
     // NEW: Add event listeners for multi-upload choices inside the modal
     multiScanButton.addEventListener('click', () => {
         multiUploadChoiceArea.classList.add('hidden');
@@ -230,7 +230,7 @@ async function loadExamDetails(examId) {
         multiDirectUploadArea.classList.remove('hidden');
         generateStudentTable('direct');
     });
-    
+
     // NEW: Add event listeners for table and processing buttons
     multiScanAddRowButton.addEventListener('click', () => addStudentTableRow('scan'));
     multiDirectAddRowButton.addEventListener('click', () => addStudentTableRow('direct'));
@@ -1620,9 +1620,9 @@ function generateStudentTable(type, rowCount = 10) {
     const tableId = `${type}-student-table`;
 
     // MODIFIED: Added 'Action' header and adjusted column widths
-    let tableHtml = `<table id="${tableId}" style="width: 100%;"><thead><tr>
-        <th style="width: 5%;">#</th>
-        <th style="width: 35%;">Student Name</th>
+    let tableHtml = `<table id="${tableId}"><thead><tr>
+        <th style="width: 3%;">#</th>
+        <th style="width: 37%;">Student Name</th>
         <th style="width: 30%;">Student Number</th>
         <th style="width: 25%;">${type === 'scan' ? 'Status' : 'Files'}</th>
         <th style="width: 5%;">Action</th>
@@ -1636,7 +1636,7 @@ function generateStudentTable(type, rowCount = 10) {
     container.innerHTML = tableHtml;
 
     // NEW: Add event listener for delete buttons using event delegation
-    container.addEventListener('click', function(event) {
+    container.addEventListener('click', function (event) {
         // Check if a delete button was clicked
         if (event.target.classList.contains('delete-row-btn')) {
             handleDeleteRow(event.target, tableId);
@@ -1664,7 +1664,7 @@ function generateStudentTableRowHtml(index, type) {
         ? `<td class="status-cell">Pending</td>`
         : `<td>
              <input type="file" id="${fileInputId}" class="file-input-hidden" accept=".pdf,image/*" multiple>
-             <label for="${fileInputId}" class="file-input-label" style="padding: 0.5rem 1rem; font-size: 0.9rem;">Choose Files</label>
+             <label for="${fileInputId}" class="file-input-label">Choose Files</label>
            </td>`;
 
     return `<tr ${rowAttributes}>
@@ -1672,7 +1672,7 @@ function generateStudentTableRowHtml(index, type) {
         <td><input type="text" class="student-name-input" placeholder="e.g., Jane Doe"></td>
         <td><input type="text" class="student-number-input" placeholder="e.g., s1234567"></td>
         ${actionCell}
-        <td><button type="button" class="delete-row-btn" style="background: var(--color-danger); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; font-size: 16px;">×</button></td>
+        <td><button type="button" class="delete-row-btn">×</button></td>
     </tr>`;
 }
 
@@ -1750,10 +1750,10 @@ function handleDeleteRow(buttonElement, tableId) {
 function renumberTableRows(tableId) {
     const table = document.getElementById(tableId);
     if (!table) return;
-    
+
     // Get all the rows in the table's body
     const rows = table.querySelectorAll('tbody tr');
-    
+
     // Loop through the rows and update the number in the first cell
     rows.forEach((row, index) => {
         const numberCell = row.cells[0];
@@ -1807,7 +1807,7 @@ function startMultiScanPolling() {
 
                 if (allUploaded) {
                     clearInterval(multiScanPollingInterval);
-                    
+
                     try {
                         await sb.rpc('update_multi_scan_session_status', {
                             session_token_arg: currentMultiScanSession.session_token,
@@ -1871,7 +1871,7 @@ async function handleProcessAllSubmissions(type) {
     }
 
     try {
-        setButtonText(buttonText, `Processing ${submissions.length} submissions...`);
+        setButtonText(buttonText, `Processing ${submissions.length} submissions (~4 mins)...`);
         const processingPromises = submissions.map(sub => processSingleSubmission(examId, sub, type));
         await Promise.all(processingPromises);
 
@@ -1907,7 +1907,7 @@ async function processSingleSubmission(examId, submission, type) {
                 return sb.storage.from(STORAGE_BUCKET).upload(filePath, file);
             });
             const results = await Promise.all(uploadPromises);
-            
+
             uploadedFilePaths = results.map(r => {
                 if (r.error) throw new Error(`File upload failed: ${r.error.message}`);
                 return sb.storage.from(STORAGE_BUCKET).getPublicUrl(r.data.path).data.publicUrl;
@@ -1943,7 +1943,7 @@ async function processSingleSubmission(examId, submission, type) {
         // Instead, pass the 'newSession' object directly to the next function.
         await processScannedAnswersBackground(newSession, examId);
         // --- END OF FIX ---
-        
+
         console.log(`Successfully processed submission for ${submission.studentName || submission.studentNumber}`);
 
     } catch (error) {
@@ -1987,7 +1987,7 @@ async function cleanupTempFiles(scanSession) {
             if (!pathsToDelete.includes(directoryPath)) {
                 pathsToDelete.push(directoryPath);
             }
-            
+
             const { data, error } = await sb.storage.from(STORAGE_BUCKET).remove(pathsToDelete);
             if (error) {
                 console.error('Partial failure during temp file cleanup:', error);
