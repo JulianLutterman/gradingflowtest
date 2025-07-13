@@ -1905,6 +1905,9 @@ async function handleProcessAllSubmissions(type) {
     }
 }
 
+// ------------------------------------------------------------------
+// --- THIS IS THE NEW, CORRECT CODE. USE THIS TO REPLACE THE OLD ONE. ---
+// ------------------------------------------------------------------
 async function processSingleSubmission(examId, submission, type) {
     let uploadedFilePaths = [];
 
@@ -1931,6 +1934,7 @@ async function processSingleSubmission(examId, submission, type) {
         }
 
         // Step 2: Call the secure Edge Function to create the database records.
+        // THIS IS THE CORRECT, SECURE WAY TO DO IT.
         const response = await fetch(CREATE_SUBMISSION_SESSION_URL, {
             method: 'POST',
             headers: {
