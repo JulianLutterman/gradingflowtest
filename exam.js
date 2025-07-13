@@ -1526,34 +1526,17 @@ async function processScannedAnswers(examId, preloadedSession = null) {
 // --- FIX END ---
 
 // FINAL CORRECTED VERSION
+// Replace this entire function
 async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip) {
+    // The scanSession object now contains the correct, unique student_exam_id
+    const studentExamId = scanSession.student_exam_id;
+
+    if (!studentExamId) {
+        throw new Error(`Critical error: student_exam_id was not provided for student ${scanSession.student_name || scanSession.student_number}`);
+    }
+
     console.log("Starting to save student answers. GCF Response:", responseData);
     console.log("ZIP file contains:", Object.keys(zip.files));
-
-    let studentExamId;
-
-    // Find or create the student_exam record
-    const { data: existingStudentExam, error: seError } = await sb
-        .from('student_exams')
-        .select('id')
-        .eq('student_id', scanSession.student_id)
-        .eq('exam_id', examId)
-        .maybeSingle();
-
-    if (seError) throw new Error(`Error finding student_exam record: ${seError.message}`);
-
-    if (existingStudentExam) {
-        studentExamId = existingStudentExam.id;
-        await sb.from('student_answers').delete().eq('student_exam_id', studentExamId);
-    } else {
-        const { data: newStudentExam, error: createSeError } = await sb
-            .from('student_exams')
-            .insert({ student_id: scanSession.student_id, exam_id: examId, status: 'submitted' })
-            .select('id')
-            .single();
-        if (createSeError) throw new Error(`Could not create student_exam record: ${createSeError.message}`);
-        studentExamId = newStudentExam.id;
-    }
     console.log(`Using student_exam_id: ${studentExamId}`);
 
     // Get the current exam structure to map text content to sub_question IDs
@@ -1582,56 +1565,32 @@ async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip
 
             if (sq_res.student_answers) {
                 let answerVisualUrl = null;
-
                 if (sq_res.student_answers.answer_visual) {
-                    // --- START OF THE FIX ---
-                    // Decode the filename from the GCF in case it contains URL-encoded characters like %20 for spaces.
                     const visualFilename = decodeURIComponent(sq_res.student_answers.answer_visual);
-                    // --- END OF THE FIX ---
-
-                    const visualFile = zip.file(sq_res.student_answers.answer_visual); // Use original encoded name to find in zip
-
+                    const visualFile = zip.file(sq_res.student_answers.answer_visual);
                     if (visualFile) {
                         setButtonText(generateScanLinkButtonText, `Uploading ${visualFilename}...`);
-
                         const filePath = `public/${examId}/answers/${studentExamId}/${Date.now()}_${visualFilename}`;
                         const fileBlob = await visualFile.async('blob');
-
                         const fileExtension = visualFilename.split('.').pop().toLowerCase();
-                        let mimeType = 'application/octet-stream'; // Default
-                        if (fileExtension === 'png') mimeType = 'image/png';
-                        else if (fileExtension === 'jpg' || fileExtension === 'jpeg') mimeType = 'image/jpeg';
-                        else if (fileExtension === 'gif') mimeType = 'image/gif';
-                        else if (fileExtension === 'webp') mimeType = 'image/webp';
-
-                        console.log(`Decoded filename: '${visualFilename}', using MIME type '${mimeType}'`);
-
-                        // Create the File object with the correct (decoded) filename and MIME type.
+                        let mimeType = 'application/octet-stream';
+                        if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(fileExtension)) {
+                            mimeType = `image/${fileExtension}`;
+                        }
                         const fileToUpload = new File([fileBlob], visualFilename, { type: mimeType });
-
-                        const { error: uploadError } = await sb.storage
-                            .from(STORAGE_BUCKET)
-                            .upload(filePath, fileToUpload);
-
+                        const { error: uploadError } = await sb.storage.from(STORAGE_BUCKET).upload(filePath, fileToUpload);
                         if (uploadError) {
-                            console.error(`!!!!!!!! STORAGE UPLOAD FAILED for ${visualFilename} !!!!!!!!`);
-                            console.error("Error Details:", uploadError);
+                            console.error(`Storage upload failed for ${visualFilename}:`, uploadError);
                         } else {
-                            console.log(`SUCCESS: Storage upload for ${visualFilename} complete.`);
-                            const { data: urlData } = sb.storage
-                                .from(STORAGE_BUCKET)
-                                .getPublicUrl(filePath);
+                            const { data: urlData } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(filePath);
                             answerVisualUrl = urlData.publicUrl;
-                            console.log(`Saved public URL: ${answerVisualUrl}`);
                         }
                     } else {
-                        // Note: We still use the original, potentially encoded name to search the zip, as that's the key.
                         console.warn(`WARNING: Visual file '${sq_res.student_answers.answer_visual}' was in JSON but NOT FOUND in the ZIP.`);
                     }
                 }
-
                 answersToInsert.push({
-                    student_exam_id: studentExamId,
+                    student_exam_id: studentExamId, // Use the guaranteed correct ID
                     sub_question_id: sub_question_id,
                     answer_text: sq_res.student_answers.answer_text || null,
                     answer_visual: answerVisualUrl
