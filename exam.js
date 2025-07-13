@@ -1684,6 +1684,7 @@ function addStudentTableRow(type) {
 
 async function handleStartMultiScan() {
     multiScanStartButton.disabled = true;
+    multiScanAddRowButton.disabled = true; // <<< ADD THIS LINE
     const rows = document.querySelectorAll('#scan-student-table tbody tr');
     const students = Array.from(rows).map(row => ({
         studentName: row.querySelector('.student-name-input').value.trim(),
@@ -1693,6 +1694,7 @@ async function handleStartMultiScan() {
     if (students.length === 0) {
         alert('Please fill in at least one student name or number.');
         multiScanStartButton.disabled = false;
+        multiScanAddRowButton.disabled = false; // <<< ADD THIS LINE
         return;
     }
 
@@ -1732,6 +1734,7 @@ async function handleStartMultiScan() {
         console.error('Failed to create multi-scan session:', error);
         alert(`Error: ${error.message}`);
         multiScanStartButton.disabled = false;
+        multiScanAddRowButton.disabled = false; // <<< ADD THIS LINE
     }
 }
 
