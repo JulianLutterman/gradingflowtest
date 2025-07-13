@@ -1931,17 +1931,18 @@ async function handleProcessAllSubmissions(type) {
 // ------------------------------------------------------------------
 // --- THIS IS THE NEW, CORRECT CODE. USE THIS TO REPLACE THE OLD ONE. ---
 // ------------------------------------------------------------------
+// Replace this entire function
 async function processSingleSubmission(examId, submission, type) {
     let uploadedFilePaths = [];
 
     try {
-        // Step 1: If it's a direct upload, upload files to storage first and get their URLs.
+        // Step 1: Handle file uploads for 'direct' type
         if (type === 'direct') {
             if (!submission.files || submission.files.length === 0) {
                 console.log(`Skipping ${submission.studentName || submission.studentNumber} - no files provided.`);
-                return; // Skip if no files
+                return;
             }
-            const tempTokenForUpload = generateUUID(); // Create a unique path for this upload
+            const tempTokenForUpload = generateUUID();
             const uploadPromises = Array.from(submission.files).map(file => {
                 const filePath = `temp_scans/${tempTokenForUpload}/${file.name}`;
                 return sb.storage.from(STORAGE_BUCKET).upload(filePath, file);
@@ -1952,12 +1953,11 @@ async function processSingleSubmission(examId, submission, type) {
                 if (r.error) throw new Error(`File upload failed: ${r.error.message}`);
                 return sb.storage.from(STORAGE_BUCKET).getPublicUrl(r.data.path).data.publicUrl;
             });
-        } else { // For 'scan' type, the paths are already provided.
+        } else {
             uploadedFilePaths = submission.uploaded_image_paths;
         }
 
-        // Step 2: Call the secure Edge Function to create the database records.
-        // THIS IS THE CORRECT, SECURE WAY TO DO IT.
+        // Step 2: Call the secure Edge Function
         const response = await fetch(CREATE_SUBMISSION_SESSION_URL, {
             method: 'POST',
             headers: {
@@ -1979,15 +1979,16 @@ async function processSingleSubmission(examId, submission, type) {
 
         const newSession = await response.json();
 
-        // Step 3: With the session created, call the existing background processing pipeline.
-        currentScanSessionToken = newSession.session_token; // Set global for the background function
+        // --- START OF FIX ---
+        // DO NOT set the global variable.
+        // Instead, pass the 'newSession' object directly to the next function.
         await processScannedAnswersBackground(newSession, examId);
+        // --- END OF FIX ---
         
         console.log(`Successfully processed submission for ${submission.studentName || submission.studentNumber}`);
 
     } catch (error) {
         console.error(`Processing failed for ${submission.studentName || submission.studentNumber}:`, error);
-        // Re-throw the error so the main handler can catch it.
         throw error;
     }
 }
@@ -2001,15 +2002,39 @@ function generateUUID() {
     });
 }
 
+// Replace this entire function
 async function cleanupTempFiles(scanSession) {
     try {
+        // --- START OF FIX ---
+        // Use the session_token from the passed-in scanSession object,
+        // not the unreliable global variable.
+        const token = scanSession.session_token;
+        if (!token) {
+            console.warn("Cannot cleanup files: session token is missing.");
+            return;
+        }
+        // --- END OF FIX ---
+
         const pathsToDelete = scanSession.uploaded_image_paths.map(url => {
-            const filename = url.split('/').pop();
-            return `temp_scans/${currentScanSessionToken}/${filename}`;
+            const urlParts = url.split('/');
+            const filename = urlParts[urlParts.length - 1];
+            // Reconstruct the path using the correct token for this specific session.
+            return `temp_scans/${token}/${filename}`;
         });
 
         if (pathsToDelete.length > 0) {
-            await sb.storage.from(STORAGE_BUCKET).remove(pathsToDelete);
+            // Also check for the directory path itself, which might exist from multi-scan uploads
+            const directoryPath = `temp_scans/${token}`;
+            if (!pathsToDelete.includes(directoryPath)) {
+                pathsToDelete.push(directoryPath);
+            }
+            
+            const { data, error } = await sb.storage.from(STORAGE_BUCKET).remove(pathsToDelete);
+            if (error) {
+                console.error('Partial failure during temp file cleanup:', error);
+            } else {
+                console.log(`Cleaned up temp files for session ${token}`);
+            }
         }
     } catch (error) {
         console.error('Failed to cleanup temp files:', error);
