@@ -1672,15 +1672,18 @@ function generateStudentTable(type, rowCount = 10) {
 
 function generateStudentTableRowHtml(index, type) {
     const fileInputId = `direct-upload-row-${index}`;
+    // We add a data-student-id attribute to the row itself for stable selection.
+    const rowAttributes = `data-row-index="${index}" data-student-id=""`;
+
     const actionCell = type === 'scan'
-        ? `<td class="status-cell" data-row-index="${index}">Pending</td>`
+        // The status cell also gets the placeholder attribute.
+        ? `<td class="status-cell" ${rowAttributes}>Pending</td>`
         : `<td>
              <input type="file" id="${fileInputId}" class="file-input-hidden" accept=".pdf,image/*" multiple>
              <label for="${fileInputId}" class="file-input-label" style="padding: 0.5rem 1rem; font-size: 0.9rem;">Choose Files</label>
            </td>`;
 
-    // MODIFIED: Added a new <td> for the delete button
-    return `<tr data-row-index="${index}">
+    return `<tr ${rowAttributes}>
         <td>${index + 1}</td>
         <td><input type="text" class="student-name-input" placeholder="e.g., Jane Doe"></td>
         <td><input type="text" class="student-number-input" placeholder="e.g., s1234567"></td>
@@ -1719,6 +1722,26 @@ async function handleStartMultiScan() {
         if (error) throw error;
 
         currentMultiScanSession = data;
+
+        // --- START OF FIX: Link HTML rows to DB IDs ---
+        // After creating the session, we get back the student records with their permanent IDs.
+        // We now update our HTML to include these IDs.
+        if (data.students && data.students.length > 0) {
+            data.students.forEach((student, index) => {
+                // Find the original row using the initial, stable row-index.
+                const row = document.querySelector(`tr[data-row-index="${index}"]`);
+                if (row) {
+                    // Add the permanent student ID to the row and its status cell.
+                    row.dataset.studentId = student.id;
+                    const statusCell = row.querySelector('.status-cell');
+                    if (statusCell) {
+                        statusCell.dataset.studentId = student.id;
+                    }
+                }
+            });
+        }
+        // --- END OF FIX ---
+
         const scanUrl = `${MULTI_SCAN_PAGE_BASE_URL}?token=${data.session_token}`;
 
         new QRious({ element: multiQrcodeCanvas, value: scanUrl, size: 200 });
@@ -1780,7 +1803,11 @@ function startMultiScanPolling() {
 
             if (sessionData?.students) {
                 const allUploaded = sessionData.students.every(student => {
-                    const statusCell = document.querySelector(`.status-cell[data-row-index="${student.order - 1}"]`);
+                    // --- START OF FIX: Use the stable student ID for selection ---
+                    // This selector is immune to row deletion.
+                    const statusCell = document.querySelector(`.status-cell[data-student-id="${student.id}"]`);
+                    // --- END OF FIX ---
+
                     if (statusCell) {
                         statusCell.textContent = student.status.charAt(0).toUpperCase() + student.status.slice(1);
                         if (student.status === 'uploaded') {
@@ -1793,6 +1820,19 @@ function startMultiScanPolling() {
 
                 if (allUploaded) {
                     clearInterval(multiScanPollingInterval);
+                    
+                    // --- START OF FIX: Update the parent session status in the DB ---
+                    try {
+                        await sb.rpc('update_multi_scan_session_status', {
+                            session_token_arg: currentMultiScanSession.session_token,
+                            new_status_arg: 'completed'
+                        });
+                        console.log("Multi-scan session status updated to completed.");
+                    } catch (rpcError) {
+                        console.error("Failed to update session status:", rpcError);
+                    }
+                    // --- END OF FIX ---
+
                     multiScanProcessButton.classList.remove('hidden');
                     multiScanProcessButton.addEventListener('click', () => handleProcessAllSubmissions('scan'));
                 }
