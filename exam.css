@@ -813,7 +813,7 @@ td .file-input-label {
         transform: translateY(0);
     }
 
-#multi-scan-area th {
+#multi-scan-area th, #multi-direct-upload-area th {
     text-align: left;
 }
 
