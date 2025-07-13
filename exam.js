@@ -11,6 +11,8 @@ const STORAGE_BUCKET = 'exam-visuals';
 // You will need to deploy these functions to your Supabase project
 const GENERATE_SCAN_SESSION_URL = `${SUPABASE_URL}/functions/v1/generate-scan-session`;
 const PROCESS_SCANNED_SESSION_URL = `${SUPABASE_URL}/functions/v1/process-scanned-session`;
+// --- Add to your CONFIGURATION section ---
+const CREATE_SUBMISSION_SESSION_URL = `${SUPABASE_URL}/functions/v1/create-submission-session`;
 // Base URL for the mobile scanning page (adjust if your Vercel deployment is different)
 const SCAN_PAGE_BASE_URL = `${window.location.origin}/scan.html`;
 
@@ -1904,44 +1906,63 @@ async function handleProcessAllSubmissions(type) {
 }
 
 async function processSingleSubmission(examId, submission, type) {
-    // 1. Find or create student record
-    const { data: studentData, error: studentError } = await sb.rpc('find_or_create_student', {
-        p_full_name: submission.studentName,
-        p_student_number: submission.studentNumber
-    });
-    if (studentError) throw new Error(`Student handling failed: ${studentError.message}`);
-    const studentId = studentData[0].id;
-
-    // 2. Create a temporary scan session to reuse existing GCF logic
-    const tempToken = generateUUID();
-    const { data: session, error: sessionError } = await sb.from('scan_sessions').insert({
-        exam_id: examId, student_id: studentId, student_name: submission.studentName,
-        student_number: submission.studentNumber, session_token: tempToken,
-        expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString()
-    }).select().single();
-    if (sessionError) throw new Error(`Temp session creation failed: ${sessionError.message}`);
-
     let uploadedFilePaths = [];
-    if (type === 'direct') {
-        const uploadPromises = Array.from(submission.files).map(file => {
-            const filePath = `temp_scans/${tempToken}/${file.name}`;
-            return sb.storage.from(STORAGE_BUCKET).upload(filePath, file);
-        });
-        const results = await Promise.all(uploadPromises);
-        uploadedFilePaths = results.map(r => {
-            if (r.error) throw new Error(`File upload failed: ${r.error.message}`);
-            return sb.storage.from(STORAGE_BUCKET).getPublicUrl(r.data.path).data.publicUrl;
-        });
-    } else { // 'scan'
-        uploadedFilePaths = submission.uploaded_image_paths;
-    }
 
-    // 3. Update session and call processing logic
-    await sb.from('scan_sessions').update({ uploaded_image_paths: uploadedFilePaths, status: 'uploaded' }).eq('id', session.id);
-    const sessionForProcessing = { ...session, uploaded_image_paths: uploadedFilePaths };
-    currentScanSessionToken = tempToken; // Set global for the background function
-    await processScannedAnswersBackground(sessionForProcessing, examId);
-    console.log(`Successfully processed submission for ${submission.studentName || submission.studentNumber}`);
+    try {
+        // Step 1: If it's a direct upload, upload files to storage first and get their URLs.
+        if (type === 'direct') {
+            if (!submission.files || submission.files.length === 0) {
+                console.log(`Skipping ${submission.studentName || submission.studentNumber} - no files provided.`);
+                return; // Skip if no files
+            }
+            const tempTokenForUpload = generateUUID(); // Create a unique path for this upload
+            const uploadPromises = Array.from(submission.files).map(file => {
+                const filePath = `temp_scans/${tempTokenForUpload}/${file.name}`;
+                return sb.storage.from(STORAGE_BUCKET).upload(filePath, file);
+            });
+            const results = await Promise.all(uploadPromises);
+            
+            uploadedFilePaths = results.map(r => {
+                if (r.error) throw new Error(`File upload failed: ${r.error.message}`);
+                return sb.storage.from(STORAGE_BUCKET).getPublicUrl(r.data.path).data.publicUrl;
+            });
+        } else { // For 'scan' type, the paths are already provided.
+            uploadedFilePaths = submission.uploaded_image_paths;
+        }
+
+        // Step 2: Call the secure Edge Function to create the database records.
+        const response = await fetch(CREATE_SUBMISSION_SESSION_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({
+                examId: examId,
+                studentName: submission.studentName,
+                studentNumber: submission.studentNumber,
+                uploadedImagePaths: uploadedFilePaths
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to create submission session on the server.');
+        }
+
+        const newSession = await response.json();
+
+        // Step 3: With the session created, call the existing background processing pipeline.
+        currentScanSessionToken = newSession.session_token; // Set global for the background function
+        await processScannedAnswersBackground(newSession, examId);
+        
+        console.log(`Successfully processed submission for ${submission.studentName || submission.studentNumber}`);
+
+    } catch (error) {
+        console.error(`Processing failed for ${submission.studentName || submission.studentNumber}:`, error);
+        // Re-throw the error so the main handler can catch it.
+        throw error;
+    }
 }
 
 // Utility function to generate a UUID, needed for the temp token
