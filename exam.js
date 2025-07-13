@@ -1679,10 +1679,10 @@ function generateStudentTable(type, rowCount = 10) {
     // MODIFIED: Added 'Action' header and adjusted column widths
     let tableHtml = `<table id="${tableId}"><thead><tr>
         <th style="width: 3%;">#</th>
-        <th style="width: 38%;">Student Name</th>
-        <th style="width: 31%;">Student Number</th>
+        <th style="width: 37%;">Student Name</th>
+        <th style="width: 30%;">Student Number</th>
         <th style="width: 25%;">${type === 'scan' ? 'Status' : 'Files'}</th>
-        <th style="width: 3%;"></th>
+        <th style="width: 5%;"></th>
     </tr></thead><tbody>`;
 
     for (let i = 0; i < rowCount; i++) {
