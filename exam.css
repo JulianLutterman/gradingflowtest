@@ -454,6 +454,10 @@ button {
     justify-content: space-between;
 }
 
+#choose-multi-student-button, #choose-single-student-button {
+    padding: 1.8rem 0;
+}
+
 
 /* --- Styles for QR Code Area Animation --- */
 #scan-link-area {
