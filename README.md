@@ -91,7 +91,7 @@ This is just the beginning. GradingFlow is a living project with a clear path fo
     *   **Teacher Dashboard**: Add analytics to show class-wide performance on specific questions.
 
 *   **Long-Term**:
-    *   **Subject-specific Finetuned Models for Grading**: Improve the accuracy of the grading model(s), by using Reinforcement Learning to finetune thinking models for each specific school subject, in order to boost grading accuracy.
+    *   **Subject-specific Finetuned Models for Grading**: Use Reinforcement Learning to finetune thinking models for each specific school subject, in order to boost grading accuracy.
     *   **Agent-Based Workflows**: The ultimate goal is to move beyond a UI-driven process. A teacher should be able to simply state their intent: *"Grade my Physics midterm submissions and flag any answers that mention 'quantum entanglement'."* An autonomous agent would then orchestrate this entire pipeline—fetching the exam, finding the submissions, running the grading function, and applying the custom filter—delivering a complete result without manual clicks. This aligns perfectly with HUMAIN's vision of agents replacing apps.
 
 ---
