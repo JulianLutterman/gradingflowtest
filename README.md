@@ -75,8 +75,6 @@ This is a solo project I've been building in my spare time—primarily on weeken
 
 ## Roadmap & Future Improvements
 
-This is just the beginning. GradingFlow is a living project with a clear path forward.
-
 *   **Short-Term (The Next Weeks)**:
     *   **UI/UX Polish**: Refine animations, improve mobile responsiveness, and add more intuitive loading states.
     *   **Performance Optimization**: Implement client-side image compression before upload to speed up the pipeline.
