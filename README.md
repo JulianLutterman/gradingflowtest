@@ -71,7 +71,7 @@ I chose to build the AI orchestration layer from scratch for three key reasons t
 
 ## Project Context & Timeline
 
-This is a solo project I've been building in my spare time—primarily on weekends and late nights after my full-time internship in VC. Development started in late-June 2025. It's a testament to what can be rapidly prototyped and built with a clear vision and modern AI tools.
+This is a solo project I've been building in my spare time—primarily on weekends and late nights after my full-time internship in VC. Development started in late-June 2025.
 
 ## Roadmap & Future Improvements
 
