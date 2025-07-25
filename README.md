@@ -11,10 +11,6 @@
   A full-stack, AI-native platform that transforms static exam documents (PDFs/images) into interactive, auto-gradable digital formats. Built from first principles with vanilla JS, Python, and a suite of generative AI models.
 </p>
 
-<p align="center">
-  <em>This repository is my submission for the AI Engineer role at HUMAIN.</em>
-</p>
-
 ---
 
 ## What is GradingFlow?
