@@ -67,8 +67,6 @@ I chose to build the AI orchestration layer from scratch for three key reasons t
 
 2.  **Robustness & Simplicity**: My architecture uses simple, stateless cloud functions. If the `generate-points` function fails for a specific student, I can log the exact, self-contained JSON input that caused the error. There's no hidden state or complex object lifecycle to worry about. This 'first principles' approach makes the system more robust and easier to maintain because each component is simple and independently testable.
 
-3.  **The Primacy of the Prompt**: The success of this entire application hinges on the quality of the system prompts. As you can see in the GCP function code, my prompts are long, highly-structured, and contain very specific instructions for things like LaTeX escaping and JSON formatting. Writing these as clean, multi-line f-strings in Python gave me complete, unrestricted freedom to craft the perfect prompt. I didn't have to work around a framework's templating engine; I could send the exact string I needed to the model to get the precise JSON output required.
-
 ## Project Context & Timeline
 
 This is a solo project I've been building in my spare time—primarily on weekends and late nights after my full-time internship in VC. Development started in late-June 2025.
