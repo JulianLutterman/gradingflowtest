@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -15,47 +14,58 @@
 </head>
 <body>
 
-    <div class="container">
-        <!-- Authentication Section -->
-        <div id="auth-section">
-            <div id="login-view">
-                <h2>Teacher Login</h2>
-                <form id="login-form" class="auth-forms">
-                    <div class="form-group">
-                        <label for="login-email">Email</label>
-                        <input type="email" id="login-email" required>
+    <div class="main-layout">
+        <!-- Left Column: Authentication -->
+        <div class="left-column">
+            <div class="auth-container">
+                <!-- Authentication Section -->
+                <div id="auth-section">
+                    <div id="login-view">
+                        <h2>Teacher Login</h2>
+                        <form id="login-form" class="auth-forms">
+                            <div class="form-group">
+                                <label for="login-email">Email</label>
+                                <input type="email" id="login-email" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="login-password">Password</label>
+                                <input type="password" id="login-password" required>
+                            </div>
+                            <button type="submit" id="login-button">Login</button>
+                        </form>
+                        <p class="auth-toggle">Don't have an account? <a id="show-signup">Sign Up</a></p>
                     </div>
-                    <div class="form-group">
-                        <label for="login-password">Password</label>
-                        <input type="password" id="login-password" required>
-                    </div>
-                    <button type="submit" id="login-button">Login</button>
-                </form>
-                <p class="auth-toggle">Don't have an account? <a id="show-signup">Sign Up</a></p>
-            </div>
 
-            <div id="signup-view" class="hidden">
-                <h2>Teacher Sign Up</h2>
-                <form id="signup-form" class="auth-forms">
-                    <div class="form-group">
-                        <label for="signup-name">Full Name</label>
-                        <input type="text" id="signup-name" required>
+                    <div id="signup-view" class="hidden">
+                        <h2>Teacher Sign Up</h2>
+                        <form id="signup-form" class="auth-forms">
+                            <div class="form-group">
+                                <label for="signup-name">Full Name</label>
+                                <input type="text" id="signup-name" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="signup-email">Email</label>
+                                <input type="email" id="signup-email" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="signup-password">Password</label>
+                                <input type="password" id="signup-password" required minlength="6">
+                            </div>
+                            <button type="submit" id="signup-button">Sign Up</button>
+                        </form>
+                        <p class="auth-toggle">Already have an account? <a id="show-login">Log In</a></p>
                     </div>
-                    <div class="form-group">
-                        <label for="signup-email">Email</label>
-                        <input type="email" id="signup-email" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="signup-password">Password</label>
-                        <input type="password" id="signup-password" required minlength="6">
-                    </div>
-                    <button type="submit" id="signup-button">Sign Up</button>
-                </form>
-                <p class="auth-toggle">Already have an account? <a id="show-login">Log In</a></p>
+                </div>
             </div>
+        </div>
+
+        <!-- Right Column: Hover Effect -->
+        <div class="right-column">
+            <div id="dot-container"></div>
         </div>
     </div>
 
 </body>
 <script src="login.js"></script>
+<script src="hover.js"></script>
 </html>
