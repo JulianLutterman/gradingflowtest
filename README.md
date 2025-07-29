@@ -11,10 +11,6 @@
   A full-stack, AI-native platform that transforms static exam documents (PDFs/images) into interactive, auto-gradable digital formats. Built from first principles with vanilla JS, Python, and a suite of generative AI models.
 </p>
 
-<p align="center">
-  <em>This repository is my submission for the AI Engineer role at HUMAIN.</em>
-</p>
-
 ---
 
 ## What is GradingFlow?
@@ -71,15 +67,11 @@ I chose to build the AI orchestration layer from scratch for three key reasons t
 
 2.  **Robustness & Simplicity**: My architecture uses simple, stateless cloud functions. If the `generate-points` function fails for a specific student, I can log the exact, self-contained JSON input that caused the error. There's no hidden state or complex object lifecycle to worry about. This 'first principles' approach makes the system more robust and easier to maintain because each component is simple and independently testable.
 
-3.  **The Primacy of the Prompt**: The success of this entire application hinges on the quality of the system prompts. As you can see in the GCP function code, my prompts are long, highly-structured, and contain very specific instructions for things like LaTeX escaping and JSON formatting. Writing these as clean, multi-line f-strings in Python gave me complete, unrestricted freedom to craft the perfect prompt. I didn't have to work around a framework's templating engine; I could send the exact string I needed to the model to get the precise JSON output required.
-
 ## Project Context & Timeline
 
-This is a solo project I've been building in my spare time—primarily on weekends and late nights after my full-time internship in VC. Development started in late-June 2025. It's a testament to what can be rapidly prototyped and built with a clear vision and modern AI tools.
+This is a solo project I've been building in my spare time—primarily on weekends and late nights after my full-time internship in VC. Development started in late-June 2025.
 
 ## Roadmap & Future Improvements
-
-This is just the beginning. GradingFlow is a living project with a clear path forward.
 
 *   **Short-Term (The Next Weeks)**:
     *   **UI/UX Polish**: Refine animations, improve mobile responsiveness, and add more intuitive loading states.
@@ -91,8 +83,5 @@ This is just the beginning. GradingFlow is a living project with a clear path fo
     *   **Teacher Dashboard**: Add analytics to show class-wide performance on specific questions.
 
 *   **Long-Term**:
+    *   **Subject-specific Finetuned Models for Grading**: Use Reinforcement Learning to finetune thinking models for each specific school subject, in order to boost grading accuracy.
     *   **Agent-Based Workflows**: The ultimate goal is to move beyond a UI-driven process. A teacher should be able to simply state their intent: *"Grade my Physics midterm submissions and flag any answers that mention 'quantum entanglement'."* An autonomous agent would then orchestrate this entire pipeline—fetching the exam, finding the submissions, running the grading function, and applying the custom filter—delivering a complete result without manual clicks. This aligns perfectly with HUMAIN's vision of agents replacing apps.
-
----
-
-Thank you for considering my application.
