@@ -107,11 +107,25 @@ body {
     padding: 0 0 2rem 0;
 }
 
-.page-header-container {
-    max-width: 95%;
-    margin: 0 auto;
-    padding: 0 1rem; /* Adjust padding as needed */
+.back-button-container {
+    background-color: var(--color-lighter-blue);
+    padding: 19px 10px;
+    border-radius: 15px;
+    margin: 0 15px 0 0;
+    transition-duration: 0.3s;
 }
+
+.back-button-container:hover {
+    background-color: var(--color-light-blue-two);
+    transform: translateY(-2px);
+}
+
+    .back-button-container svg {
+        height: 1.2em;
+        width: auto;
+        display: flex;
+        align-items: center;
+    }
 
 .container {
     background: var(--color-background);
@@ -123,19 +137,26 @@ body {
     flex-direction: column;
 }
 
+#title-container {
+    padding: 0;
+    margin-bottom: 0;
+    margin-top: 2rem;
+}
+
 #main-container {
-    padding-top: 0.5rem;
+    padding: 0.5rem 0 0 0;
+    margin-bottom: 0;
 }
 
 .actions-grid-container {
     display: grid;
-    grid-template-columns: repeat(4, 1fr); /* 4 columns on large screens */
+    grid-template-columns: repeat(4, 1fr);
     gap: 1rem;
-    max-width: 89%;
-    margin: 0 auto 2rem auto;
+    max-width: 90%;
+    margin: 2rem auto 2rem auto;
     background-color: var(--color-background-box-shadow);
-    padding: 30px 3% 45px 3%;
-    border-radius: 0 0 25px 25px;
+    padding: 2.5% 3% 3% 2%;
+    border-radius: 25px;
 }
 
     /* Override styles for containers within the grid */
@@ -445,7 +466,6 @@ button {
 
 #show-rules-button {
     width: fit-content;
-    margin-left: 40px;
 }
 
 #submission-choice-container {
@@ -481,7 +501,14 @@ button {
 .title-wrapper {
     display: flex;
     flex-direction: row;
+    justify-content: space-between; /* This ensures buttons are spaced out */
     align-items: center; /* This ensures buttons align with the title */
+}
+
+#title-wrapper-left, #title-wrapper-right {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
 }
 
 .question-title-wrapper {
@@ -500,10 +527,6 @@ button {
     border-radius: 25px;
     display: inline-block;
     min-width: fit-content;
-}
-
-#questions-container {
-    margin-top: 2rem;
 }
 
 .question-block {

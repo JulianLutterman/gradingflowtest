@@ -26,6 +26,22 @@
     <link rel="stylesheet" href="exam.css">
 </head>
 <body>
+    <div class="container" id="title-container">
+        <div class="title-wrapper">
+            <div id="title-wrapper-left">
+                <a class="back-button-container" href="index.html">
+                    <svg viewBox="5 6 14 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M6 12H18M6 12L11 7M6 12L11 17" stroke="#14110F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg>
+                </a>
+                <h1 id="exam-name-title">Loading Exam...</h1>
+            </div>
+            <div id="title-wrapper-right">
+                <button id="show-rules-button" class="hidden">Show Grading Regulations</button>
+                <button id="show-grades-button" class="hidden pushable-button">Show Points</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Wrapper for the 4-column grid -->
     <div class="actions-grid-container">
@@ -108,16 +124,7 @@
 
     </div><!-- End of the 4-column grid -->
 
-    <div class="page-header-container">
-        <a href="index.html">← Back to All Exams</a>
-    </div>
-
     <div class="container" id="main-container">
-        <div class="title-wrapper">
-            <h1 id="exam-name-title">Loading Exam...</h1>
-            <button id="show-rules-button" class="hidden">Show Grading Regulations</button>
-            <button id="show-grades-button" class="hidden pushable-button">Show Points</button>
-        </div>
         <div id="questions-container"></div>
     </div>
 
@@ -171,7 +178,7 @@
                     <a id="multi-scan-url" href="#" target="_blank"></a>
                 </div>
                 <button class="pushable-button" id="multi-scan-start-button">Start Scanning Session</button>
-                <button class="pushable-button hidden" id="multi-scan-process-button"">
+                <button class="pushable-button hidden" id="multi-scan-process-button" ">
                     <div id="spinner-multi-process" class="spinner spinner-light hidden"></div>
                     <span id="multi-scan-process-button-text">Process All Submissions</span>
                 </button>
