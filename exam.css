@@ -18,6 +18,7 @@
     --color-green-pastel-light-three: rgba(235, 255, 243, 0.4);
     --color-danger: #E3170A;
     --color-danger-light: #FDDAD8;
+    --color-danger-between: #f86c62;
     --color-disabled-bg: #dcd8d0; /* Beige for disabled upload button */
 }
 
