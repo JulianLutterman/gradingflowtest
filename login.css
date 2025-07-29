@@ -1,0 +1,116 @@
+:root {
+    /* Color Palette Variables */
+    --color-background: #F7F7FF;
+    --color-text-dark: #14110F;
+    --color-text-light: #F7F7FF;
+    --color-primary: #0066ff;
+    --color-lighter-blue: #d6e7ff;
+    --color-light-blue-two: #c2daff;
+    --color-blue-pastel: #334195;
+    --color-blue-pastel-light-one: #7684d0;
+    --color-blue-pastel-light-two: #959fdb;
+}
+
+body {
+    font-family: "Quicksand", sans-serif;
+    background-color: var(--color-background);
+    color: var(--color-text-dark);
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+}
+
+.container {
+    background-color: var(--color-lighter-blue);
+    border-radius: 25px;
+    padding: 2rem 3rem;
+    width: 100%;
+    max-width: 500px;
+}
+
+h2 {
+    text-align: center;
+    color: #222;
+    margin-top: 0;
+    margin-bottom: 1rem;
+}
+
+.auth-forms {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+label {
+    font-weight: 600;
+}
+
+input[type="text"], input[type="email"], input[type="password"] {
+    padding: 0.8rem;
+    background-color: var(--color-light-blue-two);
+    border-radius: 15px;
+    font-size: 1rem;
+    outline: none;
+    border: none;
+    font-family: "Quicksand", sans-serif;
+    transition-duration: 0.3s;
+}
+
+    input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus {
+        filter: brightness(103%);
+    }
+
+button {
+    font-family: "Quicksand", sans-serif;
+    font-size: 1rem;
+    font-weight: 800;
+    border-radius: 15px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    position: relative;
+    padding: 1rem 1.5rem;
+    margin-top: 1rem;
+}
+
+#login-button, #signup-button {
+    background: var(--color-blue-pastel-light-one);
+    color: var(--color-text-light);
+    border: 3px solid var(--color-blue-pastel-light-two);
+    box-shadow: -4px 8px 0 var(--color-blue-pastel);
+    transform: translateY(0) translateX(4px);
+}
+
+    #login-button:hover, #signup-button:hover {
+        transform: translateY(4px) translateX(2px);
+        box-shadow: -2px 4px 0 var(--color-blue-pastel);
+    }
+
+.auth-toggle {
+    text-align: left;
+    margin-top: 1.5rem;
+}
+
+    .auth-toggle a {
+        color: var(--color-primary);
+        cursor: pointer;
+        text-decoration: none;
+    }
+
+        .auth-toggle a:hover {
+            text-decoration: underline;
+        }
+
+.hidden {
+    display: none !important;
+}

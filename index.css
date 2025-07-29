@@ -1,32 +1,21 @@
 :root {
     /* Color Palette Variables */
-    --color-background: #F7F7FF; /* Light cream for main background, buttons, flash */
-    --color-background-border: #ebebff;
-    --color-background-border-between: #d6d6ff;
-    --color-background-box-shadow: #c2c2ff;
-    --color-text-dark: #14110F; /* Dark charcoal for text, borders, and success states */
-    --color-text-light: #F7F7FF; /* Same as background, used for text on dark surfaces */
-    --color-primary: #0066ff; /* Main blue for buttons */
-    --color-light-blue-two: #c2daff;
+    --color-background: #F7F7FF;
+    --color-text-dark: #14110F;
+    --color-text-light: #F7F7FF;
+    --color-primary: #0066ff;
     --color-lighter-blue: #d6e7ff;
+    --color-light-blue-two: #c2daff;
     --color-blue-pastel: #334195;
     --color-blue-pastel-light-one: #7684d0;
     --color-blue-pastel-light-two: #959fdb;
-    --color-green-pastel: #02a147;
-    --color-green-pastel-light-one: #02ca59;
-    --color-green-pastel-light-two: #02de62;
-    --color-green-pastel-light-three: rgba(235, 255, 243, 0.4);
     --color-danger: #E3170A;
     --color-danger-between: #f86c62;
     --color-danger-light: #fba39d;
-    --color-disabled-bg: #dcd8d0; /* Beige for disabled upload button */
 }
-
 
 body {
     font-family: "Quicksand", sans-serif;
-    font-optical-sizing: auto;
-    font-style: normal;
     background-color: var(--color-background);
     color: var(--color-text-dark);
     margin: 0;
@@ -38,39 +27,24 @@ body {
 }
 
 .container {
-    margin: 0 auto 2rem auto;
     background-color: var(--color-lighter-blue);
     border-radius: 25px;
-    margin: 0; /* Let the grid gap handle spacing */
     padding: 2rem 3rem;
     width: 100%;
     max-width: 600px;
-    margin-bottom: 2rem; /* Space between containers */
-}
-
-h1, h2 {
-    text-align: center;
-    color: #222;
+    margin-bottom: 2rem;
 }
 
 h2 {
+    text-align: center;
+    color: #222;
     margin: 0;
 }
 
-#login-view h2, #signup-view h2 {
-    margin-bottom: 1rem;
-}
-
-.app-section {
+#app-section {
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
-}
-
-.auth-forms {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
 }
 
 .form-group {
@@ -112,7 +86,7 @@ label {
         transform: translateY(-2px);
     }
 
-input[type="text"], input[type="email"], input[type="password"], input[type="file"] {
+input[type="text"] {
     padding: 0.8rem;
     background-color: var(--color-light-blue-two);
     border-radius: 15px;
@@ -120,86 +94,64 @@ input[type="text"], input[type="email"], input[type="password"], input[type="fil
     outline: none;
     border: none;
     font-family: "Quicksand", sans-serif;
-    font-optical-sizing: auto;
-    font-style: normal;
     transition-duration: 0.3s;
 }
 
-    input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus, input[type="file"]:focus {
+    input[type="text"]:focus {
         filter: brightness(103%);
     }
 
 button {
     font-family: "Quicksand", sans-serif;
-    font-optical-sizing: auto;
-    font-style: normal;
     font-size: 1rem;
-    background: var(--color-danger-between);
-    color: var(--color-text-light);
-    text-decoration: none;
     font-weight: 800;
     border-radius: 15px;
-    border: 3px solid var(--color-danger-light);
     cursor: pointer;
     transition: all 0.15s ease;
     position: relative;
-    box-shadow: -4px 8px 0 var(--color-danger);
-    transform: translateY(-4px) translateX(0);
     padding: 1rem 1.5rem;
 }
 
-    button:hover {
-        transform: translateY(0) translateX(-2px);
-        box-shadow: -2px 4px 0 var(--color-danger);
-    }
-
-    /* ADDED: Disabled state for buttons */
     button:disabled {
         cursor: not-allowed;
     }
 
+#logout-button {
+    background: var(--color-danger-between);
+    color: var(--color-text-light);
+    border: 3px solid var(--color-danger-light);
+    box-shadow: -4px 8px 0 var(--color-danger);
+    transform: translateY(-4px) translateX(0);
+}
 
-#submit-exam-button, #login-button, #signup-button {
+    #logout-button:hover {
+        transform: translateY(0) translateX(-2px);
+        box-shadow: -2px 4px 0 var(--color-danger);
+    }
+
+#submit-exam-button {
     background: var(--color-blue-pastel-light-one);
     color: var(--color-text-light);
     border: 3px solid var(--color-blue-pastel-light-two);
     box-shadow: -4px 8px 0 var(--color-blue-pastel);
     transform: translateY(0) translateX(4px);
-    padding: 1rem 1.5rem;
-    /* ADDED: Flex properties to align spinner and text */
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.8rem;
 }
 
-    #submit-exam-button:hover, #login-button:hover, #signup-button:hover, #submit-exam-button:disabled, #login-button:disabled, #signup-button:disabled {
+    #submit-exam-button:hover, #submit-exam-button:disabled {
         transform: translateY(4px) translateX(2px);
         box-shadow: -2px 4px 0 var(--color-blue-pastel);
     }
-
-
-.auth-toggle {
-    text-align: left;
-    margin-top: 1.5rem;
-}
-
-    .auth-toggle a {
-        color: var(--color-primary);
-        cursor: pointer;
-        text-decoration: none;
-    }
-
-        .auth-toggle a:hover {
-            text-decoration: underline;
-        }
 
 #app-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding-bottom: 1rem;
-    border-bottom: 3px solid var(--color-light-blue-two)
+    border-bottom: 3px solid var(--color-light-blue-two);
 }
 
     #app-header span {
@@ -210,10 +162,7 @@ button {
     display: none !important;
 }
 
-/* REMOVED: Old status-log styles */
-
 .spinner {
-    /* MODIFIED: Sized for button, removed auto margin */
     border: 4px solid rgba(255, 255, 255, 0.4);
     width: 20px;
     height: 20px;
@@ -233,11 +182,9 @@ button {
     }
 }
 
-/* --- NEW STYLES FOR EXAM CARDS--- */
 #exam-list-section h2 {
     margin-bottom: 1rem;
 }
-
 
 #exam-cards-container {
     display: flex;
