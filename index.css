@@ -39,10 +39,9 @@ body {
 
 .container {
     margin: 0 auto 2rem auto;
-    background-color: var(--color-background-box-shadow);
+    background-color: var(--color-lighter-blue);
     border-radius: 25px;
     margin: 0; /* Let the grid gap handle spacing */
-    background-color: var(--color-background-box-shadow);
     padding: 2rem 3rem;
     width: 100%;
     max-width: 600px;
@@ -98,7 +97,7 @@ label {
     padding: 0.9rem;
     border: none;
     border-radius: 15px;
-    background-color: var(--color-background-border-between);
+    background-color: var(--color-light-blue-two);
     color: var(--color-text-dark);
     font-size: 1rem;
     font-weight: 600;
@@ -109,13 +108,13 @@ label {
 }
 
     .file-input-label:hover {
-        background-color: var(--color-background-border);
+        filter: brightness(103%);
         transform: translateY(-2px);
     }
 
 input[type="text"], input[type="email"], input[type="password"], input[type="file"] {
     padding: 0.8rem;
-    background-color: var(--color-background-border-between);
+    background-color: var(--color-light-blue-two);
     border-radius: 15px;
     font-size: 1rem;
     outline: none;
@@ -127,7 +126,7 @@ input[type="text"], input[type="email"], input[type="password"], input[type="fil
 }
 
     input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus, input[type="file"]:focus {
-        background-color: var(--color-background-border);
+        filter: brightness(103%);
     }
 
 button {
@@ -200,7 +199,7 @@ button {
     justify-content: space-between;
     align-items: center;
     padding-bottom: 1rem;
-    border-bottom: 3px solid var(--color-background-border-between)
+    border-bottom: 3px solid var(--color-light-blue-two)
 }
 
     #app-header span {
@@ -251,12 +250,12 @@ button {
     padding: 1.5rem;
     border-radius: 15px;
     text-decoration: none;
-    background-color: var(--color-background-border-between);
+    background-color: var(--color-light-blue-two);
     transition-duration: 0.3s;
 }
 
     .exam-card:hover {
-        background-color: var(--color-background-border);
+        filter: brightness(103%);
         transform: translateY(-2px);
     }
 
