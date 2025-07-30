@@ -84,6 +84,7 @@ const multiDirectAddRowButton = document.getElementById('multi-direct-add-row-bu
 const multiDirectProcessButton = document.getElementById('multi-direct-process-button');
 const spinnerMultiDirectProcess = document.getElementById('spinner-multi-direct-process');
 const multiDirectProcessButtonText = document.getElementById('multi-direct-process-button-text');
+const backToSubmissionChoice = document.getElementById('back-to-submission-choice');
 
 // Global variable to store the current scan session token
 let currentScanSessionToken = null;
@@ -227,14 +228,64 @@ async function loadExamDetails(examId) {
     // NEW: Add event listeners for multi-upload modal
     multiUploadModal.addEventListener('click', (event) => {
         if (event.target === multiUploadModal) multiUploadModal.classList.add('hidden');
+
+        // START: MODIFICATION - Add event delegation for the new back button
+        if (event.target.closest('.back-to-multi-choice-btn')) {
+            // Hide the table/scan areas
+            multiScanArea.classList.add('hidden');
+            multiDirectUploadArea.classList.add('hidden');
+
+            // Show the initial choice area
+            multiUploadChoiceArea.classList.remove('hidden');
+
+            // --- Reset the state to ensure a clean slate ---
+            // Clear generated tables
+            multiScanTableContainer.innerHTML = '';
+            multiDirectUploadTableContainer.innerHTML = '';
+
+            // Reset the scan area UI
+            multiScanQrArea.classList.add('hidden');
+            multiScanStartButton.classList.remove('hidden');
+            multiScanStartButton.disabled = false;
+            multiScanAddRowButton.disabled = false;
+            multiScanProcessButton.classList.add('hidden');
+
+            // Reset multi-scan session variables
+            if (multiScanPollingInterval) clearInterval(multiScanPollingInterval);
+            multiScanPollingInterval = null;
+            currentMultiScanSession = null;
+        }
+        // END: MODIFICATION
     });
     multiUploadModalClose.addEventListener('click', () => multiUploadModal.classList.add('hidden'));
 
     // NEW: Add event listeners for submission choice
+    // NEW: Add event listeners for submission choice
     chooseSingleStudentButton.addEventListener('click', () => {
         submissionChoiceContainer.classList.add('hidden');
         studentAnswersForm.classList.remove('hidden');
+        backToSubmissionChoice.classList.remove('hidden'); // Show the back button
     });
+
+    // NEW: Add listener for the new back button
+    backToSubmissionChoice.addEventListener('click', () => {
+        // Hide the single submission form and show the choices
+        studentAnswersForm.classList.add('hidden');
+        submissionChoiceContainer.classList.remove('hidden');
+        backToSubmissionChoice.classList.add('hidden'); // Hide the back button itself
+
+        // Reset the form and any active processes
+        stopScanPolling(); // Stop any QR code polling
+        studentAnswersForm.reset();
+        scanLinkArea.classList.add('hidden');
+        generateScanLinkButton.disabled = false;
+        setButtonText(generateScanLinkButtonText, DEFAULT_SCAN_BUTTON_TEXT);
+        showSpinner(false, spinnerStudent);
+        if (directUploadInput) {
+            directUploadInput.value = '';
+        }
+    });
+
     chooseMultiStudentButton.addEventListener('click', () => {
         multiUploadModal.classList.remove('hidden');
         multiUploadChoiceArea.classList.remove('hidden');

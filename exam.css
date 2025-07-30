@@ -468,6 +468,14 @@ button {
     width: fit-content;
 }
 
+.actions-grid-container h2 {
+    margin-bottom: 0;
+}
+
+#h2-bottom {
+    margin-bottom: 20px;
+}
+
 #submission-choice-container {
     height: 100%;
     display: flex;
@@ -478,6 +486,78 @@ button {
 #choose-multi-student-button, #choose-single-student-button {
     padding: 1.8rem 0;
 }
+
+.submission-header-wrapper {
+    display: flex;
+    align-items: center;
+    position: relative;
+}
+
+.submission-header-wrapper h2 {
+    width: 100%;
+    text-align: center;
+}
+
+#back-to-submission-choice {
+    padding: 14px 10px;
+    margin: 0; /* Remove default margin */
+    transform: none; /* Reset any transforms from other button styles */
+    box-shadow: none; /* Reset box-shadow */
+    transition-duration: 0.3s;
+    width: fit-content;
+    background-color: var(--color-background-border-between);
+    position: absolute;
+}
+
+    #back-to-submission-choice:hover {
+        background-color: var(--color-background-border);
+        transform: translateY(-2px); /* Keep the hover effect */
+        box-shadow: none;
+    }
+
+    #back-to-submission-choice svg {
+        height: 1em; /* Smaller icon */
+    }
+
+/* START: NEW/MODIFIED STYLES */
+
+/* New generic class for section headers inside modals */
+.modal-section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    margin-bottom: 0.8rem;
+}
+
+    .modal-section-header h3 {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: var(--color-text-dark);
+    }
+
+/* New generic class for the back button style inside modals */
+.modal-back-button {
+    padding: 14px 10px !important;
+    margin: 0 !important;
+    transform: none !important;
+    box-shadow: none !important;
+    transition-duration: 0.3s !important;
+    width: fit-content !important;
+    background-color: var(--color-lighter-blue) !important;
+}
+
+    .modal-back-button:hover {
+        background-color: var(--color-light-blue-two) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: none !important;
+    }
+
+    .modal-back-button svg {
+        height: 1em !important;
+    }
+
+/* END: NEW/MODIFIED STYLES */
 
 
 /* --- Styles for QR Code Area Animation --- */
