@@ -511,7 +511,7 @@ button {
 
     #back-to-submission-choice:hover {
         background-color: var(--color-background-border);
-        transform: translateY(-2px); /* Keep the hov3er effect */
+        transform: translateY(-2px); /* Keep the hover effect */
         box-shadow: none;
     }
 
