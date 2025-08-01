@@ -231,8 +231,10 @@ async function uploadExamToSupabase(teacherId, examName, examData, zip, setButto
                 question_number: q.question_number,
                 max_total_points: q.max_total_points,
                 context_text: q.context_text,
+                orig_llm_context_text: q.context_text,
                 context_visual: contextVisualUrl,
-                extra_comment: q.extra_comment
+                extra_comment: q.extra_comment,
+                orig_llm_extra_comment: q.extra_comment
             })
             .select('id')
             .single();
@@ -247,6 +249,7 @@ async function uploadExamToSupabase(teacherId, examName, examData, zip, setButto
                     .insert({
                         question_id: questionId,
                         sub_q_text_content: sq.sub_q_text_content,
+                        orig_llm_sub_q_text_content: sq.sub_q_text_content,
                         max_sub_points: sq.max_sub_points,
                     })
                     .select('id')
@@ -259,7 +262,8 @@ async function uploadExamToSupabase(teacherId, examName, examData, zip, setButto
                     const mcqOptionsToInsert = sq.mcq_options.map(opt => ({
                         sub_question_id: subQuestionId,
                         mcq_letter: opt.mcq_letter,
-                        mcq_content: opt.mcq_content
+                        mcq_content: opt.mcq_content,
+                        orig_llm_mcq_content: opt.mcq_content
                     }));
                     const { error: mcqError } = await sb.from('mcq_options').insert(mcqOptionsToInsert);
                     if (mcqError) throw new Error(`Failed to insert MCQ options: ${mcqError.message}`);

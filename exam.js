@@ -867,19 +867,20 @@ async function fetchFullExamDetails(examId) {
         .select(`
             exam_name,
             grading_regulations,
+            orig_llm_grading_regulations,
             max_total_points, 
             questions (
-                id, question_number, max_total_points, context_text, context_visual, extra_comment,
-                appendices ( app_title, app_text, app_visual ),
+                id, question_number, max_total_points, context_text, orig_llm_context_text, context_visual, extra_comment, orig_llm_extra_comment,
+                appendices ( app_title, orig_llm_app_title, app_text, orig_llm_app_text, app_visual ),
                 sub_questions (
-                    id, sub_q_text_content, max_sub_points,
-                    mcq_options ( mcq_letter, mcq_content ),
+                    id, sub_q_text_content, orig_llm_sub_q_text_content, max_sub_points,
+                    mcq_options ( mcq_letter, mcq_content, orig_llm_mcq_content ),
                     model_alternatives (
-                        alternative_number, extra_comment,
-                        model_components ( component_text, component_visual, component_points, component_order )
+                        alternative_number, extra_comment, orig_llm_extra_comment,
+                        model_components ( component_text, orig_llm_component_text, component_visual, component_points, orig_llm_component_points, component_order )
                     ),
                     student_answers (
-                        answer_text, answer_visual, sub_points_awarded, feedback_comment,
+                        answer_text, orig_llm_answer_text, answer_visual, sub_points_awarded, orig_llm_sub_points_awarded, feedback_comment, orig_llm_feedback_comment,
                         student_exams (
                             students ( full_name, student_number )
                         )
@@ -1046,7 +1047,9 @@ async function processAndUploadAppendices(examId, appendices, zip) {
         appendicesToInsert.push({
             question_id: questionId,
             app_title: app.app_title,
+            orig_llm_app_title: app.app_title,
             app_text: app.app_text,
+            orig_llm_app_text: app.app_text,
             app_visual: appVisualUrl
         });
     }
@@ -1069,7 +1072,10 @@ async function processAndUploadModel(examId, modelQuestions, zip) {
             const rulesContent = await rulesFile.async('string');
             const { error: updateError } = await sb
                 .from('exams')
-                .update({ grading_regulations: rulesContent })
+                .update({
+                    grading_regulations: rulesContent,
+                    orig_llm_grading_regulations: rulesContent
+                })
                 .eq('id', examId);
             if (updateError) throw updateError;
         } catch (error) {
@@ -1104,7 +1110,12 @@ async function processAndUploadModel(examId, modelQuestions, zip) {
             if (!sq_model.model_alternatives || sq_model.model_alternatives.length === 0) continue;
             setButtonText(submitModelButtonText, `Saving Q#${q_model.question_number}...`);
             for (const alt_model of sq_model.model_alternatives) {
-                const { data: newAlternative, error: altError } = await sb.from('model_alternatives').insert({ sub_question_id: sub_question_id, alternative_number: alt_model.alternative_number, extra_comment: alt_model.extra_comment }).select('id').single();
+                const { data: newAlternative, error: altError } = await sb.from('model_alternatives').insert({
+                    sub_question_id: sub_question_id,
+                    alternative_number: alt_model.alternative_number,
+                    extra_comment: alt_model.extra_comment,
+                    orig_llm_extra_comment: alt_model.extra_comment
+                }).select('id').single();
                 if (altError) throw new Error(`Failed to insert model alternative: ${altError.message}`);
                 const alternative_id = newAlternative.id;
                 if (!alt_model.model_components || alt_model.model_components.length === 0) continue;
@@ -1125,7 +1136,15 @@ async function processAndUploadModel(examId, modelQuestions, zip) {
                             console.warn(`Visual file ${comp_model.component_visual} not found in zip.`);
                         }
                     }
-                    componentsToInsert.push({ alternative_id: alternative_id, component_text: comp_model.component_text, component_visual: componentVisualUrl, component_points: comp_model.component_points, component_order: comp_model.component_order });
+                    componentsToInsert.push({
+                        alternative_id: alternative_id,
+                        component_text: comp_model.component_text,
+                        orig_llm_component_text: comp_model.component_text,
+                        component_visual: componentVisualUrl,
+                        component_points: comp_model.component_points,
+                        orig_llm_component_points: comp_model.component_points,
+                        component_order: comp_model.component_order
+                    });
                 }
                 if (componentsToInsert.length > 0) {
                     const { error: compError } = await sb.from('model_components').insert(componentsToInsert);
@@ -1346,7 +1365,9 @@ async function updateGradingResultsInDb(studentExamId, gcfResponse, subQuestionT
             sb.from('student_answers')
                 .update({
                     sub_points_awarded: update.sub_points_awarded,
-                    feedback_comment: update.feedback_comment
+                    orig_llm_sub_points_awarded: update.sub_points_awarded,
+                    feedback_comment: update.feedback_comment,
+                    orig_llm_feedback_comment: update.feedback_comment,
                 })
                 .eq('id', update.id)
         );
@@ -1699,6 +1720,7 @@ async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip
                         student_exam_id: studentExamId,
                         sub_question_id: sub_question_id,
                         answer_text: sq_res.student_answers.answer_text || null,
+                        orig_llm_answer_text: sq_res.student_answers.answer_text || null,
                         answer_visual: answerVisualUrl
                     });
                 }
