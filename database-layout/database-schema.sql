@@ -8,6 +8,8 @@ CREATE TABLE public.appendices (
   app_title text,
   app_text text,
   app_visual text,
+  orig_llm_app_title text,
+  orig_llm_app_text text,
   CONSTRAINT appendices_pkey PRIMARY KEY (id),
   CONSTRAINT appendices_question_id_fkey FOREIGN KEY (question_id) REFERENCES public.questions(id)
 );
@@ -18,6 +20,7 @@ CREATE TABLE public.exams (
   exam_name text NOT NULL,
   max_total_points bigint,
   grading_regulations text,
+  orig_llm_grading_regulations text,
   CONSTRAINT exams_pkey PRIMARY KEY (id),
   CONSTRAINT exams_teacher_id_fkey FOREIGN KEY (teacher_id) REFERENCES public.teachers(id)
 );
@@ -27,6 +30,7 @@ CREATE TABLE public.mcq_options (
   sub_question_id uuid NOT NULL,
   mcq_letter text NOT NULL,
   mcq_content text NOT NULL,
+  orig_llm_mcq_content text,
   CONSTRAINT mcq_options_pkey PRIMARY KEY (id),
   CONSTRAINT mcq_options_sub_question_id_fkey FOREIGN KEY (sub_question_id) REFERENCES public.sub_questions(id)
 );
@@ -36,6 +40,7 @@ CREATE TABLE public.model_alternatives (
   sub_question_id uuid NOT NULL,
   alternative_number bigint,
   extra_comment text,
+  orig_llm_extra_comment text,
   CONSTRAINT model_alternatives_pkey PRIMARY KEY (id),
   CONSTRAINT model_alternatives_sub_question_id_fkey FOREIGN KEY (sub_question_id) REFERENCES public.sub_questions(id)
 );
@@ -47,6 +52,8 @@ CREATE TABLE public.model_components (
   component_visual text,
   component_points bigint NOT NULL,
   component_order bigint,
+  orig_llm_component_text text,
+  orig_llm_component_points bigint,
   CONSTRAINT model_components_pkey PRIMARY KEY (id),
   CONSTRAINT answer_components_alternative_id_fkey FOREIGN KEY (alternative_id) REFERENCES public.model_alternatives(id)
 );
@@ -85,6 +92,8 @@ CREATE TABLE public.questions (
   context_text text,
   context_visual text,
   extra_comment text,
+  orig_llm_context_text text,
+  orig_llm_extra_comment text,
   CONSTRAINT questions_pkey PRIMARY KEY (id),
   CONSTRAINT questions_exam_id_fkey FOREIGN KEY (exam_id) REFERENCES public.exams(id)
 );
@@ -104,8 +113,8 @@ CREATE TABLE public.scan_sessions (
   student_exam_id uuid,
   CONSTRAINT scan_sessions_pkey PRIMARY KEY (id),
   CONSTRAINT scan_sessions_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.students(id),
-  CONSTRAINT scan_sessions_exam_id_fkey FOREIGN KEY (exam_id) REFERENCES public.exams(id),
-  CONSTRAINT scan_sessions_student_exam_id_fkey FOREIGN KEY (student_exam_id) REFERENCES public.student_exams(id)
+  CONSTRAINT scan_sessions_student_exam_id_fkey FOREIGN KEY (student_exam_id) REFERENCES public.student_exams(id),
+  CONSTRAINT scan_sessions_exam_id_fkey FOREIGN KEY (exam_id) REFERENCES public.exams(id)
 );
 CREATE TABLE public.student_answers (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -116,6 +125,9 @@ CREATE TABLE public.student_answers (
   answer_visual text,
   sub_points_awarded bigint,
   feedback_comment text,
+  orig_llm_answer_text text,
+  orig_llm_sub_points_awarded bigint,
+  orig_llm_feedback_comment text,
   CONSTRAINT student_answers_pkey PRIMARY KEY (id),
   CONSTRAINT student_answers_sub_question_id_fkey FOREIGN KEY (sub_question_id) REFERENCES public.sub_questions(id),
   CONSTRAINT student_answers_student_exam_id_fkey FOREIGN KEY (student_exam_id) REFERENCES public.student_exams(id)
@@ -146,6 +158,7 @@ CREATE TABLE public.sub_questions (
   question_id uuid NOT NULL,
   sub_q_text_content text,
   max_sub_points bigint,
+  orig_llm_sub_q_text_content text,
   CONSTRAINT sub_questions_pkey PRIMARY KEY (id),
   CONSTRAINT sub_questions_question_id_fkey FOREIGN KEY (question_id) REFERENCES public.questions(id)
 );
