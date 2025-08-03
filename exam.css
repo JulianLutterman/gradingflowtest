@@ -664,53 +664,56 @@ button {
     .question-context-text .edit-btn, #sub-q-edit-btn, #model-alt-edit-btn, #student-answer-edit-btn, #student-name-edit-btn, #modal-edit-btn {
         margin-left: 0;
         padding: 5px;
-        background-color: var(--color-light-blue-two);
+        background-color: transparent;
         border-radius: 10px;
         transition-duration: 0.3s;
     }
 
         .question-context-text .edit-btn:hover, #sub-q-edit-btn:hover, #model-alt-edit-btn:hover, #student-answer-edit-btn:hover, #student-name-edit-btn:hover, #modal-edit-btn:hover {
-            filter: brightness(103%);
+            background-color: var(--color-light-blue-two);
         }
 
-        .question-context-text svg, #sub-q-edit-btn svg, #model-alt-edit-btn svg, #student-answer-edit-btn svg, #student-name-edit-btn svg, #modal-edit-btn svg {
+        .question-context-text svg, #sub-q-gridcell svg, .model-alternative svg, .student-answer-item svg, .student-answer-dropdown summary svg, .modal-content svg {
             height: 1.5em;
             width: 1.5em;
-            stroke: var(--color-text-dark);
+            stroke: transparent;
             transition-duration: 0.3s;
         }
+
+        .question-context-text:hover svg, #sub-q-gridcell:hover svg, .model-alternative:hover svg, .student-answer-item:hover svg, .student-answer-dropdown summary:hover svg, .modal-content:hover svg {
+            stroke: var(--color-text-dark);
+        }
+
+    .student-answer-dropdown summary:hover svg {
+        stroke: var(--color-text-light);
+    }
 
 #sub-q-edit-btn {
     margin-left: 8px;
 }
 
 #model-alt-edit-btn, #student-answer-edit-btn {
-    background-color: var(--color-lighter-blue);
+    background-color: transparent;
     position: absolute;
     right: 8px;
     top: 8px;
 }
-
-#student-name-edit-btn {
-    background-color: var(--color-blue-pastel-light-two);
-}
-
     #student-name-edit-btn:hover {
         background-color: var(--color-blue-pastel-light-two);
-        filter: brightness(105%);
     }
+
+
 
 #model-alt-edit-btn:hover, #student-answer-edit-btn:hover {
     background-color: var(--color-lighter-blue);
-    filter: brightness(102%);
 }
 
 #modal-edit-btn {
-    background-color: var(--color-lighter-blue);
+    background-color: transparent;
 }
 
 #modal-edit-btn:hover {
-    background-color: var(--color-light-blue-two) !important;
+    background-color: var(--color-lighter-blue) !important;
     filter: brightness(100%);
 }
 
@@ -759,7 +762,7 @@ button {
 
 /* The main edit icon button */
 .edit-btn {
-    background: none;
+    background: transparent;
     border: none;
     cursor: pointer;
     padding: 0;
@@ -776,19 +779,24 @@ button {
 #exam-name-title .edit-btn {
     margin-left: 0;
     padding: 5px;
-    background-color: var(--color-lighter-blue);
+    background-color: transparent;
     border-radius: 10px;
 }
 
 #exam-name-title .edit-btn:hover {
-    background-color: var(--color-light-blue-two);
+    background-color: var(--color-lighter-blue);
 }
 
 #exam-name-title .edit-btn svg {
     height: 1.5em;
     width: 1.5em;
-    stroke: var(--color-text-dark);
+    transition-duration: 0.3s;
+    stroke: transparent;
 }
+
+    #exam-name-title:hover svg {
+        stroke: var(--color-text-dark);
+    }
 
 #exam-name-title span {
     display: flex;
@@ -834,7 +842,7 @@ button {
 }
 
 .save-btn {
-    background-color: var(--color-green-pastel);
+    background-color: var(--color-green-pastel-light-one);
     color: var(--color-text-light);
     font-weight: bold;
 }
