@@ -104,9 +104,14 @@ const DEFAULT_MODEL_BUTTON_TEXT = 'Upload Answer Model';
 const DEFAULT_SCAN_BUTTON_TEXT = 'Scan Answers';
 const MULTI_SCAN_PAGE_BASE_URL = `${window.location.origin}/multi-scan.html`;
 
+const EDIT_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#14110f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>`;
+
 
 // --- HELPER FUNCTIONS ---
 const showSpinner = (show, targetSpinner) => { targetSpinner.classList.toggle('hidden', !show); };
+
+// ADD THIS HELPER FUNCTION
+const escapeAttr = (str) => (str || '').toString().replace(/"/g, '"');
 
 // NEW: Generic helper to update a button's text
 const setButtonText = (buttonTextElement, message) => {
@@ -184,7 +189,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
     // --- END OF NEW, CORRECTED CODE ---
-    
+
     const urlParams = new URLSearchParams(window.location.search);
     const examId = urlParams.get('id');
 
@@ -214,6 +219,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // NEW: Add event listener for the "Show Grades" button
     showGradesButton.addEventListener('click', handleShowGradesClick);
+
+    // Edit Event Listeners
+    questionsContainer.addEventListener('click', handleEditClick);
+    examNameTitle.addEventListener('click', handleEditClick);
+    rulesModal.addEventListener('click', handleEditClick);
+    appendixModal.addEventListener('click', handleEditClick); // Add this line
 });
 
 async function loadExamDetails(examId) {
@@ -318,7 +329,7 @@ async function loadExamDetails(examId) {
             const files = fileInput.files;
             // The corresponding label is the very next element in the HTML
             const label = fileInput.nextElementSibling;
-    
+
             if (label) {
                 if (files && files.length > 0) {
                     label.textContent = files.length === 1 ? `1 file` : `${files.length} files`;
@@ -330,7 +341,13 @@ async function loadExamDetails(examId) {
     });
 
     currentExamData = examData; // Store exam data globally for later use
-    examNameTitle.textContent = examData.exam_name;
+    // MODIFIED: Add edit button for exam name
+    examNameTitle.innerHTML = `
+        <span data-editable="exam_name">${examData.exam_name}</span>
+        <button class="edit-btn" data-edit-target="exam_name" data-exam-id="${examId}">
+            ${EDIT_ICON_SVG}
+        </button>
+    `;
 
     // NEW: This function now handles showing/hiding both action buttons
     await checkAndShowActionButtons(examId);
@@ -345,7 +362,15 @@ async function checkAndShowActionButtons(examId) {
     if (currentExamData && currentExamData.grading_regulations) {
         showRulesButton.classList.remove('hidden');
         showRulesButton.onclick = () => {
-            rulesModalText.innerHTML = marked.parse(currentExamData.grading_regulations);
+            // MODIFIED: Add edit button to modal
+            rulesModalText.innerHTML = `
+                <div data-editable="grading_regulations">${marked.parse(currentExamData.grading_regulations)}</div>
+                <div class="modal-edit-container">
+                     <button id="modal-edit-btn" class="edit-btn" data-edit-target="grading_regulations" data-exam-id="${examId}">
+                        ${EDIT_ICON_SVG}
+                    </button>
+                </div>
+            `;
             rulesModal.classList.remove('hidden');
         };
     } else {
@@ -443,12 +468,10 @@ function renderExam(questions) {
     questions.forEach(q => {
         const questionBlock = document.createElement('div');
         questionBlock.className = 'question-block';
+        questionBlock.dataset.questionId = q.id;
 
-        // ... inside the questions.forEach loop ...
         let appendixButtonHtml = '';
         if (q.appendices && q.appendices.length > 0) {
-            // Give the button a unique ID based on the question's ID.
-            // This is much safer than putting data in an attribute.
             const buttonId = `appendix-btn-${q.id}`;
             appendixButtonHtml = `<button id="${buttonId}" class="appendix-button">Show Appendix</button>`;
         }
@@ -458,9 +481,21 @@ function renderExam(questions) {
             const subQuestionCells = q.sub_questions.map(sq => {
                 let mcqHtml = '';
                 if (sq.mcq_options && sq.mcq_options.length > 0) {
-                    mcqHtml = sq.mcq_options.map(opt => `<div class="mcq-option"><strong>${opt.mcq_letter}:</strong> <span class="formatted-text">${opt.mcq_content}</span></div>`).join('');
+                    mcqHtml = sq.mcq_options.map(opt => `
+                        <div class="mcq-option" data-mcq-option-id="${opt.id}">
+                            <strong>${opt.mcq_letter}:</strong> 
+                            <span class="formatted-text" data-editable="mcq_content" data-original-text="${opt.mcq_content || ''}">${opt.mcq_content}</span>
+                        </div>`
+                    ).join('');
                 }
-                const subQCell = `<div class="grid-cell"><div class="sub-question-content"><p class="formatted-text"><strong>${sq.sub_q_text_content || ''}</strong></p>${mcqHtml}</div></div>`;
+                const subQCell = `
+                    <div id="sub-q-gridcell" class="grid-cell" data-sub-question-id="${sq.id}">
+                        <div class="sub-question-content">
+                            <p class="formatted-text"><strong data-editable="sub_q_text_content" data-original-text="${sq.sub_q_text_content || ''}">${sq.sub_q_text_content || ''}</strong></p>
+                            ${mcqHtml}
+                        </div>
+                        <button id="sub-q-edit-btn" class="edit-btn" data-edit-target="sub_question" data-sub-question-id="${sq.id}">${EDIT_ICON_SVG}</button>
+                    </div>`;
 
                 let modelAnswerHtml = 'No model answer provided.';
                 if (sq.model_alternatives && sq.model_alternatives.length > 0) {
@@ -468,12 +503,19 @@ function renderExam(questions) {
                     const alternativesHtml = sq.model_alternatives.map(alt => {
                         if (alt.model_components) alt.model_components.sort((a, b) => a.component_order - b.component_order);
                         const componentsHtml = alt.model_components.map(comp => `
-                                                    <div class="model-component">
-                                                        ${comp.component_text ? `<p class="formatted-text">${comp.component_text}</p>` : ''}
-                                                        ${comp.component_visual ? `<img src="${comp.component_visual}" alt="Model component visual">` : ''}
-                                                        <span class="points-badge">Points: ${comp.component_points}</span>
-                                                    </div>`).join('');
-                        return `<div class="model-alternative"><h5>Alternative ${alt.alternative_number}</h5>${alt.extra_comment ? `<p class="formatted-text"><em>${alt.extra_comment}</em></p>` : ''}${componentsHtml}</div>`;
+                            <div class="model-component" data-component-id="${comp.id}">
+                                ${comp.component_text ? `<p class="formatted-text" data-editable="component_text" data-original-text="${comp.component_text || ''}">${comp.component_text}</p>` : ''}
+                                ${comp.component_visual ? `<img src="${comp.component_visual}" alt="Model component visual">` : ''}
+                                <span class="points-badge">Points: <span data-editable="component_points">${comp.component_points}</span></span>
+                            </div>`).join('');
+
+                        return `
+                            <div class="model-alternative" data-alternative-id="${alt.id}">
+                                <button id="model-alt-edit-btn" class="edit-btn" data-edit-target="model_alternative" data-alternative-id="${alt.id}">${EDIT_ICON_SVG}</button>
+                                <h5>Alternative ${alt.alternative_number}</h5>
+                                ${alt.extra_comment ? `<p class="formatted-text"><em><span data-editable="extra_comment" data-original-text="${alt.extra_comment || ''}">${alt.extra_comment}</span></em></p>` : ''}
+                                ${componentsHtml}
+                            </div>`;
                     }).join('');
                     modelAnswerHtml = `<div class="model-answer-section">${alternativesHtml}</div>`;
                 }
@@ -484,7 +526,7 @@ function renderExam(questions) {
                     const answersByStudent = sq.student_answers.reduce((acc, ans) => {
                         const student = ans.student_exams?.students;
                         if (!student) return acc;
-                        const studentKey = student.full_name || student.student_number;
+                        const studentKey = student.id;
                         if (!acc[studentKey]) {
                             acc[studentKey] = { info: student, answers: [] };
                         }
@@ -493,20 +535,32 @@ function renderExam(questions) {
                     }, {});
 
                     const studentDropdowns = Object.values(answersByStudent).map(studentData => {
-                        const studentIdentifier = studentData.info.full_name ? `${studentData.info.full_name} (${studentData.info.student_number || 'No number'})` : studentData.info.student_number;
+                        const studentIdentifierHtml = `
+                            <span data-editable="full_name">${studentData.info.full_name || ''}</span> 
+                            <span class="parenthesis">(</span><span data-editable="student_number">${studentData.info.student_number || 'No number'}</span><span class="parenthesis">)</span>`;
+
                         const answersContent = studentData.answers.map(ans => {
                             const correctedText = ans.answer_text ? ans.answer_text.replace(/\\n/g, '\n') : '';
-                            const pointsHtml = ans.sub_points_awarded !== null ? `<div class="points-awarded-badge">Points: ${ans.sub_points_awarded}/${sq.max_sub_points || '?'}</div>` : '';
-                            const feedbackHtml = ans.feedback_comment ? `<div class="feedback-comment formatted-text">${ans.feedback_comment}</div>` : '';
+                            const pointsHtml = ans.sub_points_awarded !== null ? `<div class="points-awarded-badge">Points: <span data-editable="sub_points_awarded">${ans.sub_points_awarded}</span>/${sq.max_sub_points || '?'}</div>` : '';
+                            const feedbackHtml = ans.feedback_comment ? `<div class="feedback-comment formatted-text" data-editable="feedback_comment" data-original-text="${ans.feedback_comment || ''}">${ans.feedback_comment}</div>` : '';
                             return `
-                                                        <div class="student-answer-item">
-                                                            ${correctedText ? `<p class="formatted-text">${correctedText}</p>` : ''}
-                                                            ${ans.answer_visual ? `<img src="${ans.answer_visual}" alt="Student answer visual" class="student-answer-visual">` : ''}
-                                                            ${pointsHtml}
-                                                            ${feedbackHtml}
-                                                        </div>`;
+                                <div class="student-answer-item" data-answer-id="${ans.id}">
+                                    <button id="student-answer-edit-btn" class="edit-btn" data-edit-target="student_answer" data-answer-id="${ans.id}">${EDIT_ICON_SVG}</button>
+                                    ${correctedText ? `<p class="formatted-text" data-editable="answer_text" data-original-text="${ans.answer_text || ''}">${correctedText}</p>` : ''}
+                                    ${ans.answer_visual ? `<img src="${ans.answer_visual}" alt="Student answer visual" class="student-answer-visual">` : ''}
+                                    ${pointsHtml}
+                                    ${feedbackHtml}
+                                </div>`;
                         }).join('');
-                        return `<details class="student-answer-dropdown"><summary>${studentIdentifier}</summary>${answersContent}</details>`;
+
+                        return `
+                            <details class="student-answer-dropdown" data-student-id="${studentData.info.id}">
+                                <summary>
+                                    <span class="student-identifier-container">${studentIdentifierHtml}</span>
+                                    <button id="student-name-edit-btn" class="edit-btn" data-edit-target="student_info" data-student-id="${studentData.info.id}">${EDIT_ICON_SVG}</button>
+                                </summary>
+                                ${answersContent}
+                            </details>`;
                     }).join('');
                     studentAnswersHtml = studentDropdowns;
                 }
@@ -516,57 +570,59 @@ function renderExam(questions) {
             }).join('');
 
             gridHtml = `
-                                        <div class="sub-question-grid">
-                                            <div class="grid-header">Sub-Question</div>
-                                            <div class="grid-header">Model Answer</div>
-                                            <div class="grid-header">Student Answers</div>
-                                            ${subQuestionCells}
-                                        </div>`;
+                <div class="sub-question-grid">
+                    <div class="grid-header">Sub-Question</div>
+                    <div class="grid-header">Model Answer</div>
+                    <div class="grid-header">Student Answers</div>
+                    ${subQuestionCells}
+                </div>`;
         }
 
-        // Create the points badge HTML if max_total_points exists
-        const pointsBadgeHtml = q.max_total_points ?
-            `<span class="question-points-badge">Points: ${q.max_total_points}</span>` : '';
+        const pointsBadgeHtml = q.max_total_points ? `<span class="question-points-badge">Points: ${q.max_total_points}</span>` : '';
 
         questionBlock.innerHTML = `
-                                    <div class="question-header">
-                                        <div class="question-title-wrapper">
-                                            <span>Question ${q.question_number}</span>
-                                            ${pointsBadgeHtml}
-                                        </div>
-                                        ${appendixButtonHtml}
-                                    </div>
-                                    <p class="formatted-text">${q.context_text || ''}</p>
-                                    ${q.context_visual ? `<img src="${q.context_visual}" alt="Visual for question ${q.question_number}" class="context-visual">` : ''}
-                                    ${q.extra_comment ? `<p class="formatted-text"><em>${q.extra_comment}</em></p>` : ''}
-                                    ${gridHtml}
-                                `;
+            <div class="question-header">
+                <div class="question-title-wrapper">
+                    <span>Question ${q.question_number}</span>
+                    ${pointsBadgeHtml}
+                </div>
+                ${appendixButtonHtml}
+            </div>
+            <div class="question-context-text">
+                <p class="formatted-text" data-editable="context_text" data-original-text="${q.context_text || ''}" style="flex-grow: 1; margin-top: 0;">${q.context_text || ''}</p>
+                <button class="edit-btn" data-edit-target="question_context" data-question-id="${q.id}">${EDIT_ICON_SVG}</button>
+            </div>
+            ${q.context_visual ? `<img src="${q.context_visual}" alt="Visual for question ${q.question_number}" class="context-visual">` : ''}
+            ${q.extra_comment ? `<p class="formatted-text"><em><span data-editable="extra_comment" data-original-text="${q.extra_comment || ''}">${q.extra_comment}</span></em></p>` : ''}
+            ${gridHtml}
+        `;
         questionsContainer.appendChild(questionBlock);
     });
 
-    // --- NEW, SAFER WAY TO ATTACH APPENDIX LISTENERS ---
-    // Loop through the original questions data again.
     questions.forEach(q => {
-        // Check if this question had an appendix.
         if (q.appendices && q.appendices.length > 0) {
-            // Find the specific button we created for it using its unique ID.
             const buttonId = `appendix-btn-${q.id}`;
             const button = document.getElementById(buttonId);
-
             if (button) {
-                // Add a click listener directly to this button.
                 button.addEventListener('click', () => {
-                    // Because of the "closure", we have direct access to q.appendices.
-                    // No need to parse anything! We use the object directly.
                     const appendices = q.appendices;
-
+                    const questionId = q.id;
+                    // --- WITH THIS LINE ---
                     const contentHtml = appendices.map(app => `
-                    <h4>${app.app_title || 'Appendix Item'}</h4>
-                    <p>${app.app_text || ''}</p>
-                    ${app.app_visual ? `<img src="${app.app_visual}" alt="Appendix visual">` : ''}
-                `).join('');
+                        <div class="appendix-item" data-appendix-id="${app.id}">
+                            <h4 data-editable="app_title" data-original-text='${JSON.stringify(app.app_title || '')}'>${app.app_title || 'Appendix Item'}</h4>
+                            <p class="formatted-text" data-editable="app_text" data-original-text='${JSON.stringify((app.app_text || '').trim())}'>${(app.app_text || '').trim()}</p>
+                            ${app.app_visual ? `<img src="${app.app_visual}" alt="Appendix visual">` : ''}
+                        </div>
+                    `.trim()).join('');
+                    // --- END OF REPLACEMENT ---
 
-                    appendixModalContent.innerHTML = contentHtml;
+                    appendixModalContent.innerHTML = `<div id="appendix-editable-area">${contentHtml}</div>
+                        <div class="modal-edit-container">
+                            <button id="modal-edit-btn" class="edit-btn" data-edit-target="appendix" data-question-id="${questionId}">
+                                ${EDIT_ICON_SVG}
+                            </button>
+                        </div>`;
                     appendixModal.classList.remove('hidden');
                 });
             }
@@ -580,6 +636,337 @@ function renderExam(questions) {
         ],
         throwOnError: false
     });
+}
+
+// =================================================================
+// --- INLINE EDITING WORKFLOW ---
+// =================================================================
+
+async function handleEditClick(event) {
+    const editButton = event.target.closest('.edit-btn');
+    if (!editButton) return;
+
+    // Find the container that holds the editable fields and the button
+    const targetType = editButton.dataset.editTarget;
+    let container;
+    let fields = null; // NEW: To specify which fields to edit
+
+    switch (targetType) {
+        case 'exam_name':
+            container = editButton.parentElement; // The H1 tag
+            break;
+        case 'grading_regulations':
+            container = editButton.parentElement.parentElement; // The modal text div
+            break;
+        case 'question_context':
+            container = editButton.closest('.question-block');
+            fields = ['context_text', 'extra_comment']; // MODIFIED: Specify fields
+            break;
+        case 'sub_question':
+            container = editButton.closest('.grid-cell[data-sub-question-id]');
+            break;
+        case 'model_alternative':
+            container = editButton.closest('.model-alternative');
+            break;
+        case 'student_answer':
+            container = editButton.closest('.student-answer-item');
+            break;
+        case 'student_info':
+            container = editButton.closest('summary');
+            break;
+        case 'appendix':
+            container = editButton.closest('.modal-content');
+            break;
+        default:
+            return;
+    }
+
+    toggleEditMode(container, true, fields); // MODIFIED: Pass fields to the function
+}
+
+function toggleEditMode(container, isEditing, fields = null) {
+    // --- START: ADD THIS NEW BLOCK ---
+    const editButtonForTargetCheck = container.querySelector('.edit-btn');
+    if (editButtonForTargetCheck?.dataset.editTarget === 'student_info') {
+        container.classList.toggle('is-editing-summary', isEditing);
+    }
+    // --- END: ADD THIS NEW BLOCK ---
+
+    container.querySelectorAll('.points-badge').forEach(badge => badge.style.marginBottom = isEditing ? '0' : '');
+    container.querySelectorAll('.points-badge').forEach(badge => badge.style.borderRadius = isEditing ? '10px' : '');
+    container.querySelectorAll('.points-badge').forEach(badge => badge.style.paddingRight = isEditing ? '5px' : '');
+    container.querySelectorAll('.points-awarded-badge').forEach(badge => badge.style.borderRadius = isEditing ? '10px' : '');
+    container.querySelectorAll('.model-component p').forEach(p => p.style.height = isEditing ? '-webkit-fill-available' : '');
+    container.querySelectorAll('.model-component p').forEach(p => p.style.width = isEditing ? 'inherit' : '');
+    container.querySelectorAll('.model-component').forEach(div => div.style.borderBottom = isEditing ? 'none' : '');
+    container.querySelectorAll('.model-component').forEach(div => div.style.paddingTop = isEditing ? '0.4rem' : '');
+    container.querySelectorAll('.parenthesis').forEach(p => p.style.display = isEditing ? 'none' : '');
+    container.querySelectorAll('.student-identifier-container').forEach(span => span.style.width = isEditing ? '-webkit-fill-available' : '');
+    container.querySelectorAll('.student-identifier-container').forEach(span => span.style.display = isEditing ? 'flex' : '');
+    container.querySelectorAll('.student-identifier-container').forEach(span => span.style.flexDirection = isEditing ? 'column' : '');
+    container.querySelectorAll('.student-identifier-container').forEach(span => span.style.gap = isEditing ? '0.5rem' : '');
+
+    const editButton = container.querySelector('.edit-btn');
+    let editActions = container.querySelector('.edit-actions');
+
+    const selector = fields
+        ? fields.map(field => `[data-editable="${field}"]`).join(', ')
+        : '[data-editable]';
+
+    if (isEditing) {
+        if (editButton) editButton.classList.add('hidden');
+
+        if (!editActions) {
+            editActions = document.createElement('div');
+            editActions.className = 'edit-actions';
+            editActions.innerHTML = `
+                <button class="save-btn">Save</button>
+                <button class="cancel-btn">Cancel</button>
+            `;
+            const buttonParent = editButton.closest('.cell-header') || editButton.parentElement;
+            buttonParent.appendChild(editActions);
+        }
+        editActions.classList.remove('hidden');
+
+        const targetType = editButton?.dataset.editTarget;
+        if (targetType === 'sub_question') {
+            container.style.display = 'block';
+        }
+
+        container.querySelectorAll(selector).forEach(el => {
+            const isQuestionContextEdit = editButton.dataset.editTarget === 'question_context';
+            if (isQuestionContextEdit && el.dataset.editable === 'extra_comment' && el.closest('.model-alternative')) {
+                return;
+            }
+
+            // MODIFICATION: Store the rendered HTML for cancel, but use raw text for the input.
+            el.dataset.originalValue = el.innerHTML; // Store rendered HTML for perfect cancel
+
+            // --- WITH THIS BLOCK ---
+            let rawText;
+            try {
+                // The data attribute will now hold a JSON string, so we must parse it.
+                // This correctly handles quotes, newlines, and other special characters.
+                if (el.dataset.originalText !== undefined && el.dataset.originalText !== null) {
+                    rawText = JSON.parse(el.dataset.originalText);
+                } else {
+                    rawText = el.textContent.trim(); // Fallback if attribute is missing
+                }
+            } catch (e) {
+                // If parsing fails, fallback to the raw attribute value or text content
+                rawText = el.dataset.originalText || el.textContent.trim();
+            }
+            // --- END OF REPLACEMENT ---
+
+            let input;
+            const fieldType = el.dataset.editable;
+
+            if (['context_text', 'extra_comment', 'feedback_comment', 'grading_regulations', 'answer_text', 'sub_q_text_content', 'mcq_content', 'app_text'].includes(fieldType)) {
+                input = document.createElement('textarea');
+                input.value = (fieldType === 'grading_regulations') ? el.innerHTML : rawText; // Use raw text
+                input.rows = Math.max(3, (rawText.length / 70));
+            } else {
+                input = document.createElement('input');
+                input.type = (fieldType === 'component_points' || fieldType === 'sub_points_awarded') ? 'number' : 'text';
+                input.value = rawText; // Use raw text
+            }
+
+            input.className = 'editable-input';
+            el.innerHTML = '';
+            el.appendChild(input);
+            if (input.type === 'text') input.select(); else input.focus();
+        });
+
+        editActions.querySelector('.save-btn').onclick = () => saveChanges(container);
+        editActions.querySelector('.cancel-btn').onclick = () => toggleEditMode(container, false, fields);
+
+    } else { // Cancelling or finishing edit
+        if (editButton) editButton.classList.remove('hidden');
+        if (editActions) editActions.classList.add('hidden');
+
+        const targetType = editButton?.dataset.editTarget;
+        if (targetType === 'sub_question') {
+            container.style.display = 'flex';
+        }
+
+
+        container.querySelectorAll(selector).forEach(el => {
+            const isQuestionContextEdit = editButton.dataset.editTarget === 'question_context';
+            if (isQuestionContextEdit && el.dataset.editable === 'extra_comment' && el.closest('.model-alternative')) {
+                return;
+            }
+            // MODIFICATION: Restore the saved innerHTML to bring back the rendered KaTeX.
+            if (el.dataset.originalValue) {
+                el.innerHTML = el.dataset.originalValue;
+            }
+        });
+    }
+}
+
+async function saveChanges(container) {
+    const editButton = container.querySelector('.edit-btn');
+    const targetType = editButton.dataset.editTarget;
+    const examId = new URLSearchParams(window.location.search).get('id');
+
+    try {
+        let promises = [];
+        switch (targetType) {
+            case 'exam_name':
+                const examName = container.querySelector('[data-editable="exam_name"] .editable-input').value;
+                promises.push(sb.from('exams').update({ exam_name: examName }).eq('id', editButton.dataset.examId));
+                break;
+            case 'grading_regulations':
+                const regulations = container.querySelector('[data-editable="grading_regulations"] .editable-input').value;
+                promises.push(sb.from('exams').update({ grading_regulations: regulations }).eq('id', editButton.dataset.examId));
+                break;
+            case 'question_context':
+                const contextUpdates = {};
+                const contextTextEl = container.querySelector('[data-editable="context_text"] .editable-input');
+                if (contextTextEl) {
+                    contextUpdates.context_text = contextTextEl.value;
+                }
+
+                // --- START: MODIFICATION ---
+                // Find all extra_comment inputs within the container, but only act on the one
+                // that is NOT inside a .model-alternative, ensuring we target the correct one.
+                const allExtraCommentInputs = container.querySelectorAll('[data-editable="extra_comment"] .editable-input');
+                allExtraCommentInputs.forEach(input => {
+                    if (!input.closest('.model-alternative')) {
+                        contextUpdates.extra_comment = input.value;
+                    }
+                });
+                // --- END: MODIFICATION ---
+
+                promises.push(sb.from('questions').update(contextUpdates).eq('id', editButton.dataset.questionId));
+                break;
+            case 'sub_question':
+                const subQId = editButton.dataset.subQuestionId;
+                const subQText = container.querySelector('[data-editable="sub_q_text_content"] .editable-input').value;
+                promises.push(sb.from('sub_questions').update({ sub_q_text_content: subQText }).eq('id', subQId));
+                container.querySelectorAll('.mcq-option').forEach(mcqEl => {
+                    const mcqId = mcqEl.dataset.mcqOptionId;
+                    const mcqContent = mcqEl.querySelector('[data-editable="mcq_content"] .editable-input').value;
+                    promises.push(sb.from('mcq_options').update({ mcq_content: mcqContent }).eq('id', mcqId));
+                });
+                break;
+            case 'model_alternative':
+                const altId = editButton.dataset.alternativeId;
+                const extraComm = container.querySelector('[data-editable="extra_comment"] .editable-input');
+                if (extraComm) {
+                    promises.push(sb.from('model_alternatives').update({ extra_comment: extraComm.value }).eq('id', altId));
+                }
+                container.querySelectorAll('.model-component').forEach(compEl => {
+                    const compId = compEl.dataset.componentId;
+                    const compUpdates = {};
+                    const compText = compEl.querySelector('[data-editable="component_text"] .editable-input');
+                    const compPoints = compEl.querySelector('[data-editable="component_points"] .editable-input');
+                    if (compText) compUpdates.component_text = compText.value;
+                    if (compPoints) compUpdates.component_points = Number(compPoints.value);
+                    if (Object.keys(compUpdates).length > 0) {
+                        promises.push(sb.from('model_components').update(compUpdates).eq('id', compId));
+                    }
+                });
+                break;
+            case 'student_answer':
+                const ansId = editButton.dataset.answerId;
+                const ansUpdates = {};
+                const ansText = container.querySelector('[data-editable="answer_text"] .editable-input');
+                const ansPoints = container.querySelector('[data-editable="sub_points_awarded"] .editable-input');
+                const ansFeedback = container.querySelector('[data-editable="feedback_comment"] .editable-input');
+                if (ansText) ansUpdates.answer_text = ansText.value;
+                if (ansPoints) ansUpdates.sub_points_awarded = Number(ansPoints.value);
+                if (ansFeedback) ansUpdates.feedback_comment = ansFeedback.value;
+                promises.push(sb.from('student_answers').update(ansUpdates).eq('id', ansId));
+                break;
+            case 'student_info':
+                const studentId = editButton.dataset.studentId;
+                const studentUpdates = {};
+                const studentName = container.querySelector('[data-editable="full_name"] .editable-input');
+                const studentNumber = container.querySelector('[data-editable="student_number"] .editable-input');
+                if (studentName) studentUpdates.full_name = studentName.value;
+                if (studentNumber) studentUpdates.student_number = studentNumber.value;
+                promises.push(sb.from('students').update(studentUpdates).eq('id', studentId));
+                break;
+            case 'appendix':
+                container.querySelectorAll('.appendix-item').forEach(item => {
+                    const appendixId = item.dataset.appendixId;
+                    const appTitleInput = item.querySelector('[data-editable="app_title"] .editable-input');
+                    const appTextInput = item.querySelector('[data-editable="app_text"] .editable-input');
+
+                    if (appendixId && appTitleInput && appTextInput) {
+                        const appTitle = appTitleInput.value;
+                        const appText = appTextInput.value;
+
+                        promises.push(
+                            sb.from('appendices')
+                                .update({ app_title: appTitle, app_text: appText })
+                                .eq('id', appendixId)
+                        );
+                    }
+                });
+                break;
+            default:
+                throw new Error('Unknown edit target type.');
+        }
+
+        const results = await Promise.all(promises);
+        const firstError = results.find(res => res.error);
+        if (firstError) throw firstError.error;
+
+        console.log('Save successful for:', targetType);
+        await loadExamDetails(examId); // Refresh the entire view to ensure consistency
+
+        // --- START: ADD THIS CODE BLOCK ---
+        // After reloading data, manually re-render the content of the edited modal
+        // to switch it back to the non-edit view with the updated information.
+        if (targetType === 'grading_regulations') {
+            rulesModalText.innerHTML = `
+                <div data-editable="grading_regulations">${marked.parse(currentExamData.grading_regulations)}</div>
+                <div class="modal-edit-container">
+                     <button id="modal-edit-btn" class="edit-btn" data-edit-target="grading_regulations" data-exam-id="${examId}">
+                        ${EDIT_ICON_SVG}
+                    </button>
+                </div>
+            `;
+        } else if (targetType === 'appendix') {
+            const questionId = editButton.dataset.questionId;
+            const questionData = currentExamData.questions.find(q => q.id == questionId);
+
+            if (questionData && questionData.appendices) {
+                // --- WITH THIS LINE ---
+                const contentHtml = questionData.appendices.map(app => `
+                    <div class="appendix-item" data-appendix-id="${app.id}">
+                        <h4 data-editable="app_title" data-original-text='${JSON.stringify(app.app_title || '')}'>${app.app_title || 'Appendix Item'}</h4>
+                        <p class="formatted-text" data-editable="app_text" data-original-text='${JSON.stringify((app.app_text || '').trim())}'>${(app.app_text || '').trim()}</p>
+                        ${app.app_visual ? `<img src="${app.app_visual}" alt="Appendix visual">` : ''}
+                    </div>
+                `.trim()).join('');
+                // --- END OF REPLACEMENT ---
+
+                appendixModalContent.innerHTML = `<div id="appendix-editable-area">${contentHtml}</div>
+                    <div class="modal-edit-container">
+                        <button id="modal-edit-btn" class="edit-btn" data-edit-target="appendix" data-question-id="${questionId}">
+                            ${EDIT_ICON_SVG}
+                        </button>
+                    </div>`;
+
+                renderMathInElement(appendixModalContent, {
+                    delimiters: [
+                        { left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false },
+                        { left: '\$$', right: '\$$', display: false }, { left: '\$$', right: '\$$', display: true }
+                    ],
+                    throwOnError: false
+                });
+            }
+        }
+        // --- END: ADD THIS CODE BLOCK ---
+
+    } catch (error) {
+        console.error('Save failed:', error);
+        alert(`Error saving changes: ${error.message}`);
+        // Optionally revert UI changes on failure
+        toggleEditMode(container, false);
+    }
 }
 
 // --- APPENDIX UPLOAD LOGIC (MODIFIED LOGGING) ---
@@ -871,18 +1258,18 @@ async function fetchFullExamDetails(examId) {
             max_total_points, 
             questions (
                 id, question_number, max_total_points, context_text, orig_llm_context_text, context_visual, extra_comment, orig_llm_extra_comment,
-                appendices ( app_title, orig_llm_app_title, app_text, orig_llm_app_text, app_visual ),
+                appendices ( id, app_title, orig_llm_app_title, app_text, orig_llm_app_text, app_visual ),
                 sub_questions (
                     id, sub_q_text_content, orig_llm_sub_q_text_content, max_sub_points,
-                    mcq_options ( mcq_letter, mcq_content, orig_llm_mcq_content ),
+                    mcq_options ( id, mcq_letter, mcq_content, orig_llm_mcq_content ),
                     model_alternatives (
-                        alternative_number, extra_comment, orig_llm_extra_comment,
-                        model_components ( component_text, orig_llm_component_text, component_visual, component_points, orig_llm_component_points, component_order )
+                        id, alternative_number, extra_comment, orig_llm_extra_comment,
+                        model_components ( id, component_text, orig_llm_component_text, component_visual, component_points, orig_llm_component_points, component_order )
                     ),
                     student_answers (
-                        answer_text, orig_llm_answer_text, answer_visual, sub_points_awarded, orig_llm_sub_points_awarded, feedback_comment, orig_llm_feedback_comment,
+                        id, answer_text, orig_llm_answer_text, answer_visual, sub_points_awarded, orig_llm_sub_points_awarded, feedback_comment, orig_llm_feedback_comment,
                         student_exams (
-                            students ( full_name, student_number )
+                            students ( id, full_name, student_number )
                         )
                     )
                 )
