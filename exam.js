@@ -519,7 +519,7 @@ function renderExam(questions) {
                     }).join('');
                     modelAnswerHtml = `<div class="model-answer-section">${alternativesHtml}</div>`;
                 }
-                const modelCell = `<div class="grid-cell">${modelAnswerHtml}</div>`;
+                const modelCell = `<div class="grid-cell" data-sub-question-id="${sq.id}">${modelAnswerHtml}</div>`;
 
                 let studentAnswersHtml = 'No answers submitted.';
                 if (sq.student_answers && sq.student_answers.length > 0) {
@@ -912,6 +912,52 @@ async function saveChanges(container) {
         const results = await Promise.all(promises);
         const firstError = results.find(res => res.error);
         if (firstError) throw firstError.error;
+
+        if (targetType === 'model_alternative') {
+            // Find the parent grid cell to get the sub-question ID
+            const gridCell = editButton.closest('.grid-cell');
+            if (gridCell) {
+                const subQId = gridCell.dataset.subQuestionId;
+                if (subQId) {
+                    console.log(`Recalculating exam points based on sub-question: ${subQId}`);
+                    // Call the new SQL function
+                    const { error: rpcError } = await sb.rpc('recalculate_exam_points_from_sub_question', {
+                        p_sub_question_id: subQId
+                    });
+                    if (rpcError) {
+                        console.error('Error recalculating exam points:', rpcError);
+                        alert('Points saved, but an error occurred while updating totals.');
+                    }
+                }
+            }
+        }
+        // --- END: ADD THIS CODE BLOCK ---
+        // --- START: ADD THIS CODE BLOCK ---
+        if (targetType === 'student_answer') {
+            const ansId = editButton.dataset.answerId;
+            if (ansId) {
+                // First, we need to find the parent student_exam_id from the answer's ID
+                const { data: answerData, error: fetchError } = await sb
+                    .from('student_answers')
+                    .select('student_exam_id')
+                    .eq('id', ansId)
+                    .single();
+                if (fetchError) {
+                    console.error('Could not fetch student_exam_id for recalculation:', fetchError);
+                } else if (answerData && answerData.student_exam_id) {
+                    const studentExamId = answerData.student_exam_id;
+                    console.log(`Recalculating total points for student_exam: ${studentExamId}`);
+                    // Call the new SQL function
+                    const { error: rpcError } = await sb.rpc('recalculate_student_total_points', {
+                        p_student_exam_id: studentExamId
+                    });
+                    if (rpcError) {
+                        console.error('Error recalculating student total points:', rpcError);
+                        alert('Points saved, but an error occurred while updating student total.');
+                    }
+                }
+            }
+        }
 
         console.log('Save successful for:', targetType);
         await loadExamDetails(examId); // Refresh the entire view to ensure consistency
