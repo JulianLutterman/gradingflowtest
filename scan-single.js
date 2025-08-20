@@ -1,267 +1,540 @@
-// --- AUTOMATIC GRADING LOGIC (REFACTORED) ---
-gradeAllButton.addEventListener('click', async (e) => {
-  e.preventDefault();
-  gradeAllButton.disabled = true;
-  showSpinner(true, spinnerGrading);
-  updateGradingButtonText('Starting...');
+// --- STUDENT SCAN LINK GENERATION (MODIFIED LOGGING) ---
+generateScanLinkButton.addEventListener('click', async () => {
+  generateScanLinkButton.disabled = true;
+  showSpinner(true, spinnerStudent);
+  setButtonText(generateScanLinkButtonText, 'Generating link...');
 
   const urlParams = new URLSearchParams(window.location.search);
   const examId = urlParams.get('id');
-  let finalMessage = '';
-  let isError = false;
+  const studentName = document.getElementById('student-name').value.trim();
+  const studentNumber = document.getElementById('student-number').value.trim();
+
+  if (!studentName && !studentNumber) {
+    alert('Please provide a student name or student number.');
+    generateScanLinkButton.disabled = false;
+    showSpinner(false, spinnerStudent);
+    setButtonText(generateScanLinkButtonText, DEFAULT_SCAN_BUTTON_TEXT);
+    return;
+  }
+  if (!examId) {
+    alert('Cannot proceed without an Exam ID.');
+    generateScanLinkButton.disabled = false;
+    showSpinner(false, spinnerStudent);
+    setButtonText(generateScanLinkButtonText, DEFAULT_SCAN_BUTTON_TEXT);
+    return;
+  }
 
   try {
-    updateGradingButtonText('Finding submissions...');
-    const { data: ungradedExams, error: findError } = await sb
-      .from('student_exams')
-      .select('id, students(full_name, student_number)')
-      .eq('exam_id', examId)
-      .is('total_points_awarded', null);
-
-    if (findError) throw findError;
-
-    if (!ungradedExams || ungradedExams.length === 0) {
-      finalMessage = 'No new submissions found.';
-      return;
-    }
-
-    updateGradingButtonText(`Grading ${ungradedExams.length} submission(s)...\n(~1 min)`);
-
-    const gradingPromises = ungradedExams.map((studentExam) => {
-      const studentIdentifier = studentExam.students.full_name || studentExam.students.student_number;
-      return processSingleStudent(examId, studentExam.id, studentIdentifier);
+    setButtonText(generateScanLinkButtonText, 'Creating session...');
+    const response = await fetch(GENERATE_SCAN_SESSION_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({ examId, studentName, studentNumber }),
     });
 
-    const results = await Promise.all(gradingPromises);
-
-    const successCount = results.filter((r) => r.status === 'success').length;
-    const failureCount = results.length - successCount;
-
-    if (failureCount > 0) {
-      finalMessage = `Graded ${successCount}, ${failureCount} failed.`;
-    } else {
-      finalMessage = `All ${successCount} submissions graded.`;
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Failed to generate scan session: ${errorData.message || response.statusText}`);
     }
 
-    updateGradingButtonText('Refreshing data...');
-    await loadExamDetails(examId);
-  } catch (error) {
-    console.error(error);
-    finalMessage = `Critical Error. See console.`;
-    isError = true;
-  } finally {
-    updateGradingButtonText(finalMessage);
-    showSpinner(false, spinnerGrading);
+    const { session_token } = await response.json();
+    currentScanSessionToken = session_token;
 
+    const scanUrl = `${SCAN_PAGE_BASE_URL}?token=${session_token}`;
+
+    new QRious({
+      element: qrcodeCanvas,
+      value: scanUrl,
+      size: 200,
+    });
+
+    scanUrlLink.href = scanUrl;
+    scanUrlLink.textContent = scanUrl;
+    scanLinkArea.classList.remove('hidden');
+    scanLinkArea.classList.remove('hiding');
+
+    showSpinner(false, spinnerStudent);
+    setButtonText(generateScanLinkButtonText, 'Waiting for your scan...');
+
+    startScanPolling(examId);
+  } catch (error) {
+    setButtonText(generateScanLinkButtonText, 'Error!');
+    console.error(error);
+    showSpinner(false, spinnerStudent);
     setTimeout(() => {
-      gradeAllButton.disabled = false;
-      updateGradingButtonText(DEFAULT_GRADING_BUTTON_TEXT);
-    }, isError ? 5000 : 3000);
+      generateScanLinkButton.disabled = false;
+      setButtonText(generateScanLinkButtonText, DEFAULT_SCAN_BUTTON_TEXT);
+    }, 5000);
   }
 });
 
 /**
- * Process grading for a single student_exam.
- * @param {string} examId
- * @param {string} studentExamId
- * @param {string} studentIdentifier
- * @returns {Promise<{status: 'success'|'error', studentExamId: string, error?: string}>}
+ * Handles the direct file upload as an alternative to QR scanning.
+ * Triggered when user selects files in the input.
+ * @param {Event} event
  */
-async function processSingleStudent(examId, studentExamId, studentIdentifier) {
+async function handleDirectUpload(event) {
+  const files = event.target.files;
+  if (!files || files.length === 0) {
+    return;
+  }
+
+  if (!currentScanSessionToken) {
+    alert('Error: No active scan session. Please click "Scan Answers" again.');
+    event.target.value = '';
+    return;
+  }
+
+  stopScanPolling();
+  directUploadInput.disabled = true;
+  setButtonText(generateScanLinkButtonText, 'Uploading...');
+  showSpinner(true, spinnerStudent);
+
+  if (scanLinkArea && !scanLinkArea.classList.contains('hiding')) {
+    scanLinkArea.classList.add('hiding');
+    setTimeout(() => {
+      scanLinkArea.classList.add('hidden');
+      scanLinkArea.classList.remove('hiding');
+    }, 600);
+  }
+
   try {
-    console.log(`Fetching data for ${studentIdentifier}...`);
-    const { data: gradingData, error: dataError } = await fetchGradingDataForStudent(examId, studentExamId);
-    if (dataError) throw new Error(`Data fetch failed: ${dataError.message}`);
-    if (!gradingData || !gradingData.questions || gradingData.questions.length === 0) {
-      console.log(`No answer data found for ${studentIdentifier}. Marking as graded with 0 points.`);
-      await sb.from('student_exams').update({ total_points_awarded: 0, status: 'graded' }).eq('id', studentExamId);
-      return { status: 'success', studentExamId };
+    const examId = new URLSearchParams(window.location.search).get('id');
+
+    const { data: rpcResult, error: sessionError } = await sb.rpc('get_session_details_by_token', {
+      token_arg: currentScanSessionToken,
+    });
+
+    if (sessionError || !rpcResult || rpcResult.length === 0) {
+      throw new Error(`Could not find active session for token: ${sessionError?.message || 'Not found'}`);
+    }
+    const sessionDetails = rpcResult[0];
+    const sessionId = sessionDetails.id;
+
+    const uploadPromises = [];
+    const uploadedFilePaths = [];
+
+    for (const file of files) {
+      const filePath = `temp_scans/${currentScanSessionToken}/${file.name}`;
+      uploadPromises.push(sb.storage.from(STORAGE_BUCKET).upload(filePath, file));
+    }
+    const results = await Promise.all(uploadPromises);
+
+    for (const result of results) {
+      if (result.error) {
+        throw new Error(`Failed to upload a file: ${result.error.message}`);
+      }
+      const { data: urlData } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(result.data.path);
+      uploadedFilePaths.push(urlData.publicUrl);
     }
 
-    const imageUrls = new Set();
-    const subQuestionAnswerIdMap = new Map();
+    const { error: updateError } = await sb
+      .from('scan_sessions')
+      .update({
+        status: 'uploaded',
+        uploaded_image_paths: uploadedFilePaths,
+      })
+      .eq('id', sessionId);
 
-    JSON.stringify(gradingData, (key, value) => {
-      if (value && typeof value === 'string' && value.startsWith('http')) {
-        if (key === 'context_visual' || key === 'component_visual' || key === 'answer_visual') {
-          imageUrls.add(value);
+    if (updateError) {
+      throw new Error(`Failed to update scan session status for ID ${sessionId}: ${updateError.message}`);
+    }
+
+    const sessionForProcessing = sessionDetails;
+    sessionForProcessing.uploaded_image_paths = uploadedFilePaths;
+
+    await processScannedAnswers(examId, sessionForProcessing);
+  } catch (error) {
+    console.error('Direct upload failed:', error);
+    setButtonText(generateScanLinkButtonText, 'Upload Error!');
+    showSpinner(false, spinnerStudent);
+    setTimeout(() => {
+      generateScanLinkButton.disabled = false;
+      setButtonText(generateScanLinkButtonText, DEFAULT_SCAN_BUTTON_TEXT);
+      currentScanSessionToken = null;
+      directUploadInput.disabled = false;
+      event.target.value = '';
+    }, 5000);
+  }
+}
+
+// Add the event listener to the new file input.
+directUploadInput.addEventListener('change', handleDirectUpload);
+
+/**
+ * Starts polling the scan session for status changes.
+ * @param {string} examId
+ */
+function startScanPolling(examId) {
+  stopScanPolling();
+
+  scanProcessingTimeout = setTimeout(() => {
+    stopScanPolling();
+    setButtonText(generateScanLinkButtonText, 'Timed out.');
+    setTimeout(() => {
+      generateScanLinkButton.disabled = false;
+      setButtonText(generateScanLinkButtonText, DEFAULT_SCAN_BUTTON_TEXT);
+      scanLinkArea.classList.add('hidden');
+    }, 4000);
+  }, 10 * 60 * 1000);
+
+  scanPollingInterval = setInterval(async () => {
+    try {
+      await checkScanStatus(examId);
+    } catch (error) {
+      console.error('Error during scan polling:', error);
+    }
+  }, 5000);
+}
+
+/**
+ * Stops the polling and clears timeouts.
+ */
+function stopScanPolling() {
+  if (scanPollingInterval) {
+    clearInterval(scanPollingInterval);
+    scanPollingInterval = null;
+  }
+  if (scanProcessingTimeout) {
+    clearTimeout(scanProcessingTimeout);
+    scanProcessingTimeout = null;
+  }
+}
+
+/**
+ * Checks the current status of the scan session.
+ * @param {string} examId
+ */
+async function checkScanStatus(examId) {
+  if (!currentScanSessionToken) return;
+
+  try {
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/get-scan-session?token=${currentScanSessionToken}`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+    });
+
+    if (!response.ok) {
+      console.error('Failed to check scan status:', response.statusText);
+      return;
+    }
+
+    const session = await response.json();
+
+    if (session.status === 'uploaded') {
+      setButtonText(generateScanLinkButtonText, 'Images detected!');
+
+      if (scanLinkArea && !scanLinkArea.classList.contains('hiding')) {
+        scanLinkArea.classList.add('hiding');
+        setTimeout(() => {
+          scanLinkArea.classList.add('hidden');
+          scanLinkArea.classList.remove('hiding');
+        }, 600);
+      }
+
+      stopScanPolling();
+      await processScannedAnswers(examId, session);
+    }
+  } catch (error) {
+    console.error('Error checking scan status:', error);
+  }
+}
+
+/**
+ * Processes the scanned answers (background worker-like).
+ * @param {any} scanSession
+ * @param {string} examId
+ */
+async function processScannedAnswersBackground(scanSession, examId) {
+  try {
+    setButtonText(generateScanLinkButtonText, 'Fetching exam...');
+    const { data: examStructure, error: fetchExamError } = await sb
+      .from('questions')
+      .select(`question_number, sub_questions(sub_q_text_content)`)
+      .eq('exam_id', examId)
+      .order('question_number', { ascending: true });
+
+    if (fetchExamError) throw fetchExamError;
+    const examStructureForGcf = { questions: examStructure };
+
+    setButtonText(generateScanLinkButtonText, 'Downloading images...');
+    const formData = new FormData();
+    formData.append('exam_structure', JSON.stringify(examStructureForGcf));
+
+    const downloadPromises = scanSession.uploaded_image_paths.map(async (imageUrl) => {
+      const url = new URL(imageUrl);
+      const objectPath = url.pathname.split(`/public/${STORAGE_BUCKET}/`)[1];
+
+      if (!objectPath) {
+        console.warn(`Could not parse object path from URL: ${imageUrl}`);
+        return null;
+      }
+
+      const { data: imageBlob, error: downloadError } = await sb.storage.from(STORAGE_BUCKET).download(objectPath);
+
+      if (downloadError) {
+        const filename = imageUrl.split('/').pop();
+        console.warn(`Failed to download image ${filename}:`, downloadError);
+        return null;
+      }
+      return { filename: imageUrl.split('/').pop(), blob: imageBlob };
+    });
+
+    const downloadResults = await Promise.all(downloadPromises);
+    downloadResults.forEach((result) => {
+      if (result) {
+        formData.append('files', result.blob, result.filename);
+      }
+    });
+
+    if (!formData.has('files')) {
+      throw new Error('No image files could be downloaded or processed. Aborting GCF call.');
+    }
+
+    setButtonText(generateScanLinkButtonText, 'Thinking... (~4 mins)');
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 300000);
+
+    try {
+      const gcfResponse = await fetch(STUDENT_ANSWERS_GCF_URL, {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (!gcfResponse.ok) {
+        const errorText = await gcfResponse.text();
+        throw new Error(`Cloud function failed: ${gcfResponse.statusText} - ${errorText}`);
+      }
+
+      setButtonText(generateScanLinkButtonText, 'Parsing results...');
+      const zipBlob = await gcfResponse.blob();
+      const jszip = new JSZip();
+      const zip = await jszip.loadAsync(zipBlob);
+      const jsonFile = Object.values(zip.files).find((file) => file.name.endsWith('.json') && !file.dir);
+      if (!jsonFile) throw new Error('Could not find JSON in ZIP response.');
+      const jsonContent = await jsonFile.async('string');
+      const responseData = JSON.parse(jsonContent);
+
+      setButtonText(generateScanLinkButtonText, 'Saving answers...');
+      await saveStudentAnswersFromScan(scanSession, examId, responseData, zip);
+
+      await sb.from('scan_sessions').update({ status: 'completed' }).eq('id', scanSession.id);
+      cleanupTempFiles(scanSession);
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('Processing timed out - please try again with fewer/smaller images');
+      }
+      throw error;
+    }
+  } catch (error) {
+    console.error('Background processing failed:', error);
+    throw error;
+  }
+}
+
+/**
+ * Drives the full scan processing lifecycle per session.
+ * @param {string} examId
+ * @param {any|null} preloadedSession
+ */
+async function processScannedAnswers(examId, preloadedSession = null) {
+  showSpinner(true, spinnerStudent);
+  setButtonText(generateScanLinkButtonText, 'Processing...');
+  let isError = false;
+  let scanSession;
+
+  try {
+    if (preloadedSession) {
+      scanSession = preloadedSession;
+    } else {
+      const sessionToken = currentScanSessionToken;
+      if (!sessionToken || !examId) throw new Error('Session token and Exam ID are required');
+
+      const { data: rpcResult, error: sessionError } = await sb.rpc('get_session_details_by_token', { token_arg: sessionToken });
+      if (sessionError) throw new Error(`Failed to fetch session details: ${sessionError.message}`);
+      scanSession = rpcResult?.[0];
+    }
+
+    if (!scanSession) throw new Error('Scan session not found or expired.');
+    if (new Date(scanSession.expires_at) < new Date()) throw new Error('Scan session has expired.');
+
+    await sb.from('scan_sessions').update({ status: 'processing' }).eq('id', scanSession.id);
+
+    if (!scanSession.uploaded_image_paths || scanSession.uploaded_image_paths.length === 0) {
+      await sb.from('scan_sessions').update({ status: 'completed' }).eq('id', scanSession.id);
+      setButtonText(generateScanLinkButtonText, 'No images uploaded.');
+    } else {
+      await processScannedAnswersBackground(scanSession, examId);
+      setButtonText(generateScanLinkButtonText, 'Processed!');
+    }
+
+    await loadExamDetails(examId);
+  } catch (error) {
+    console.error('Error processing scanned session:', error.message);
+    setButtonText(generateScanLinkButtonText, 'Error!');
+    isError = true;
+    if (scanSession?.id) {
+      await sb.from('scan_sessions').update({ status: 'failed', error_message: error.message }).eq('id', scanSession.id);
+    }
+  } finally {
+    showSpinner(false, spinnerStudent);
+    setTimeout(() => {
+      studentAnswersForm.reset();
+      generateScanLinkButton.disabled = false;
+      setButtonText(generateScanLinkButtonText, DEFAULT_SCAN_BUTTON_TEXT);
+      currentScanSessionToken = null;
+      if (directUploadInput) {
+        directUploadInput.disabled = false;
+        directUploadInput.value = '';
+      }
+    }, isError ? 5000 : 3000);
+  }
+}
+
+/**
+ * Persist answers extracted from scan into DB.
+ * @param {any} scanSession
+ * @param {string} examId
+ * @param {any} responseData
+ * @param {JSZip} zip
+ */
+async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip) {
+  const studentExamId = scanSession.student_exam_id;
+
+  if (!studentExamId) {
+    throw new Error(
+      `Critical error: student_exam_id was not provided for student ${scanSession.student_name || scanSession.student_number}`,
+    );
+  }
+
+  console.log('Starting to save student answers. GCF Response:', responseData);
+  console.log('ZIP file contains:', Object.keys(zip.files));
+  console.log(`Using student_exam_id: ${studentExamId}`);
+
+  let processedData = responseData;
+  if (Array.isArray(responseData) && responseData.length > 0) {
+    processedData = responseData[0];
+  }
+
+  const { data: dbQuestions, error: fetchQError } = await sb
+    .from('questions')
+    .select('id, question_number, sub_questions(id, sub_q_text_content)')
+    .eq('exam_id', examId);
+  if (fetchQError) throw new Error(`Could not fetch exam structure for matching: ${fetchQError.message}`);
+
+  const subQuestionLookup = dbQuestions.reduce((qMap, q) => {
+    qMap[q.question_number] = q.sub_questions.reduce((sqMap, sq) => {
+      sqMap[sq.sub_q_text_content] = sq.id;
+      return sqMap;
+    }, {});
+    return qMap;
+  }, {});
+
+  const answersToInsert = [];
+  if (!processedData || !processedData.questions || !Array.isArray(processedData.questions)) {
+    console.warn('Warning: No valid questions array found in the processed GCF response. Skipping answer insertion.');
+  } else {
+    for (const q_res of processedData.questions) {
+      for (const sq_res of q_res.sub_questions) {
+        const sub_question_id = subQuestionLookup[q_res.question_number]?.[sq_res.sub_q_text_content];
+        if (!sub_question_id) {
+          console.warn(`Warning: Could not find matching sub-question for Q#${q_res.question_number}. Skipping.`);
+          continue;
+        }
+
+        if (sq_res.student_answers) {
+          let answerVisualUrl = null;
+          if (sq_res.student_answers.answer_visual) {
+            const visualFilename = decodeURIComponent(sq_res.student_answers.answer_visual);
+            const visualFile = zip.file(sq_res.student_answers.answer_visual);
+            if (visualFile) {
+              setButtonText(generateScanLinkButtonText, `Uploading ${visualFilename}...`);
+              const filePath = `public/${examId}/answers/${studentExamId}/${Date.now()}_${visualFilename}`;
+              const fileBlob = await visualFile.async('blob');
+              const fileExtension = visualFilename.split('.').pop().toLowerCase();
+              let mimeType = 'application/octet-stream';
+              if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(fileExtension)) {
+                mimeType = `image/${fileExtension}`;
+              }
+              const fileToUpload = new File([fileBlob], visualFilename, { type: mimeType });
+              const { error: uploadError } = await sb.storage.from(STORAGE_BUCKET).upload(filePath, fileToUpload);
+              if (uploadError) {
+                console.error(`Storage upload failed for ${visualFilename}:`, uploadError);
+              } else {
+                const { data: urlData } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(filePath);
+                answerVisualUrl = urlData.publicUrl;
+              }
+            } else {
+              console.warn(
+                `WARNING: Visual file '${sq_res.student_answers.answer_visual}' was in JSON but NOT FOUND in the ZIP.`,
+              );
+            }
+          }
+          answersToInsert.push({
+            student_exam_id: studentExamId,
+            sub_question_id: sub_question_id,
+            answer_text: sq_res.student_answers.answer_text || null,
+            orig_llm_answer_text: sq_res.student_answers.answer_text || null,
+            answer_visual: answerVisualUrl,
+          });
         }
       }
-      if (key === 'sub_questions' && Array.isArray(value)) {
-        value.forEach((sq) => {
-          if (sq.id && sq.student_answers && sq.student_answers.length > 0) {
-            subQuestionAnswerIdMap.set(sq.id, sq.student_answers[0].id);
-          }
-        });
-      }
-      return value;
+    }
+  }
+
+  if (answersToInsert.length > 0) {
+    console.log('Preparing to insert these answers into DB:', answersToInsert);
+    const batchSize = 100;
+    for (let i = 0; i < answersToInsert.length; i += batchSize) {
+      const batch = answersToInsert.slice(i, i + batchSize);
+      const { error: insertError } = await sb.from('student_answers').insert(batch);
+      if (insertError) throw new Error(`Failed to insert student answers batch: ${insertError.message}`);
+    }
+    console.log('SUCCESS: All answers inserted into the database.');
+  }
+}
+
+/**
+ * Cleanup temp files in storage for a given scan session.
+ * @param {any} scanSession
+ */
+async function cleanupTempFiles(scanSession) {
+  try {
+    const token = scanSession.session_token;
+    if (!token) {
+      console.warn('Cannot cleanup files: session token is missing.');
+      return;
+    }
+
+    const pathsToDelete = scanSession.uploaded_image_paths.map((url) => {
+      const urlParts = url.split('/');
+      const filename = urlParts[urlParts.length - 1];
+      return `temp_scans/${token}/${filename}`;
     });
 
-    const imageBlobs = new Map();
-    const fetchImagePromises = Array.from(imageUrls).map(async (url) => {
-      const filename = getFilenameFromUrl(url);
-      if (filename) {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`Failed to fetch image: ${url}`);
-        const blob = await response.blob();
-        imageBlobs.set(filename, blob);
+    if (pathsToDelete.length > 0) {
+      const directoryPath = `temp_scans/${token}`;
+      if (!pathsToDelete.includes(directoryPath)) {
+        pathsToDelete.push(directoryPath);
       }
-    });
-    await Promise.all(fetchImagePromises);
-    console.log(`Fetched ${imageBlobs.size} unique images for ${studentIdentifier}.`);
 
-    console.log(`Sending data to AI for grading (${studentIdentifier})...`);
-    const gcfResponse = await callGradingGcf(gradingData, imageBlobs);
-
-    await updateGradingResultsInDb(studentExamId, gcfResponse, subQuestionAnswerIdMap);
-    console.log(`Saved results for ${studentIdentifier}.`);
-
-    return { status: 'success', studentExamId };
+      const { data, error } = await sb.storage.from(STORAGE_BUCKET).remove(pathsToDelete);
+      if (error) {
+        console.error('Partial failure during temp file cleanup:', error);
+      } else {
+        console.log(`Cleaned up temp files for session ${token}`);
+      }
+    }
   } catch (error) {
-    console.error(`Error processing student_exam ${studentExamId}:`, error);
-    return { status: 'error', studentExamId, error: error.message };
+    console.error('Failed to cleanup temp files:', error);
   }
 }
 
-/**
- * Fetch grading data for the student + exam.
- * @param {string} examId
- * @param {string} studentExamId
- * @returns {Promise<{data: any, error: any}>}
- */
-async function fetchGradingDataForStudent(examId, studentExamId) {
-  const { data: examBase, error: baseError } = await sb
-    .from('exams')
-    .select(
-      `
-                                        grading_regulations,
-                                        questions (
-                                            question_number, max_total_points, context_text, context_visual, extra_comment,
-                                            sub_questions (
-                                                id, sub_q_text_content, max_sub_points,
-                                                mcq_options ( mcq_letter, mcq_content ),
-                                                model_alternatives (
-                                                    alternative_number, extra_comment,
-                                                    model_components ( component_text, component_visual, component_points )
-                                                )
-                                            )
-                                        )
-                                    `,
-    )
-    .eq('id', examId)
-    .single();
-
-  if (baseError) throw baseError;
-
-  const { data: studentAnswers, error: answersError } = await sb
-    .from('student_answers')
-    .select('id, sub_question_id, answer_text, answer_visual')
-    .eq('student_exam_id', studentExamId);
-
-  if (answersError) throw answersError;
-
-  const answersMap = new Map(
-    studentAnswers.map((ans) => [ans.sub_question_id, { id: ans.id, answer_text: ans.answer_text, answer_visual: ans.answer_visual }]),
-  );
-
-  examBase.questions.forEach((q) => {
-    q.sub_questions.forEach((sq) => {
-      const studentAns = answersMap.get(sq.id);
-      sq.student_answers = studentAns ? [studentAns] : [];
-    });
-  });
-
-  return { data: examBase, error: null };
-}
-
-/**
- * Call grading GCF with mixed JSON + files payload.
- * @param {any} gradingData
- * @param {Map<string, Blob>} imageBlobs
- * @returns {Promise<any>}
- */
-async function callGradingGcf(gradingData, imageBlobs) {
-  const formData = new FormData();
-  formData.append('grading_data', JSON.stringify(gradingData));
-
-  for (const [filename, blob] of imageBlobs.entries()) {
-    formData.append(filename, blob, filename);
-  }
-
-  const response = await fetch(GRADING_GCF_URL, {
-    method: 'POST',
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Grading service failed: ${response.statusText} - ${errorText}`);
-  }
-  return response.json();
-}
-
-/**
- * Persist grading results to DB and finalize student_exam status.
- * @param {string} studentExamId
- * @param {any} gcfResponse
- * @param {Map<string, string>} subQuestionToAnswerIdMap
- */
-async function updateGradingResultsInDb(studentExamId, gcfResponse, subQuestionToAnswerIdMap) {
-  const answerUpdates = [];
-  let totalPoints = 0;
-
-  if (!gcfResponse || !gcfResponse.questions) {
-    throw new Error('Invalid response from grading service.');
-  }
-
-  const allSubQuestionResults = gcfResponse.questions.flatMap((q) => q.sub_questions || []);
-
-  for (const subQResult of allSubQuestionResults) {
-    const studentAnswerId = subQuestionToAnswerIdMap.get(subQResult.sub_question_id);
-
-    if (studentAnswerId && subQResult.student_answers) {
-      const points = Number(subQResult.student_answers.sub_points_awarded) || 0;
-      const feedback = subQResult.student_answers.feedback_comment || '';
-
-      answerUpdates.push({
-        id: studentAnswerId,
-        sub_points_awarded: points,
-        feedback_comment: feedback,
-      });
-      totalPoints += points;
-    } else if (subQResult.student_answers && subQResult.student_answers.feedback_comment.startsWith('ERROR:')) {
-      console.warn(
-        `GCF Error on sub-question ID ${subQResult.sub_question_id}: ${subQResult.student_answers.feedback_comment}`,
-      );
-    }
-  }
-
-  if (answerUpdates.length > 0) {
-    const updatePromises = answerUpdates.map((update) =>
-      sb
-        .from('student_answers')
-        .update({
-          sub_points_awarded: update.sub_points_awarded,
-          orig_llm_sub_points_awarded: update.sub_points_awarded,
-          feedback_comment: update.feedback_comment,
-          orig_llm_feedback_comment: update.feedback_comment,
-        })
-        .eq('id', update.id),
-    );
-    const results = await Promise.all(updatePromises);
-    const firstErrorResult = results.find((res) => res.error);
-    if (firstErrorResult) {
-      throw new Error(`Failed to save grading results: ${firstErrorResult.error.message}`);
-    }
-  }
-
-  const { error: examUpdateError } = await sb
-    .from('student_exams')
-    .update({
-      total_points_awarded: totalPoints,
-      status: 'graded',
-    })
-    .eq('id', studentExamId);
-
-  if (examUpdateError) throw new Error(`Failed to update final score: ${examUpdateError.message}`);
-}
+window.addEventListener('beforeunload', () => {
+  stopScanPolling();
+});
