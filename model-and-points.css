@@ -1,0 +1,41 @@
+.model-alternative {
+    padding: 15px;
+    background-color: var(--color-light-blue-two);
+    border-radius: 15px;
+    margin-bottom: 20px;
+}
+
+.model-component {
+    padding: 0.75rem 0 0.15rem 0;
+    margin-left: 0.75rem;
+    border-bottom: 2px solid var(--color-lighter-blue);
+    display: flex; /* changed from inline-flex to flex */
+    justify-content: space-between; /* distributes items left and right */
+    width: calc(100% - 1.5rem);
+    align-items: center; /* vertically centers items */
+}
+
+    .model-component p {
+        margin-top: 0;
+    }
+
+.points-badge {
+    font-weight: bold;
+    color: var(--color-green-pastel);
+    font-size: 0.95em;
+    background-color: var(--color-green-pastel-light-three);
+    padding: 5px 10px;
+    border-radius: 15px;
+    display: inline-block;
+    right: 0;
+    margin-bottom: 0.15rem;
+    margin-left: 0.5rem;
+    min-width: fit-content;
+}
+
+.model-component img {
+    max-width: 100%;
+    display: block;
+    margin-top: 0.5rem;
+    border-radius: 4px;
+}

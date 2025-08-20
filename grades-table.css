@@ -1,0 +1,28 @@
+/* --- NEW: Styles for the grades table in the modal --- */
+#grades-modal-table-container table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 2rem;
+    font-size: 1rem;
+}
+
+#grades-modal h2 {
+    margin-bottom: 0;
+}
+
+#grades-modal-table-container th,
+#grades-modal-table-container td {
+    border: 3px solid var(--color-light-blue-two);
+    padding: 0.75rem;
+    text-align: left;
+    vertical-align: middle;
+}
+
+#grades-modal-table-container th {
+    background-color: var(--color-lighter-blue);
+    font-weight: 800;
+}
+
+table td:first-child {
+    font-weight: bold;
+}

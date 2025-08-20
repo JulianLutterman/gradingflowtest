@@ -1,0 +1,110 @@
+.question-block {
+    color: var(--color-text-dark);
+    border-radius: 25px;
+    padding: 1.5rem 1.5rem 0 1.5rem;
+    margin-bottom: 1.5rem;
+    background: var(--color-lighter-blue);
+}
+
+.question-header {
+    font-size: 1.8rem;
+    font-weight: 900;
+    color: var(--color-primary);
+    border-bottom: 3px solid var(--color-light-blue-two);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+}
+
+.context-visual {
+    max-width: 40%;
+    height: auto;
+    border-radius: 25px;
+    margin-top: 1rem;
+}
+
+.question-context-text {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+    .question-context-text .edit-btn,
+    #sub-q-edit-btn,
+    #model-alt-edit-btn,
+    #student-answer-edit-btn,
+    #student-name-edit-btn,
+    #modal-edit-btn {
+        margin-left: 0;
+        padding: 5px;
+        background-color: transparent;
+        border-radius: 10px;
+        transition-duration: 0.3s;
+    }
+
+        .question-context-text .edit-btn:hover,
+        #sub-q-edit-btn:hover,
+        #model-alt-edit-btn:hover,
+        #student-answer-edit-btn:hover,
+        #student-name-edit-btn:hover,
+        #modal-edit-btn:hover {
+            background-color: var(--color-light-blue-two);
+        }
+
+    .question-context-text svg,
+    #sub-q-gridcell svg,
+    .model-alternative svg,
+    .student-answer-item svg,
+    .student-answer-dropdown summary svg,
+    .modal-content svg {
+        height: 1.5em;
+        width: 1.5em;
+        stroke: transparent;
+        transition-duration: 0.3s;
+    }
+
+    .question-context-text:hover svg,
+    #sub-q-gridcell:hover svg,
+    .model-alternative:hover svg,
+    .student-answer-item:hover svg,
+    .student-answer-dropdown summary:hover svg,
+    .modal-content:hover svg {
+        stroke: var(--color-text-dark);
+    }
+
+.student-answer-dropdown summary:hover svg {
+    stroke: var(--color-text-light);
+}
+
+#sub-q-edit-btn {
+    margin-left: 8px;
+}
+
+#model-alt-edit-btn,
+#student-answer-edit-btn {
+    background-color: transparent;
+    position: absolute;
+    right: 8px;
+    top: 8px;
+}
+
+#student-name-edit-btn:hover {
+    background-color: var(--color-blue-pastel-light-two);
+}
+
+#model-alt-edit-btn:hover,
+#student-answer-edit-btn:hover {
+    background-color: var(--color-lighter-blue);
+}
+
+#modal-edit-btn {
+    background-color: transparent;
+}
+
+    #modal-edit-btn:hover {
+        background-color: var(--color-lighter-blue) !important;
+        filter: brightness(100%);
+    }

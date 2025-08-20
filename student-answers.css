@@ -1,0 +1,65 @@
+/* --- MODIFIED: Styles for the large grading button --- */
+.student-answer-dropdown summary {
+    /* Inherits .container and .pushable-button styles */
+    background: var(--color-blue-pastel-light-one);
+    color: var(--color-text-light);
+    border: 3px solid var(--color-blue-pastel-light-two);
+    border-radius: 10px;
+    box-shadow: -4px 5px 0 var(--color-blue-pastel);
+    /* Layout properties to center content in the large button */
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    transform: translateY(-5px) translateX(4px);
+    cursor: pointer;
+    padding: 7px 7px 7px 10px;
+    font-weight: 900;
+    transition-duration: 0.2s;
+}
+
+    .student-answer-dropdown summary:hover {
+        transform: translateY(-2px) translateX(2px);
+        box-shadow: -2px 2px 0 var(--color-blue-pastel);
+    }
+
+.student-answer-dropdown[open] > summary,
+.student-answer-dropdown > summary.is-editing-summary {
+    transform: translateY(-2px) translateX(2px);
+    box-shadow: -2px 2px 0 var(--color-blue-pastel);
+}
+
+.student-answer-item {
+    padding: 1rem;
+    background-color: var(--color-light-blue-two);
+    border-radius: 10px;
+    margin: 0 0 1rem 0;
+}
+
+.student-answer-visual {
+    max-width: 100%;
+    max-height: 400px;
+    display: block;
+    margin-top: 0.7rem;
+    border-radius: 10px;
+}
+
+.points-awarded-badge {
+    color: var(--color-green-pastel);
+    font-size: 0.95em;
+    background-color: var(--color-green-pastel-light-three);
+    padding: 5px 10px;
+    border-radius: 15px;
+    display: inline-block;
+    font-weight: bold;
+    margin-top: 0.75rem;
+}
+
+.feedback-comment {
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+    background-color: var(--color-green-pastel-light-three);
+    border-left: 4px solid var(--color-green-pastel);
+    font-style: italic;
+    color: var(--color-green-pastel);
+    border-radius: 0 10px 10px 0;
+}

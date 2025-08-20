@@ -1,0 +1,59 @@
+/* REMOVED status-log styles */
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    margin-bottom: 1.5rem;
+}
+
+label {
+    font-weight: 600;
+}
+
+input[type="text"],
+input[type="file"] {
+    padding: 0.8rem;
+    background-color: var(--color-background-border-between);
+    border-radius: 15px;
+    font-size: 0.95rem;
+    outline: none;
+    border: none;
+    font-family: "Quicksand", sans-serif;
+    font-optical-sizing: auto;
+    font-style: normal;
+    transition-duration: 0.3s;
+}
+
+    input[type="text"]:focus {
+        background-color: var(--color-background-border);
+    }
+
+.file-input-hidden {
+    width: 0.1px;
+    height: 0.1px;
+    opacity: 0;
+    overflow: hidden;
+    position: absolute;
+    z-index: -1;
+}
+
+.file-input-label {
+    padding: 0.9rem;
+    border: none;
+    border-radius: 15px;
+    background-color: var(--color-background-border-between);
+    color: var(--color-text-dark);
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition-duration: 0.3s;
+    text-align: center;
+    display: inline-block;
+    transition-duration: 0.3s;
+}
+
+    .file-input-label:hover {
+        background-color: var(--color-background-border);
+        transform: translateY(-2px);
+    }

@@ -1,0 +1,102 @@
+body {
+    font-family: "Quicksand", sans-serif;
+    font-optical-sizing: auto;
+    font-style: normal;
+    background-color: var(--color-background);
+    color: var(--color-text-dark);
+    margin: 0;
+    padding: 0 0 2rem 0;
+}
+
+.back-button-container {
+    background-color: var(--color-lighter-blue);
+    width: 40px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    margin: 0 15px 0 0;
+    transition-duration: 0.3s;
+}
+
+    .back-button-container:hover {
+        background-color: var(--color-light-blue-two);
+    }
+
+    .back-button-container svg {
+        height: 19px;
+        width: auto;
+        display: flex;
+        align-items: center;
+    }
+
+.container {
+    background: var(--color-background);
+    padding: 2rem 0;
+    border-radius: 25px;
+    max-width: 95%; /* Increased width for columns */
+    margin: 0 auto 2rem auto;
+    display: flex; /* Make containers flexible for better content alignment */
+    flex-direction: column;
+}
+
+#title-container {
+    padding: 0;
+    margin-bottom: 0;
+    margin-top: 2rem;
+}
+
+#main-container {
+    padding: 0.5rem 0 0 0;
+    margin-bottom: 0;
+}
+
+.actions-grid-container {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    max-width: 90%;
+    margin: 2rem auto 2rem auto;
+    background-color: var(--color-background-box-shadow);
+    padding: 2.5% 3% 3% 2%;
+    border-radius: 25px;
+}
+
+    /* Override styles for containers within the grid */
+    .actions-grid-container > #grade-all-button {
+        /* Target the button directly */
+        max-width: 100%; /* Let the grid column define the width */
+        margin: 0; /* Let the grid gap handle spacing */
+        padding: 2rem 2rem; /* Slightly reduced padding for better fit */
+    }
+
+    /* Override styles for containers within the grid */
+    .actions-grid-container > .container {
+        max-width: 100%; /* Let the grid column define the width */
+        margin: 0; /* Let the grid gap handle spacing */
+        padding: 0 1rem; /* Slightly reduced padding for better fit */
+        background-color: var(--color-background-box-shadow);
+    }
+
+@media (max-width: 1400px) {
+    .actions-grid-container {
+        grid-template-columns: repeat(2, 1fr); /* 2 columns on tablets */
+    }
+
+        /* Hide the separator after the second item, as it's now at the end of a row */
+        .actions-grid-container > .container:nth-child(2)::after {
+            display: none;
+        }
+}
+
+@media (max-width: 800px) {
+    .actions-grid-container {
+        grid-template-columns: 1fr; /* 1 column on mobile */
+    }
+
+        /* Hide the remaining separator on mobile */
+        .actions-grid-container > .container:nth-child(1)::after {
+            display: none;
+        }
+}

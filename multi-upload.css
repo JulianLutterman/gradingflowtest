@@ -1,0 +1,133 @@
+#multi-scan-area,
+#multi-direct-upload-area {
+    margin: 2rem 0 3rem 0;
+}
+
+    #multi-scan-area hr,
+    #multi-direct-upload-area hr {
+        margin: 2.8rem 0 2rem 0;
+    }
+
+#multi-upload-choice-area {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+    #multi-upload-choice-area button {
+        width: 50%;
+    }
+
+#multi-direct-upload-button {
+    margin: 1rem 0 3em 0;
+}
+
+#multi-scan-start-button {
+    width: 100%;
+}
+
+#multi-direct-upload-table-container,
+#multi-scan-table-container {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#scan-student-table,
+#direct-student-table {
+    width: 100%;
+    padding: 1rem;
+    border-radius: 15px;
+    background-color: var(--color-lighter-blue);
+}
+
+    #scan-student-table input,
+    #direct-student-table input {
+        background-color: var(--color-light-blue-two);
+        padding: 0.6rem 0.8rem;
+        margin: 0.2rem 1rem 0.2rem 0;
+        width: stretch;
+    }
+
+td .file-input-label {
+    background-color: var(--color-light-blue-two);
+    padding: 0.6rem 0.8rem;
+    margin: 0.2rem 1rem 0.2rem 0;
+    width: stretch;
+    border-radius: 15px;
+    font-size: 1rem;
+}
+
+    td .file-input-label:hover {
+        background-color: var(--color-primary);
+        color: var(--color-text-light);
+        transform: translateY(0);
+    }
+
+#multi-scan-area th,
+#multi-direct-upload-area th {
+    text-align: left;
+}
+
+.delete-row-btn {
+    background: var(--color-danger);
+    color: var(--color-text-light);
+    border: none;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+}
+
+#multi-scan-add-row-button {
+    margin-top: 1rem;
+    width: auto;
+    padding: 0.8rem 1.5rem;
+}
+
+#multi-direct-add-row-button {
+    margin-top: 1rem;
+    width: auto;
+    padding: 0.8rem 1.5rem;
+}
+
+#multi-scan-qr-area p,
+#multi-scan-qr-area a {
+    margin: 1rem auto;
+    display: block;
+    text-align: center;
+}
+
+#multi-qrcode-canvas {
+    width: 200px;
+    height: 200px;
+    margin: 1rem auto;
+    display: block;
+}
+
+#multi-scan-process-button,
+#multi-direct-process-button {
+    width: 100%;
+    background: var(--color-green-pastel-light-one);
+    border-color: var(--color-green-pastel-light-two);
+    box-shadow: -4px 8px 0 var(--color-green-pastel) !important;
+}
+
+    #multi-scan-process-button:hover,
+    #multi-direct-process-button:hover {
+        transform: translateY(4px) translateX(-2px);
+        box-shadow: -2px 4px 0 var(--color-green-pastel) !important;
+    }
+
+    #multi-scan-process-button:disabled,
+    #multi-direct-process-button:disabled {
+        transform: translateY(4px) translateX(-2px);
+        box-shadow: -2px 4px 0 var(--color-green-pastel) !important;
+    }

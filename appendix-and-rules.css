@@ -1,0 +1,46 @@
+#appendix-modal-title {
+    margin: 0;
+}
+
+#appendix-modal-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+}
+
+#rules-modal h2 {
+    margin-bottom: 0;
+}
+
+#appendix-modal-content h4,
+#appendix-modal-content p,
+#rules-modal-text h4,
+#rules-modal-text p,
+#rules-modal-text ul,
+#rules-modal-text ol {
+    margin: -1em 0 0 0;
+}
+
+#rules-modal-text textarea {
+    margin-bottom: 1rem;
+}
+
+.appendix-button {
+    border: none;
+    border-radius: 15px;
+    background-color: var(--color-light-blue-two);
+    color: var(--color-text-dark);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition-duration: 0.3s;
+    text-align: center;
+    display: inline-block;
+    transition-duration: 0.3s;
+    width: 11rem !important;
+}
+
+    .appendix-button:hover {
+        background-color: var(--color-primary);
+        color: var(--color-text-light);
+    }

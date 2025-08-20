@@ -1,0 +1,315 @@
+.formatted-text {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+    .formatted-text em {
+        font-size: 0.95rem;
+    }
+
+.sub-question-grid {
+    display: grid;
+    grid-template-columns: 2fr 3fr 3fr;
+    grid-column-gap: 1.5rem;
+    grid-row-gap: 0;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 3px solid var(--color-light-blue-two);
+}
+
+.grid-header {
+    font-weight: bold;
+    font-size: 1.1rem;
+    color: var(--color-text-dark);
+    padding-bottom: 0.75rem;
+    border-bottom: 3px solid var(--color-light-blue-two);
+    margin-bottom: 1.5rem;
+}
+
+.grid-cell {
+    padding-bottom: 1.5rem;
+}
+
+#sub-q-gridcell {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+}
+
+/* --- NEW: Styles for Inline Editing --- */
+
+/* The main edit icon button */
+.edit-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+    transition-duration: 0.3s;
+    line-height: 1; /* Prevents extra space */
+    width: fit-content;
+    height: fit-content;
+}
+
+#exam-name-title .edit-btn {
+    margin-left: 0;
+    padding: 5px;
+    background-color: transparent;
+    border-radius: 10px;
+}
+
+    #exam-name-title .edit-btn:hover {
+        background-color: var(--color-lighter-blue);
+    }
+
+    #exam-name-title .edit-btn svg {
+        height: 1.5em;
+        width: 1.5em;
+        transition-duration: 0.3s;
+        stroke: transparent;
+    }
+
+#exam-name-title:hover svg {
+    stroke: var(--color-text-dark);
+}
+
+#exam-name-title span {
+    display: flex;
+}
+
+/* Container for Save/Cancel buttons */
+.edit-actions {
+    display: inline-flex;
+    gap: 0.5rem;
+}
+
+.question-context-text .edit-actions {
+    display: flex;
+    flex-direction: column;
+}
+
+#sub-q-gridcell .edit-actions {
+    margin-top: 5px;
+}
+
+.model-answer-section .edit-actions {
+    margin-top: 10px;
+}
+
+.student-answer-item .edit-actions {
+    margin-top: 10px;
+}
+
+.student-answer-dropdown summary .edit-actions {
+    display: flex;
+    flex-direction: column;
+    margin-left: 0.5rem;
+}
+
+/* Save and Cancel buttons */
+.save-btn,
+.cancel-btn {
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    transition-duration: 0.3s ease;
+}
+
+.save-btn {
+    background-color: var(--color-green-pastel-light-one);
+    color: var(--color-text-light);
+    font-weight: bold;
+}
+
+    .save-btn:hover {
+        filter: brightness(113%);
+    }
+
+.cancel-btn {
+    background-color: var(--color-lighter-blue);
+    color: var(--color-text-dark);
+}
+
+    .cancel-btn:hover {
+        background-color: var(--color-light-blue-two);
+    }
+
+.modal-edit-container .cancel-btn,
+#exam-name-title .cancel-btn {
+    background-color: var(--color-background);
+}
+
+    .modal-edit-container .cancel-btn:hover,
+    #exam-name-title .cancel-btn:hover {
+        background-color: var(--color-lighter-blue);
+    }
+
+.model-alternative .cancel-btn,
+.student-answer-item .cancel-btn {
+    background-color: var(--color-light-blue-two);
+}
+
+    .model-alternative .cancel-btn:hover,
+    .student-answer-item .cancel-btn:hover {
+        background-color: var(--color-lighter-blue);
+    }
+
+.student-answer-dropdown summary .cancel-btn {
+    background-color: var(--color-blue-pastel-light-one);
+    color: var(--color-text-light);
+}
+
+    .student-answer-dropdown summary .cancel-btn:hover {
+        background-color: var(--color-blue-pastel-light-two);
+    }
+
+/* The input fields that appear when editing */
+.editable-input {
+    width: 100%;
+    padding: 0.5rem;
+    font-family: inherit;
+    font-size: inherit;
+    border: none;
+    outline: none;
+    border-radius: 10px;
+    background-color: var(--color-background);
+    box-sizing: border-box;
+}
+
+.model-component .editable-input {
+    width: auto;
+    padding: 0.5rem;
+    border-radius: 10px;
+    height: 100%;
+    background-color: var(--color-background);
+}
+
+#exam-name-title .editable-input {
+    padding: 0.75rem;
+    border-radius: 10px;
+    background-color: var(--color-lighter-blue);
+    font-size: 1.2rem;
+}
+
+    #exam-name-title .editable-input:focus {
+        background-color: var(--color-lighter-blue);
+    }
+
+.model-component p .editable-input {
+    width: 100%;
+}
+
+.model-component .editable-input:focus {
+    background-color: var(--color-background);
+}
+
+.points-badge .editable-input,
+.points-awarded-badge .editable-input {
+    width: 4em;
+}
+
+#rules-modal-text .editable-input,
+.appendix-item .editable-input {
+    background-color: var(--color-lighter-blue);
+    padding: 1.25rem;
+}
+
+.appendix-item input {
+    padding: 0.75rem !important;
+    border-radius: 10px;
+}
+
+    .appendix-item input:focus {
+        background-color: var(--color-lighter-blue);
+    }
+
+textarea.editable-input {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.sub-question-content textarea.editable-input {
+    min-height: 120px;
+}
+
+.student-answer-item p textarea.editable-input {
+    min-height: 200px;
+}
+
+.student-identifier-container .editable-input {
+    padding: 0.5rem;
+    border-radius: 10px;
+    margin-right: 5px;
+    background-color: var(--color-blue-pastel-light-two);
+    color: var(--color-text-light);
+}
+
+    .student-identifier-container .editable-input:focus {
+        background-color: var(--color-blue-pastel-light-two);
+        filter: brightness(106%);
+    }
+
+/* Positioning helper for the edit button */
+.cell-header {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 2; /* Ensure it's above content */
+}
+
+/* Make parent elements relative for positioning */
+.question-block,
+.model-alternative,
+.student-answer-item,
+.grid-cell {
+    position: relative;
+}
+
+/* Adjust summary tag for the edit button */
+.student-answer-dropdown summary {
+    justify-content: space-between;
+}
+
+/* Container for the modal edit button */
+.modal-edit-container {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: -2rem;
+}
+
+#exam-name-title {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.sub-question-grid .grid-cell:nth-last-child(-n+3) {
+    border-bottom: none;
+}
+
+.sub-question-content {
+    width: inherit;
+}
+
+    .sub-question-content .edit-btn {
+    }
+
+.mcq-option {
+    margin-left: 1rem;
+}
+
+h5 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 0.95rem;
+}
+
+.model-answer-section {
+}

@@ -1,0 +1,118 @@
+button {
+    padding: 0.9rem;
+    border: none;
+    border-radius: 15px;
+    background-color: var(--color-primary);
+    color: var(--color-text-dark);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition-duration: 0.3s;
+    width: 100%;
+    font-family: "Quicksand", sans-serif;
+    font-optical-sizing: auto;
+    font-style: normal;
+}
+
+.pushable-button,
+#show-rules-button {
+    display: flex; /* MODIFIED */
+    align-items: center; /* MODIFIED */
+    justify-content: center; /* MODIFIED */
+    gap: 0.8rem; /* NEW */
+    background: var(--color-blue-pastel-light-one);
+    color: var(--color-text-light);
+    text-decoration: none;
+    font-weight: 800;
+    border-radius: 15px;
+    border: 3px solid var(--color-blue-pastel-light-two);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    position: relative;
+    box-shadow: -4px 8px 0 var(--color-blue-pastel);
+    transform: translateY(0) translateX(0);
+}
+
+#show-rules-button {
+    transform: translateY(-3px) translateX(0);
+    padding: 0.7rem 0.9rem;
+}
+
+.pushable-button:hover {
+    transform: translateY(4px) translateX(-2px);
+    box-shadow: -2px 4px 0 var(--color-blue-pastel);
+}
+
+.pushable-button:disabled {
+    transform: translateY(4px) translateX(-2px);
+    box-shadow: -2px 4px 0 var(--color-blue-pastel);
+}
+
+#show-rules-button:hover {
+    transform: translateY(1px) translateX(-2px);
+    box-shadow: -2px 4px 0 var(--color-blue-pastel);
+}
+
+#show-rules-button:disabled {
+    transform: translateY(1px) translateX(-2px);
+    box-shadow: -2px 4px 0 var(--color-blue-pastel);
+}
+
+/* --- NEW: Styles for the "Show Grades" button --- */
+#show-grades-button {
+    /* Inherits from .pushable-button */
+    background: var(--color-green-pastel-light-one);
+    color: var(--color-text-light);
+    border: 3px solid var(--color-green-pastel-light-two);
+    box-shadow: -4px 8px 0 var(--color-green-pastel);
+    transform: translateY(-3px) translateX(0);
+    margin-left: 20px; /* Space it out from the other button */
+    width: fit-content;
+    padding: 0.7rem 0.9rem;
+}
+
+    #show-grades-button:hover,
+    #show-grades-button:disabled {
+        transform: translateY(1px) translateX(-2px);
+        box-shadow: -2px 4px 0 var(--color-green-pastel);
+    }
+
+/* --- MODIFIED: Styles for the large grading button --- */
+#grade-all-button {
+    /* Inherits .container and .pushable-button styles */
+    background: var(--color-green-pastel-light-one);
+    color: var(--color-text-light);
+    border: 5px solid var(--color-green-pastel-light-two);
+    border-radius: 25px;
+    box-shadow: -8px 12px 0 var(--color-green-pastel);
+    /* Layout properties to center content in the large button */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    text-align: center;
+    transform: translateY(-4px) translateX(4px);
+    margin: 1.5rem 2rem 2rem 2rem;
+}
+
+    #grade-all-button:hover,
+    #grade-all-button:disabled {
+        transform: translateY(2px) translateX(0);
+        box-shadow: -4px 6px 0 var(--color-green-pastel);
+    }
+
+    #grade-all-button .spinner {
+        margin: 0;
+        width: 1.5em; /* Slightly larger spinner */
+        height: 1.5em;
+    }
+
+#grade-all-button-text {
+    font-size: 1.7rem;
+    font-weight: 800;
+}
+
+#show-rules-button {
+    width: fit-content;
+}

@@ -1,0 +1,49 @@
+/* --- Styles for QR Code Area Animation --- */
+#scan-link-area {
+    text-align: center;
+    margin-top: 1.5rem;
+    overflow: hidden; /* Crucial for the max-height animation */
+    max-height: 500px; /* A safe max height for the transition to work from */
+    /* MODIFIED: Opacity transition removed */
+    transition: max-height 0.6s ease-in-out, transform 0.6s ease-in-out, margin-top 0.6s ease-in-out;
+    transform-origin: top center;
+}
+
+#scan-link-area.hiding {
+    max-height: 0;
+    /* MODIFIED: Opacity rule removed */
+    transform: translateY(-50px); /* A slight upward push as it collapses */
+    margin-top: 0 !important; /* Override the default margin to complete the collapse */
+}
+
+.title-wrapper {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between; /* This ensures buttons are spaced out */
+    align-items: center; /* This ensures buttons align with the title */
+}
+
+#title-wrapper-left,
+#title-wrapper-right {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.question-title-wrapper {
+    display: flex;
+    align-items: end;
+    gap: 1.1rem;
+    width: 100%;
+}
+
+.question-points-badge {
+    font-weight: bold;
+    color: var(--color-primary);
+    font-size: 1rem; /* Slightly smaller to fit the header nicely */
+    background-color: var(--color-light-blue-two);
+    padding: 5px 10px;
+    border-radius: 25px;
+    display: inline-block;
+    min-width: fit-content;
+}

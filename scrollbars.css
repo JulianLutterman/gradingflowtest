@@ -1,0 +1,72 @@
+/* === CUSTOM SCROLLBAR STYLES === */
+
+/* Default scrollbar styling for WebKit browsers */
+body::-webkit-scrollbar,
+.modal-content::-webkit-scrollbar {
+    width: 74px;
+}
+
+body::-webkit-scrollbar-track,
+.modal-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+body::-webkit-scrollbar-thumb,
+.modal-content::-webkit-scrollbar-thumb {
+    background-color: var(--color-light-blue-two);
+    border-radius: 15px;
+}
+
+body::-webkit-scrollbar-button,
+.modal-content::-webkit-scrollbar-button {
+    display: none;
+    background: transparent;
+    color: transparent;
+}
+
+/* Hide scrollbar background when modal is present */
+/* Option 1: Hide body scrollbar completely when modal is active */
+body.modal-open::-webkit-scrollbar {
+    width: 0;
+}
+
+/* Option 2: Make scrollbar completely transparent when modal is active */
+body.modal-open::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+body.modal-open::-webkit-scrollbar-thumb {
+    background-color: transparent;
+}
+
+/* Option 3: Hide scrollbar when it's next to modal overlay */
+.modal-overlay ~ body::-webkit-scrollbar,
+body:has(.modal-overlay)::-webkit-scrollbar {
+    background: transparent;
+}
+
+.modal-overlay ~ body::-webkit-scrollbar-track,
+body:has(.modal-overlay)::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.modal-overlay ~ body::-webkit-scrollbar-thumb,
+body:has(.modal-overlay)::-webkit-scrollbar-thumb {
+    background-color: transparent;
+}
+
+/* Firefox scrollbar styling */
+* {
+    scrollbar-width: auto;
+    scrollbar-color: var(--color-light-blue-two) transparent;
+}
+
+/* Firefox: Hide scrollbar when modal is active */
+body.modal-open {
+    scrollbar-width: none;
+}
+
+/* Alternative: Make Firefox scrollbar transparent when modal is active */
+body.modal-open {
+    scrollbar-color: transparent transparent;
+}
