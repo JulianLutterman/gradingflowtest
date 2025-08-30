@@ -51,7 +51,7 @@ This project is built on a modern, serverless architecture designed for scalabil
 
 *   **AI & Models**:
     *   **Google Gemini 2.5 Pro**: The primary model for all structuring, transcription, and grading tasks due to its large context window and strong reasoning capabilities.
-    *   **Parasail Qwen2.5-VL-72B-Instruct**: Used within the `image-parser` for its specialized visual element extraction (bounding box detection).
+    *   **Google Gemini 2.5 Flash**: Used within the `image-parser` for its specialized visual element extraction (bounding box detection).
 
 *   **Database & Storage**: **Supabase**.
     *   **PostgreSQL**: The single source of truth for all structured data.
