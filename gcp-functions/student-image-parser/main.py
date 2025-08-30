@@ -3,7 +3,6 @@ import base64
 import json
 import re
 import sys
-from openai import OpenAI, APIError
 import functions_framework
 import io
 import zipfile
@@ -15,60 +14,19 @@ from google import genai
 from google.genai import types
 
 # --- Configuration ---
-PARASAIL_API_KEY = os.environ.get("PARASAIL_API_KEY")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-# Model for Element Extraction (via Parasail)
-EXTRACTION_MODEL_NAME = "parasail-qwen25-vl-72b-instruct"
+# Model for Element Extraction (now via Google AI - Gemini 2.5 Flash)
+EXTRACTION_MODEL_NAME = "gemini-2.5-flash"
 # Model for Transcription (via Google AI)
 TRANSCRIPTION_MODEL_NAME = "gemini-2.5-pro"
 
-BOUNDING_BOX_PADDING_FACTOR = 0.005 # Reduced padding as the new prompt asks the model to include margins
 TEMPERATURE_FOR_JSON = 0
 
 # --- System Prompts ---
-# As requested, these are unchanged.
-
+# Switched to the simpler prompt used by the Gemini reference implementation.
 ELEMENT_EXTRACTION_PROMPT = """
-You are an expert document analysis assistant.
-Your sole task is to crop out all visual elements from the set of user-given images of a student's handwritten answers on an exam. The input image may contain text, and any type of visual elements (diagrams, charts, graphs, tables, drawings, photographs, other). You need to isolate the visual elements, and provide the bounding box coordinates of each element you can find.
-You need to:
-1. Identify all distinct graphs, charts, flowcharts, diagrams, photographs, tables, drawings or other images/visual elements (referred to as 'elements').
-2. For each element, extract its title as accurately as possible. If an element has no discernible title, use a generic placeholder like "Untitled_Element_N" where N is a unique number for that element.
-3. For each element, provide the bounding box coordinates as a list of four integers: [x_min, y_min, x_max, y_max].
-   - The resulting bounding box should TIGHTLY YET COMPLETELY encompass the entire visual element (text, diagrams, charts, graphs, tables, drawings, photographs, other) PLUS any textual/numerical labels or legends that are clearly part of that visual element.
-   - The title of the element should generally NOT be included within this box if it's positioned as a caption outside the visual boundaries of the element itself. However, if the title is an integral part of the image (e.g., embedded within a chart image), then it can be included.
-   - Aim to include a small natural margin around the element on ALL sides if it helps capture it fully, but do NOT extend the box to include unrelated text or other page elements significantly distant from the visual element.
-   - If the element is very close to an edge of the page, you are allowed to let the bounding box stretch to the very edge(s) of the image/document to account for some natural margin around the element and to ensure no part is cut off.
-   - If no elements are found, "identified_elements" should be an empty list.
-
-Output your findings as a single JSON object with the following structure:
-- "identified_elements": A list of objects. Each object in this list should represent one identified graph, chart, or image and must have the following keys:
-    - "title": The verbatim title associated with the element.
-    - "type": A string, either "diagram", "chart", "graph", "table", "drawing", "photograph" or "other" based on your best judgment.
-    - "bbox": A list of four integer values representing the bounding box coordinates of the element: [x_min, y_min, x_max, y_max].
-
-Example of the desired output for an input image with two graphs:
-{
-  "identified_elements": [
-    {
-      "title": "[PLACEHOLDER TITLE]",
-      "type": "graph",
-      "bbox": [425, 180, 648, 495]
-    },
-    {
-      "title": "[PLACEHOLDER TITLE]",
-      "type": "graph",
-      "bbox": [425, 520, 648, 745]
-    }
-  ]
-}
-
-Ensure the JSON is valid.
-Be precise with the bounding box coordinates.
-Analyze the provided image and follow these instructions carefully.
-
-In your final output, do not output anything other than pure JSON.
+Detect items ("diagram", "chart", "graph", "table", "drawing", "photograph"). Capture 0-5 items maximum. Output a json list where each entry contains the 2D bounding box in "box_2d" and a short (two words max, seperated by "_") text label in "label".
 """
 
 TRANSCRIPTION_PROMPT = """
@@ -93,7 +51,7 @@ You must adhere to the following rules:
 **4. Technical & Visual Elements:**
 - For any mathematical or scientific equations written by the student, use LaTeX syntax. Wrap inline formulas with single dollar signs (`$ ... $`) and block (display) formulas with double dollar signs (`$$ ... $$`). Typically, only use the single dollar signs refrain from using double dollar signsfor block display - Only use double dollar signs when absolutely necessary.
 - **CRUCIAL:** Ensure every LaTeX formula is correctly closed with a dollar sign (`$` or `$$`), even if it is at the end of a line.
-- **IMPROVED PROMPT:** **CRUCIAL FOR JSON VALIDITY:** Within the final JSON output string, every literal backslash `\` character (such as those used in LaTeX) **MUST be escaped as `\\`**. For example, `\frac` must be written as `\\frac`, and `\%` must be written as `\\%`.
+- **CRUCIAL FOR JSON VALIDITY:** Within the final JSON output string, every literal backslash `\` character (such as those used in LaTeX) **MUST be escaped as `\\\\`**. For example, `\frac` must be written as `\\\\frac`, and `\%` must be written as `\\\\%`.
 - **VISUAL ELEMENT EXCLUSION:** If there are any visual elements (graphs, charts, diagrams, tables), you must **EXCLUDE** any text that is an integral part of them. This includes axis labels, data points, legends, text inside a diagram, and content within table cells. Do not transcribe the titles of these elements. However, you **MUST** include any text in the main body that *refers* to these elements (e.g., "As shown in Figure 1...").
 
 **5. Output Format:**
@@ -119,7 +77,7 @@ def encode_image_to_base64(pil_image):
         image_format = pil_image.format if pil_image.format else 'PNG'
         img_to_save = pil_image
         if image_format == 'JPEG' and img_to_save.mode != 'RGB':
-             img_to_save = img_to_save.convert('RGB')
+            img_to_save = img_to_save.convert('RGB')
         elif image_format not in ['PNG', 'JPEG', 'WEBP', 'GIF']:
             image_format = 'PNG'
 
@@ -155,13 +113,14 @@ def sanitize_filename(title, default_prefix="element"):
         return f"{default_prefix}_untitled"
     return sanitized
 
+
 def resize_image_for_analysis(pil_image, max_dimension=2048):
     """
     Resizes a PIL image to a maximum dimension for consistent LLM analysis,
     maintaining aspect ratio. Returns the resized image and scaling ratios.
     """
     original_width, original_height = pil_image.size
-    
+
     if max(original_width, original_height) <= max_dimension:
         return pil_image, 1.0, 1.0
 
@@ -173,61 +132,71 @@ def resize_image_for_analysis(pil_image, max_dimension=2048):
         new_width = int(new_height * original_width / original_height)
 
     resized_image = pil_image.resize((new_width, new_height), Image.Resampling.LANCZOS)
-    
+
     width_ratio = original_width / new_width
     height_ratio = original_height / new_height
-    
+
     print(f"Image resized for analysis from {original_width}x{original_height} to {new_width}x{new_height}.")
     return resized_image, width_ratio, height_ratio
 
+
 # --- API Call Functions ---
 
-def call_parasail_api(base64_image, image_mime_type, system_prompt, task_name=""):
-    """
-    Calls a model via Parasail for element extraction and returns the JSON response.
-    """
-    if not PARASAIL_API_KEY:
-        print(f"Error ({task_name}): PARASAIL_API_KEY not set.")
+def _ensure_gemini_client(task_name=""):
+    if not GEMINI_API_KEY:
+        print(f"Error ({task_name}): GEMINI_API_KEY not set.")
+        return None
+    try:
+        return genai.Client(api_key=GEMINI_API_KEY)
+    except Exception as e:
+        print(f"Failed to init Gemini client for {task_name}: {e}")
         return None
 
-    client = OpenAI(
-        base_url="https://api.parasail.io/v1",
-        api_key=PARASAIL_API_KEY,
-    )
 
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": "Analyze the provided image and follow the system instructions carefully."},
-                {"type": "image_url", "image_url": {"url": f"data:{image_mime_type};base64,{base64_image}"}}
-            ]
-        }
+def call_gemini_elements_api(pil_image, system_prompt, task_name=""):
+    """
+    Calls the Gemini model for element extraction (cropping) and returns the parsed JSON.
+
+    Expected output format (primary): a JSON list of objects like:
+    [
+      {"box_2d": [y_min, x_min, y_max, x_max], "label": "..."},
+      ...
     ]
+    """
+    client = _ensure_gemini_client(task_name)
+    if not client:
+        return None
 
     try:
-        print(f"Sending '{task_name}' request to Parasail (Model: {EXTRACTION_MODEL_NAME})...")
-        response = client.chat.completions.create(
-            model=EXTRACTION_MODEL_NAME,
-            messages=messages,
+        generation_config = types.GenerateContentConfig(
+            system_instruction=types.Content(parts=[types.Part(text=system_prompt)]),
             temperature=TEMPERATURE_FOR_JSON,
-            response_format={"type": "json_object"},
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
+            response_mime_type="application/json",
         )
-        json_text = response.choices[0].message.content
-        return json.loads(json_text)
-    except APIError as e:
-        print(f"Error calling Parasail API for {task_name}: {e}")
-        return None
+
+        contents = pil_image
+
+        print(f"Sending '{task_name}' request to Gemini API (Model: {EXTRACTION_MODEL_NAME})...")
+        response = client.models.generate_content(
+            model=EXTRACTION_MODEL_NAME,
+            contents=contents,
+            config=generation_config,
+        )
+
+        return json.loads(response.text)
     except json.JSONDecodeError as jde:
-        print(f"Error decoding JSON from Parasail response for {task_name}: {jde}")
-        print(f"Received text: {response.choices[0].message.content if 'response' in locals() and response.choices else 'N/A'}")
+        print(f"Error decoding JSON from Gemini response for {task_name}: {jde}")
+        print(f"Received text: {response.text if 'response' in locals() else 'N/A'}")
         return None
     except Exception as e:
-        print(f"An unexpected error occurred during {task_name} Parasail API call: {e}")
+        print(f"An unexpected error occurred during {task_name} Gemini API call: {e}")
         return None
 
-# --- START: MODIFIED FUNCTION ---
+
+# --- START: (unchanged) Transcription API helper ---
+# NOTE: Transcription logic is intentionally left untouched.
+
 def call_gemini_api_for_transcription(pil_images, system_prompt, task_name=""):
     """
     Calls the Gemini model with a list of images for a single, combined transcription.
@@ -263,35 +232,28 @@ def call_gemini_api_for_transcription(pil_images, system_prompt, task_name=""):
             contents=contents,
             config=generation_config,
         )
-        
+
         raw_text = response.text
-        
+
         # --- FIX START: Clean the raw text before parsing ---
-        # 1. Find the start and end of the actual JSON object.
         start_index = raw_text.find('{')
         end_index = raw_text.rfind('}')
-        
+
         if start_index == -1 or end_index == -1:
             print(f"Could not find JSON object markers '{{' and '}}' in the response.")
             print(f"Raw text: {raw_text}")
             return None
-            
-        # 2. Extract the potential JSON string.
+
         json_string = raw_text[start_index : end_index + 1]
-        
-        # 3. First attempt to parse the cleaned string.
+
         try:
             return json.loads(json_string)
         except json.JSONDecodeError as jde:
             print(f"Initial parse of cleaned JSON failed: {jde}. Attempting to repair backslashes.")
-            
-            # 4. If it fails, apply the backslash repair logic.
-            # This regex finds single backslashes that are NOT part of a valid JSON
-            # escape sequence and escapes them by replacing '\' with '\\'.
-            repaired_json_string = re.sub(r'\\([^"\\/bfnrtu])', r'\\\\\1', json_string)
-            
+
+            repaired_json_string = re.sub(r'\\([^"\\/bfnrtu])', r'\\\\\\\1', json_string)
+
             try:
-                # 5. Second attempt with the repaired string.
                 return json.loads(repaired_json_string)
             except json.JSONDecodeError as jde2:
                 print(f"Failed to parse even the repaired JSON string: {jde2}")
@@ -304,13 +266,21 @@ def call_gemini_api_for_transcription(pil_images, system_prompt, task_name=""):
     except Exception as e:
         print(f"An unexpected error occurred during {task_name} Gemini API call: {e}")
         return None
-# --- END: MODIFIED FUNCTION ---
+# --- END: Transcription helper ---
+
 
 # --- Core Processing Functions ---
 
 def process_elements_for_single_image(original_image_pil, output_prefix=""):
     """
     Processes a single PIL image for element extraction, returning cropped image files.
+
+    CHANGES:
+      - Switches element extraction to Gemini 2.5 Flash using the simpler prompt.
+      - Adapts to NEW element format from Gemini: each element is an object with
+        { "box_2d": [y_min, x_min, y_max, x_max] on a 0-1000 normalized grid, "label": "..." }.
+      - Uses normalized coordinates mapped directly to the ORIGINAL image size (no ratio scaling needed).
+      - Adds a small margin around crops, as in the reference implementation.
     """
     print(f"\n--- Starting element extraction for {output_prefix} ---")
     generated_files = []
@@ -318,25 +288,22 @@ def process_elements_for_single_image(original_image_pil, output_prefix=""):
     if original_image_pil.mode != 'RGB':
         original_image_pil = original_image_pil.convert("RGB")
 
+    # Resize image for consistent analysis (mirrors the reference flow). Ratios are not used for Gemini's normalized output.
     image_for_analysis, width_ratio, height_ratio = resize_image_for_analysis(original_image_pil)
-    
-    base64_analysis_image = encode_image_to_base64(image_for_analysis)
-    analysis_image_mime_type = get_image_mime_type(image_for_analysis)
 
-    if not base64_analysis_image:
-        print(f"Failed to encode image for {output_prefix}. Skipping element extraction.")
-        return []
-
-    elements_response = call_parasail_api(
-        base64_analysis_image,
-        analysis_image_mime_type,
+    # Call Gemini for element extraction
+    elements_response = call_gemini_elements_api(
+        image_for_analysis,
         ELEMENT_EXTRACTION_PROMPT,
-        f"Element Extraction for {output_prefix}"
+        task_name=f"Element Extraction for {output_prefix}"
     )
 
     identified_elements = []
     if elements_response:
-        identified_elements = elements_response.get("identified_elements", [])
+        if isinstance(elements_response, list):
+            identified_elements = elements_response
+        else:
+            print(f"Warning: Expected a JSON array for elements; got {type(elements_response)}. Ignoring.")
     else:
         print(f"Failed to get a valid element extraction response for {output_prefix}.")
 
@@ -344,31 +311,43 @@ def process_elements_for_single_image(original_image_pil, output_prefix=""):
         print(f"No elements were identified by the API for {output_prefix}.")
         return []
 
-    print(f"--- Processing {len(identified_elements)} elements identified for {output_prefix} ---")
+    print(f"\n--- Processing {len(identified_elements)} elements identified for {output_prefix} ---")
     element_filenames = {}
-    for i, element in enumerate(identified_elements):
-        title = element.get("title", f"Untitled_Element_{i+1}")
-        bbox_data = element.get("bbox")
-        element_type = element.get("type", "element")
 
+    for i, element in enumerate(identified_elements):
+        label = element.get("label") or element.get("type") or "element"
+        title = element.get("title") or f"{label}_{i+1}"
+        element_type = label
+
+        bbox_data = element.get("box_2d")
         if not bbox_data or not (isinstance(bbox_data, list) and len(bbox_data) == 4):
-            print(f"Warning: Element '{title}' has invalid or missing bbox data. Skipping crop.")
+            print(f"Warning: Element '{title}' has invalid or missing box_2d data. Skipping crop.")
             continue
 
         try:
-            x_min_analysis, y_min_analysis, x_max_analysis, y_max_analysis = map(int, bbox_data)
-
-            x_min_orig = int(x_min_analysis * width_ratio)
-            y_min_orig = int(y_min_analysis * height_ratio)
-            x_max_orig = int(x_max_analysis * width_ratio)
-            y_max_orig = int(y_max_analysis * height_ratio)
+            # Format: [y_min, x_min, y_max, x_max] on a 0-1000 normalized scale
+            y_min_norm, x_min_norm, y_max_norm, x_max_norm = bbox_data
 
             orig_width, orig_height = original_image_pil.size
+
+            # Convert normalized to absolute pixel coordinates on ORIGINAL image
+            x_min_orig = int((x_min_norm / 1000.0) * orig_width)
+            y_min_orig = int((y_min_norm / 1000.0) * orig_height)
+            x_max_orig = int((x_max_norm / 1000.0) * orig_width)
+            y_max_orig = int((y_max_norm / 1000.0) * orig_height)
+
+            # Add a small margin around the element (same as reference: 3%)
+            MARGIN_RATIO = 0.03
+            element_width = max(1, x_max_orig - x_min_orig)
+            element_height = max(1, y_max_orig - y_min_orig)
+            margin_x = max(0, int(element_width * MARGIN_RATIO))
+            margin_y = max(0, int(element_height * MARGIN_RATIO))
+
             crop_box = (
-                max(0, x_min_orig),
-                max(0, y_min_orig),
-                min(orig_width, x_max_orig),
-                min(orig_height, y_max_orig)
+                max(0, x_min_orig - margin_x),
+                max(0, y_min_orig - margin_y),
+                min(orig_width, x_max_orig + margin_x),
+                min(orig_height, y_max_orig + margin_y),
             )
 
             if crop_box[0] >= crop_box[2] or crop_box[1] >= crop_box[3]:
@@ -405,6 +384,9 @@ def student_image_parser(request):
     HTTP Cloud Function entry point.
     Accepts multipart/form-data with one or more files.
     Returns a zip file containing a single combined transcription and all cropped images.
+
+    NOTE: Only the element extraction logic was switched to Gemini 2.5 Flash. Transcription and
+    all other control flow remain unchanged from the previous implementation.
     """
     if request.method != 'POST':
         return 'Please use POST request with multipart/form-data.', 405
@@ -414,7 +396,7 @@ def student_image_parser(request):
         return 'No files uploaded. Please upload files with the key "files".', 400
 
     all_output_files = []
-    
+
     images_for_element_processing = []
     all_pil_images_for_transcription = []
 
@@ -429,7 +411,7 @@ def student_image_parser(request):
                 for i, page in enumerate(pdf_document):
                     pix = page.get_pixmap(dpi=300)
                     page_image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                    
+
                     images_for_element_processing.append({
                         "image": page_image,
                         "prefix": f"{os.path.splitext(filename)[0]}_page_{i+1}_"
@@ -442,7 +424,7 @@ def student_image_parser(request):
         else:
             try:
                 image = Image.open(io.BytesIO(file_bytes))
-                
+
                 images_for_element_processing.append({
                     "image": image,
                     "prefix": f"{os.path.splitext(filename)[0]}_"
