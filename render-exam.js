@@ -26,20 +26,32 @@ function renderExam(questions) {
     if (q.sub_questions && q.sub_questions.length > 0) {
       const subQuestionCells = q.sub_questions
         .map((sq) => {
-          let mcqHtml = '';
-          if (sq.mcq_options && sq.mcq_options.length > 0) {
-            mcqHtml = sq.mcq_options
-              .map(
-                (opt) => `
-                        <div class="mcq-option" data-mcq-option-id="${opt.id}">
-                            <strong>${opt.mcq_letter}:</strong> 
-                            <span class="formatted-text" data-editable="mcq_content" data-original-text="${opt.mcq_content || ''}">${
-                              opt.mcq_content
-                            }</span>
-                        </div>`,
-              )
-              .join('');
-          }
+            let mcqHtml = '';
+            if (sq.mcq_options && sq.mcq_options.length > 0) {
+                // Always render in alphabetical letter order so UI is stable after any save/reload
+                const sorted = [...sq.mcq_options].sort((a, b) =>
+                    (a.mcq_letter || '').localeCompare(b.mcq_letter || '')
+                );
+
+                mcqHtml =
+                    `<div class="mcq-options">` +
+                    sorted
+                        .map(
+                            (opt) => `
+                              <div class="mcq-option" data-mcq-option-id="${opt.id}">
+                                <strong class="mcq-letter">${opt.mcq_letter || ''}:</strong>
+                                <span class="formatted-text"
+                                      data-editable="mcq_content"
+                                      data-original-text='${JSON.stringify(opt.mcq_content || '')}'>${opt.mcq_content || ''}</span>
+                              </div>`
+                        )
+                        .join('') +
+                    `</div>`;
+            } else {
+                // Keep an empty container so editing UI can inject new options
+                mcqHtml = `<div class="mcq-options"></div>`;
+            }
+
           const subQCell = `
                     <div id="sub-q-gridcell" class="grid-cell" data-sub-question-id="${sq.id}">
                         <div class="sub-question-content">
