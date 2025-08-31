@@ -7,46 +7,47 @@
  * @param {MouseEvent} event
  */
 async function handleEditClick(event) {
-  const editButton = event.target.closest('.edit-btn');
-  if (!editButton) return;
+    const editButton = event.target.closest('.edit-btn');
+    if (!editButton) return;
 
-  // Find the container that holds the editable fields and the button
-  const targetType = editButton.dataset.editTarget;
-  let container;
-  let fields = null; // NEW: To specify which fields to edit
+    const targetType = editButton.dataset.editTarget;
+    let container;
+    let fields = null;
 
-  switch (targetType) {
-    case 'exam_name':
-      container = editButton.parentElement; // The H1 tag
-      break;
-    case 'grading_regulations':
-      container = editButton.parentElement.parentElement; // The modal text div
-      break;
-    case 'question_context':
-      container = editButton.closest('.question-block');
-      fields = ['context_text', 'extra_comment']; // MODIFIED: Specify fields
-      break;
-    case 'sub_question':
-      container = editButton.closest('.grid-cell[data-sub-question-id]');
-      break;
-    case 'model_alternative':
-      container = editButton.closest('.model-alternative');
-      break;
-    case 'student_answer':
-      container = editButton.closest('.student-answer-item');
-      break;
-    case 'student_info':
-      container = editButton.closest('summary');
-      break;
-    case 'appendix':
-      container = editButton.closest('.modal-content');
-      break;
-    default:
-      return;
-  }
+    switch (targetType) {
+        case 'exam_name':
+            container = editButton.parentElement;
+            break;
+        case 'grading_regulations':
+            container = editButton.parentElement.parentElement;
+            break;
+        case 'question_context':
+            container = editButton.closest('.question-block');
+            fields = ['context_text', 'extra_comment'];
+            break;
+        case 'sub_question':
+            container = editButton.closest('.grid-cell[data-sub-question-id]');
+            break;
+        case 'model_alternative':
+            container = editButton.closest('.model-alternative');
+            break;
+        case 'student_answer':
+            container = editButton.closest('.student-answer-item');
+            break;
+        case 'student_info':
+            container = editButton.closest('summary');
+            break;
+        case 'appendix':
+            container = editButton.closest('.modal-content');
+            break;
+        default:
+            return;
+    }
 
-  toggleEditMode(container, true, fields); // MODIFIED: Pass fields to the function
+    // 🔧 pass the clicked button along
+    toggleEditMode(container, true, fields, editButton);
 }
+
 
 /**
  * Toggle edit mode for a container with [data-editable] fields.
@@ -54,13 +55,14 @@ async function handleEditClick(event) {
  * @param {boolean} isEditing
  * @param {string[]|null} fields
  */
-function toggleEditMode(container, isEditing, fields = null) {
-  // --- START: ADD THIS NEW BLOCK ---
-  const editButtonForTargetCheck = container.querySelector('.edit-btn');
-  if (editButtonForTargetCheck?.dataset.editTarget === 'student_info') {
-    container.classList.toggle('is-editing-summary', isEditing);
-  }
-  // --- END: ADD THIS NEW BLOCK ---
+function toggleEditMode(container, isEditing, fields = null, editButtonParam = null) {
+    const editButton = editButtonParam || container.querySelector('.edit-btn'); // fallback, but we pass it now
+
+    // was: const editButtonForTargetCheck = container.querySelector('.edit-btn');
+    // use the actual clicked button instead:
+    if (editButton?.dataset.editTarget === 'student_info') {
+        container.classList.toggle('is-editing-summary', isEditing);
+    }
 
   container
     .querySelectorAll('.points-badge')
@@ -102,7 +104,7 @@ function toggleEditMode(container, isEditing, fields = null) {
     .querySelectorAll('.student-identifier-container')
     .forEach((span) => (span.style.gap = isEditing ? '0.5rem' : ''));
 
-  const editButton = container.querySelector('.edit-btn');
+
   let editActions = container.querySelector('.edit-actions');
 
   const selector = fields ? fields.map((field) => `[data-editable="${field}"]`).join(', ') : '[data-editable]';
@@ -173,8 +175,8 @@ function toggleEditMode(container, isEditing, fields = null) {
       else input.focus();
     });
 
-    editActions.querySelector('.save-btn').onclick = () => saveChanges(container);
-    editActions.querySelector('.cancel-btn').onclick = () => toggleEditMode(container, false, fields);
+      editActions.querySelector('.save-btn').onclick = () => saveChanges(container, editButton);
+      editActions.querySelector('.cancel-btn').onclick = () => toggleEditMode(container, false, fields, editButton);
 
     if (editButton?.dataset.editTarget === 'sub_question') {
         setupMcqEditingUI(container);
@@ -205,8 +207,7 @@ function toggleEditMode(container, isEditing, fields = null) {
  * Persist edits to the database and refresh the UI.
  * @param {HTMLElement} container
  */
-async function saveChanges(container) {
-  const editButton = container.querySelector('.edit-btn');
+async function saveChanges(container, editButton) {
   const targetType = editButton.dataset.editTarget;
   const examId = new URLSearchParams(window.location.search).get('id');
 
@@ -469,7 +470,7 @@ async function saveChanges(container) {
   } catch (error) {
     console.error('Save failed:', error);
     alert(`Error saving changes: ${error.message}`);
-    toggleEditMode(container, false);
+    toggleEditMode(container, true, fields, editButton);
   }
 }
 
@@ -666,7 +667,7 @@ function addMcqOption(mcqContainer) {
 
     const input = document.createElement('textarea');
     input.className = 'editable-input';
-    input.rows = 2;
+    input.rows = 1;
     input.placeholder = 'Option text...';
     contentWrapper.appendChild(input);
 

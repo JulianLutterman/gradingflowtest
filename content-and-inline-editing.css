@@ -243,6 +243,8 @@ textarea.editable-input {
     min-height: 200px;
 }
 
+
+
 .student-identifier-container .editable-input {
     padding: 0.5rem;
     border-radius: 10px;
@@ -303,6 +305,11 @@ textarea.editable-input {
 
 .mcq-option {
     margin-left: 1rem;
+}
+
+.sub-question-content .mcq-option textarea.editable-input {
+    min-height: fit-content;
+    height: 100%;
 }
 
 h5 {
