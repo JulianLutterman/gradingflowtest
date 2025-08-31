@@ -126,7 +126,8 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
 
     const targetType = editButton?.dataset.editTarget;
     if (targetType === 'sub_question') {
-      container.style.display = 'block';
+        container.style.display = 'block';
+        container.classList.add('is-editing-mcq'); // ← add this
     }
 
     container.querySelectorAll(selector).forEach((el) => {
@@ -155,7 +156,7 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
       const fieldType = el.dataset.editable;
 
       if (
-        ['context_text', 'extra_comment', 'feedback_comment', 'grading_regulations', 'answer_text', 'sub_q_text_content', 'mcq_content', 'app_text'].includes(
+        ['context_text', 'extra_comment', 'feedback_comment', 'grading_regulations', 'answer_text', 'sub_q_text_content', 'app_text'].includes(
           fieldType,
         )
       ) {
@@ -182,24 +183,28 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
         setupMcqEditingUI(container);
     }
   } else {
-    if (editButton) editButton.classList.remove('hidden');
-    if (editActions) editActions.classList.add('hidden');
+      if (editButton) editButton.classList.remove('hidden');
+      if (editActions) editActions.classList.add('hidden');
 
-    const targetType = editButton?.dataset.editTarget;
-    if (targetType === 'sub_question') {
-        container.style.display = 'flex';
-        teardownMcqEditingUI(container);
-    }
+      const targetType = editButton?.dataset.editTarget;
+      if (targetType === 'sub_question') {
+          container.style.display = 'flex';
+          container.classList.remove('is-editing-mcq'); // ← and remove it here
+          teardownMcqEditingUI(container);   // remove toolbar/convert/handlers
+          restoreMcqSnapshot(container);     // ✅ put MCQs back exactly as they were
+      }
 
-    container.querySelectorAll(selector).forEach((el) => {
-      const isQuestionContextEdit = editButton.dataset.editTarget === 'question_context';
-      if (isQuestionContextEdit && el.dataset.editable === 'extra_comment' && el.closest('.model-alternative')) {
-        return;
+      container.querySelectorAll(selector).forEach((el) => {
+          // existing restore logic for non-MCQ fields
+          const isQuestionContextEdit = editButton.dataset.editTarget === 'question_context';
+          if (isQuestionContextEdit && el.dataset.editable === 'extra_comment' && el.closest('.model-alternative')) return;
+          if (el.dataset.originalValue) el.innerHTML = el.dataset.originalValue;
+      });
+
+      // after the loop that restores originalValue
+      if (editButton?.dataset.editTarget === 'sub_question') {
+          cleanupMcqDomAfterCancel(container);
       }
-      if (el.dataset.originalValue) {
-        el.innerHTML = el.dataset.originalValue;
-      }
-    });
   }
 }
 
@@ -484,17 +489,31 @@ function setupMcqEditingUI(container) {
     if (!subContent) return;
 
     let mcqContainer = subContent.querySelector('.mcq-options');
+    const hadContainer = !!mcqContainer;
     if (!mcqContainer) {
         mcqContainer = document.createElement('div');
         mcqContainer.className = 'mcq-options';
         subContent.appendChild(mcqContainer);
     }
 
-    // Save original IDs so we can compute deletions on save
+    // 🔒 Take a one-time snapshot of the original MCQ HTML for cancel restore
+    if (!container.dataset.mcqSnapshotTaken) {
+        container.dataset.mcqHadContainer = hadContainer ? '1' : '0';
+        container.dataset.mcqOriginalHtml = mcqContainer.innerHTML || '';
+        container.dataset.mcqSnapshotTaken = '1';
+    }
+
+    // Save original option IDs (for save/delete logic, optional)
     const originalIds = Array.from(mcqContainer.querySelectorAll('.mcq-option'))
         .map(el => el.dataset.mcqOptionId)
         .filter(Boolean);
     container.dataset.originalMcqIds = JSON.stringify(originalIds);
+
+    // store for cancel cleanup
+    container.dataset.originalMcqIds = JSON.stringify(originalIds);
+    container.dataset.mcqHadContainer = hadContainer ? '1' : '0';
+    container.dataset.mcqOriginalCount = String(originalIds.length);
+
 
     const hasOptions = !!mcqContainer.querySelector('.mcq-option');
     if (!hasOptions) {
@@ -503,10 +522,11 @@ function setupMcqEditingUI(container) {
             const convertBtn = document.createElement('button');
             convertBtn.type = 'button';
             convertBtn.className = 'mcq-convert-btn';
-            convertBtn.textContent = 'Add multiple-choice option';
+            convertBtn.textContent = 'Add multiple-choice options';
             convertBtn.addEventListener('click', () => {
                 addMcqOption(mcqContainer);
                 renumberLetters(mcqContainer);
+                setUniformMcqLetterWidth(mcqContainer); // ← NEW
                 convertBtn.remove();           // swap to full toolbar after first option
                 makeOptionsInteractive(mcqContainer);
                 // then create the normal toolbar:
@@ -515,10 +535,11 @@ function setupMcqEditingUI(container) {
                 const addBtn = document.createElement('button');
                 addBtn.type = 'button';
                 addBtn.textContent = '+ Add Option';
-                addBtn.className = 'pushable-button';
+                addBtn.className = 'mcq-convert-btn';
                 addBtn.addEventListener('click', () => {
                     addMcqOption(mcqContainer);
                     renumberLetters(mcqContainer);
+                    setUniformMcqLetterWidth(mcqContainer); // ← NEW
                 });
                 toolbar.appendChild(addBtn);
                 subContent.appendChild(toolbar);
@@ -540,7 +561,7 @@ function setupMcqEditingUI(container) {
         const addBtn = document.createElement('button');
         addBtn.type = 'button';
         addBtn.textContent = '+ Add Option';
-        addBtn.className = 'pushable-button';
+        addBtn.className = 'mcq-convert-btn';
         addBtn.addEventListener('click', () => {
             addMcqOption(mcqContainer);
             renumberLetters(mcqContainer);
@@ -552,9 +573,19 @@ function setupMcqEditingUI(container) {
 
     // Make existing items draggable and show delete buttons
     makeOptionsInteractive(mcqContainer);
+    setUniformMcqLetterWidth(mcqContainer); // ← NEW
 
-    // Drag-over handling (one listener on the container)
-    mcqContainer.addEventListener('dragover', (e) => {
+
+    // Drag-and-drop plumbing
+    // (Store handler refs on the container so we can remove them on teardown)
+    if (mcqContainer._dragoverHandler) {
+        mcqContainer.removeEventListener('dragover', mcqContainer._dragoverHandler);
+    }
+    if (mcqContainer._dropHandler) {
+        mcqContainer.removeEventListener('drop', mcqContainer._dropHandler);
+    }
+
+    mcqContainer._dragoverHandler = (e) => {
         e.preventDefault();
         const dragging = mcqContainer.querySelector('.dragging');
         if (!dragging) return;
@@ -565,14 +596,46 @@ function setupMcqEditingUI(container) {
         } else {
             mcqContainer.insertBefore(dragging, afterElement);
         }
-    });
-
-    mcqContainer.addEventListener('drop', () => {
+    };
+    mcqContainer._dropHandler = () => {
         const dragging = mcqContainer.querySelector('.dragging');
         if (dragging) dragging.classList.remove('dragging');
         renumberLetters(mcqContainer);
-    });
+    };
+
+    mcqContainer.addEventListener('dragover', mcqContainer._dragoverHandler);
+    mcqContainer.addEventListener('drop', mcqContainer._dropHandler);
+
 }
+
+function restoreMcqSnapshot(container) {
+    const subContent = container.querySelector('.sub-question-content');
+    if (!subContent) return;
+
+    const hadContainer = container.dataset.mcqHadContainer === '1';
+    const originalHtml = container.dataset.mcqOriginalHtml ?? '';
+
+    let mcqContainer = subContent.querySelector('.mcq-options');
+
+    if (hadContainer) {
+        if (!mcqContainer) {
+            mcqContainer = document.createElement('div');
+            mcqContainer.className = 'mcq-options';
+            subContent.appendChild(mcqContainer);
+        }
+        mcqContainer.innerHTML = originalHtml;   // ← bring back exactly what was there
+    } else {
+        // There wasn't a container before edit; remove any we added
+        if (mcqContainer) mcqContainer.remove();
+    }
+
+    // Clear snapshot flags
+    delete container.dataset.mcqHadContainer;
+    delete container.dataset.mcqOriginalHtml;
+    delete container.dataset.originalMcqIds;
+    delete container.dataset.mcqSnapshotTaken;
+}
+
 
 /**
  * Remove edit-only controls/attrs for MCQs
@@ -581,25 +644,75 @@ function teardownMcqEditingUI(container) {
     const subContent = container.querySelector('.sub-question-content');
     if (!subContent) return;
 
-    // Remove toolbar
+    // Remove the lightweight convert button (for zero-options state)
+    const convertBtn = subContent.querySelector('.mcq-convert-btn');
+    if (convertBtn) convertBtn.remove();
+
+    // Remove the full toolbar
     const toolbar = subContent.querySelector('.mcq-edit-toolbar');
     if (toolbar) toolbar.remove();
 
     const mcqContainer = subContent.querySelector('.mcq-options');
-    if (!mcqContainer) return;
+    if (!mcqContainer) {
+        delete container.dataset.originalMcqIds;
+        return;
+    }
 
-    // Remove drag handles, delete buttons, draggable attrs
+    // Detach DnD listeners that were attached in setup
+    if (mcqContainer._dragoverHandler) {
+        mcqContainer.removeEventListener('dragover', mcqContainer._dragoverHandler);
+        delete mcqContainer._dragoverHandler;
+    }
+    if (mcqContainer._dropHandler) {
+        mcqContainer.removeEventListener('drop', mcqContainer._dropHandler);
+        delete mcqContainer._dropHandler;
+    }
+
+    // Strip edit-only affordances from each option
     mcqContainer.querySelectorAll('.mcq-option').forEach((opt) => {
         opt.removeAttribute('draggable');
+        opt.classList.remove('dragging');
         const handle = opt.querySelector('.drag-handle');
         if (handle) handle.remove();
         const del = opt.querySelector('.mcq-delete-btn');
         if (del) del.remove();
-        opt.classList.remove('dragging');
     });
+
+    if (mcqContainer) {
+        mcqContainer.style.removeProperty('--mcq-letter-col'); // ← NEW
+    }
 
     delete container.dataset.originalMcqIds;
 }
+
+function cleanupMcqDomAfterCancel(container) {
+    const subContent = container.querySelector('.sub-question-content');
+    if (!subContent) return;
+
+    const mcqContainer = subContent.querySelector('.mcq-options');
+    if (!mcqContainer) return;
+
+    // Remove any options created during this edit session (they won't have db ids)
+    mcqContainer.querySelectorAll('.mcq-option').forEach((opt) => {
+        if (!opt.dataset.mcqOptionId) {
+            opt.remove();
+        }
+    });
+
+    // If there were originally no options, and none remain now, remove the container (optional)
+    const originalIds = JSON.parse(container.dataset.originalMcqIds || '[]');
+    const stillHasOption = !!mcqContainer.querySelector('.mcq-option');
+    if (originalIds.length === 0 && !stillHasOption) {
+        mcqContainer.remove();
+    }
+
+    // Clean up flags
+    delete container.dataset.originalMcqIds;
+    delete container.dataset.mcqHadContainer;
+    delete container.dataset.mcqOriginalCount;
+}
+
+
 
 /**
  * Add drag + delete affordances for each existing .mcq-option (and convert content into inputs if needed)
@@ -613,7 +726,6 @@ function makeOptionsInteractive(mcqContainer) {
             handle.textContent = '⋮⋮';
             handle.title = 'Drag to reorder';
             handle.style.cursor = 'grab';
-            handle.style.marginRight = '0.4rem';
             opt.insertBefore(handle, opt.firstChild);
         }
 
@@ -622,11 +734,11 @@ function makeOptionsInteractive(mcqContainer) {
             const del = document.createElement('button');
             del.type = 'button';
             del.className = 'mcq-delete-btn';
-            del.textContent = 'Delete';
-            del.style.marginLeft = '0.5rem';
+            del.textContent = 'x';
             del.addEventListener('click', () => {
                 opt.remove();
                 renumberLetters(mcqContainer);
+                setUniformMcqLetterWidth(mcqContainer); // ← NEW
             });
             opt.appendChild(del);
         }
@@ -665,17 +777,16 @@ function addMcqOption(mcqContainer) {
     contentWrapper.className = 'formatted-text';
     contentWrapper.dataset.editable = 'mcq_content';
 
-    const input = document.createElement('textarea');
+    const input = document.createElement('input');
     input.className = 'editable-input';
-    input.rows = 1;
+    input.type = "text";
     input.placeholder = 'Option text...';
     contentWrapper.appendChild(input);
 
     const del = document.createElement('button');
     del.type = 'button';
     del.className = 'mcq-delete-btn';
-    del.textContent = 'Delete';
-    del.style.marginLeft = '0.5rem';
+    del.textContent = 'x';
     del.addEventListener('click', () => {
         opt.remove();
         renumberLetters(mcqContainer);
@@ -686,7 +797,6 @@ function addMcqOption(mcqContainer) {
     handle.textContent = '⋮⋮';
     handle.title = 'Drag to reorder';
     handle.style.cursor = 'grab';
-    handle.style.marginRight = '0.4rem';
 
     opt.appendChild(handle);
     opt.appendChild(letterStrong);
@@ -700,13 +810,25 @@ function addMcqOption(mcqContainer) {
     mcqContainer.appendChild(opt);
 }
 
+function setUniformMcqLetterWidth(mcqContainer) {
+    const letters = Array.from(mcqContainer.querySelectorAll('.mcq-letter'));
+    if (!letters.length) return;
+
+    // Clear any previous inline width so we measure natural width
+    letters.forEach(el => (el.style.width = ''));
+
+    // A few extra pixels for breathing room
+    const px = 20;
+    mcqContainer.style.setProperty('--mcq-letter-col', `${px}px`);
+}
+
+
 /**
  * Renumber letters by current DOM order (A, B, C... AA...)
  */
 function renumberLetters(mcqContainer) {
     const toLetter = (i) => {
-        let s = '';
-        i += 1;
+        let s = ''; i += 1;
         while (i > 0) {
             const rem = (i - 1) % 26;
             s = String.fromCharCode(65 + rem) + s;
@@ -720,6 +842,7 @@ function renumberLetters(mcqContainer) {
         if (letterEl) letterEl.textContent = `${toLetter(idx)}:`;
     });
 }
+
 
 /**
  * Find where to insert the dragged element based on mouse Y

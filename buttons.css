@@ -116,3 +116,30 @@ button {
 #show-rules-button {
     width: fit-content;
 }
+
+.mcq-convert-btn {
+    padding: 0.5rem 0.8rem;
+    text-align: left;
+    --radius: 10px;
+    --bw: 2.5px; /* border thickness */
+    --border-color: var(--color-light-blue-two);
+    --bg: var(--color-lighter-blue); /* button fill */
+    --fg: var(--color-text-dark); /* text color */
+    border: none;
+    color: var(--fg);
+    border-radius: var(--radius);
+    background:
+    /* LEFT border segment (stops before top/bottom curves) */
+    linear-gradient(var(--border-color), var(--border-color)) left 0 top var(--radius) / var(--bw) calc(100% - 2*var(--radius)) no-repeat,
+    /* BOTTOM border segment (stops before left/right curves) */
+    linear-gradient(var(--border-color), var(--border-color)) left var(--radius) bottom 0 / calc(100% - 2*var(--radius)) var(--bw) no-repeat,
+    /* BOTTOM-LEFT quarter-ring (the smooth turn) */
+    radial-gradient(circle at right top, transparent calc(var(--radius) - var(--bw)), var(--border-color) calc(var(--radius) - var(--bw)) var(--radius), transparent var(--radius) ) left 0 bottom 0 / var(--radius) var(--radius) no-repeat;
+    background-color: var(--color-lighter-blue);
+    margin-left: 1rem;
+    width: -webkit-fill-available;
+}
+
+    .mcq-convert-btn:hover {
+        background-color: var(--color-light-blue-two);
+    }

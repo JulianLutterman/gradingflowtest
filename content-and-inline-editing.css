@@ -1,4 +1,4 @@
-.formatted-text {
+﻿.formatted-text {
     white-space: pre-wrap;
     word-wrap: break-word;
     margin: 0;
@@ -94,7 +94,7 @@
 }
 
 #sub-q-gridcell .edit-actions {
-    margin-top: 5px;
+    margin-top: 8px;
 }
 
 .model-answer-section .edit-actions {
@@ -305,11 +305,71 @@ textarea.editable-input {
 
 .mcq-option {
     margin-left: 1rem;
+    margin-top: 0.3rem;
 }
 
-.sub-question-content .mcq-option textarea.editable-input {
-    min-height: fit-content;
-    height: 100%;
+    .mcq-option .editable-input {
+        padding: 0.5rem;
+        border-radius: 10px;
+        height: 100%;
+        background-color: var(--color-background);
+    }
+
+    .mcq-option .editable-input:focus {
+        background-color: var(--color-background);
+    }
+
+/* One-line MCQ row with per-boundary spacers */
+.grid-cell.is-editing-mcq .mcq-option {
+    display: grid;
+    grid-template-columns:
+    /* 1 */ auto /* drag handle */
+    /* 2 */ var(--mcq-gap12, 0.15rem) /* handle↔letter gap (tweak this) */
+    /* 3 */ var(--mcq-letter-col, 3ch) /* letter */
+    /* 4 */ var(--mcq-gap23, 0.5rem) /* letter↔input gap */
+    /* 5 */ 1fr /* input */
+    /* 6 */ var(--mcq-gap34, 0.5rem) /* input↔delete gap */
+    /* 7 */ auto; /* delete btn */
+    align-items: center;
+    column-gap: 0; /* turn off uniform gap */
+}
+
+    .grid-cell.is-editing-mcq .mcq-option .drag-handle {
+        grid-column: 1;
+    }
+
+    .grid-cell.is-editing-mcq .mcq-option .mcq-letter {
+        grid-column: 3;
+        text-align: right;
+    }
+
+    .grid-cell.is-editing-mcq .mcq-option .formatted-text {
+        grid-column: 5;
+        min-width: 0;
+    }
+
+    .grid-cell.is-editing-mcq .mcq-option .mcq-delete-btn {
+        grid-column: 7;
+    }
+
+.grid-cell.is-editing-mcq .mcq-option .editable-input {
+    width: 100%;
+}
+
+
+.mcq-delete-btn {
+    background: var(--color-danger);
+    color: var(--color-text-light);
+    border: none;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
 }
 
 h5 {
