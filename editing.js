@@ -554,9 +554,6 @@ function setupMcqEditingUI(container) {
     if (!subContent.querySelector('.mcq-edit-toolbar')) {
         const toolbar = document.createElement('div');
         toolbar.className = 'mcq-edit-toolbar';
-        toolbar.style.display = 'flex';
-        toolbar.style.gap = '0.5rem';
-        toolbar.style.margin = '0.5rem 0';
 
         const addBtn = document.createElement('button');
         addBtn.type = 'button';
