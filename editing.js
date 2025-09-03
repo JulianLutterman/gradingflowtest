@@ -184,7 +184,7 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
     }
   } else {
       if (editButton) editButton.classList.remove('hidden');
-      if (editActions) editActions.classList.add('hidden');
+      if (editActions) editActions.remove();
 
       const targetType = editButton?.dataset.editTarget;
       if (targetType === 'sub_question') {
