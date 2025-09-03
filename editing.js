@@ -72,45 +72,9 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
     container.classList.toggle('is-editing-summary', isEditing);
   }
 
-  container
-    .querySelectorAll('.points-badge')
-    .forEach((badge) => (badge.style.marginBottom = isEditing ? '0' : ''));
-  container
-    .querySelectorAll('.points-badge')
-    .forEach((badge) => (badge.style.borderRadius = isEditing ? '10px' : ''));
-  container
-    .querySelectorAll('.points-badge')
-    .forEach((badge) => (badge.style.paddingRight = isEditing ? '5px' : ''));
-  container
-    .querySelectorAll('.points-awarded-badge')
-    .forEach((badge) => (badge.style.borderRadius = isEditing ? '10px' : ''));
-  container
-    .querySelectorAll('.model-component p')
-    .forEach((p) => (p.style.height = isEditing ? '-webkit-fill-available' : ''));
-  container
-    .querySelectorAll('.model-component p')
-    .forEach((p) => (p.style.width = isEditing ? 'inherit' : ''));
-  container
-    .querySelectorAll('.model-component')
-    .forEach((div) => (div.style.borderBottom = isEditing ? 'none' : ''));
-  container
-    .querySelectorAll('.model-component')
-    .forEach((div) => (div.style.paddingTop = isEditing ? '0.4rem' : ''));
-  container
-    .querySelectorAll('.parenthesis')
-    .forEach((p) => (p.style.display = isEditing ? 'none' : ''));
-  container
-    .querySelectorAll('.student-identifier-container')
-    .forEach((span) => (span.style.width = isEditing ? '-webkit-fill-available' : ''));
-  container
-    .querySelectorAll('.student-identifier-container')
-    .forEach((span) => (span.style.display = isEditing ? 'flex' : ''));
-  container
-    .querySelectorAll('.student-identifier-container')
-    .forEach((span) => (span.style.flexDirection = isEditing ? 'column' : ''));
-  container
-    .querySelectorAll('.student-identifier-container')
-    .forEach((span) => (span.style.gap = isEditing ? '0.5rem' : ''));
+  // ✅ Apply styles ONLY for the relevant target; no global leakage
+  const targetType = editButton?.dataset.editTarget;
+  setEditModeStyles(container, isEditing, targetType);
 
   const selector = fields
     ? fields.map((field) => `[data-editable="${field}"]`).join(', ')
@@ -131,20 +95,21 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
     }
     editActions.classList.remove('hidden');
 
-    const targetType = editButton?.dataset.editTarget;
     if (targetType === 'sub_question') {
       container.style.display = 'block';
       container.classList.add('is-editing-mcq');
     }
 
     container.querySelectorAll(selector).forEach((el) => {
-      const isQuestionContextEdit = editButton.dataset.editTarget === 'question_context';
+      const isQuestionContextEdit = targetType === 'question_context';
       if (isQuestionContextEdit && el.dataset.editable === 'extra_comment' && el.closest('.model-alternative')) {
-        return;
+        return; // don't pick up extra_comment inside model alternatives
       }
 
+      // Store rendered HTML for cancel
       el.dataset.originalValue = el.innerHTML;
 
+      // Use raw text for inputs
       let rawText;
       try {
         if (el.dataset.originalText !== undefined && el.dataset.originalText !== null) {
@@ -152,7 +117,7 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
         } else {
           rawText = el.textContent.trim();
         }
-      } catch (e) {
+      } catch {
         rawText = el.dataset.originalText || el.textContent.trim();
       }
 
@@ -162,13 +127,12 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
       if (
         ['context_text', 'extra_comment', 'feedback_comment', 'grading_regulations', 'answer_text', 'sub_q_text_content', 'app_text'].includes(fieldType)
       ) {
-        const txt = fieldType === 'grading_regulations' ? el.innerHTML : rawText;
         input = document.createElement('textarea');
-        input.value = txt;
+        input.value = fieldType === 'grading_regulations' ? el.innerHTML : rawText;
         input.rows = Math.max(3, rawText.length / 70);
       } else {
         input = document.createElement('input');
-        input.type = fieldType === 'component_points' || fieldType === 'sub_points_awarded' ? 'number' : 'text';
+        input.type = (fieldType === 'component_points' || fieldType === 'sub_points_awarded') ? 'number' : 'text';
         input.value = rawText;
       }
 
@@ -182,7 +146,7 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
     editActions.querySelector('.save-btn').onclick = () => saveChanges(container, editButton);
     editActions.querySelector('.cancel-btn').onclick = () => toggleEditMode(container, false, fields, editButton);
 
-    if (editButton?.dataset.editTarget === 'sub_question') {
+    if (targetType === 'sub_question') {
       setupMcqEditingUI(container);
     }
   } else {
@@ -191,7 +155,6 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
     // Hide ONLY the controls next to this button’s parent
     if (editActions) editActions.classList.add('hidden');
 
-    const targetType = editButton?.dataset.editTarget;
     if (targetType === 'sub_question') {
       container.style.display = 'flex';
       container.classList.remove('is-editing-mcq');
@@ -200,16 +163,17 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
     }
 
     container.querySelectorAll(selector).forEach((el) => {
-      const isQuestionContextEdit = editButton.dataset.editTarget === 'question_context';
+      const isQuestionContextEdit = targetType === 'question_context';
       if (isQuestionContextEdit && el.dataset.editable === 'extra_comment' && el.closest('.model-alternative')) return;
       if (el.dataset.originalValue) el.innerHTML = el.dataset.originalValue;
     });
 
-    if (editButton?.dataset.editTarget === 'sub_question') {
+    if (targetType === 'sub_question') {
       cleanupMcqDomAfterCancel(container);
     }
   }
 }
+
 
 
 /**
@@ -863,3 +827,50 @@ function getDragAfterElement(container, y) {
         { offset: Number.NEGATIVE_INFINITY, element: null }
     ).element;
 }
+
+
+function setEditModeStyles(root, isEditing, targetType) {
+  const apply = (sel, fn) => root.querySelectorAll(sel).forEach(fn);
+
+  switch (targetType) {
+    case 'sub_question': {
+      // Styling that makes sense while editing sub-questions
+      apply('.points-badge', el => el.style.marginBottom = isEditing ? '0' : '');
+      apply('.points-badge', el => el.style.borderRadius = isEditing ? '10px' : '');
+      apply('.points-badge', el => el.style.paddingRight = isEditing ? '5px' : '');
+      break;
+    }
+    case 'model_alternative': {
+      // Only affect model components inside the model alternative being edited
+      apply('.model-component p', el => el.style.height = isEditing ? '-webkit-fill-available' : '');
+      apply('.model-component p', el => el.style.width = isEditing ? 'inherit' : '');
+      apply('.model-component', el => el.style.borderBottom = isEditing ? 'none' : '');
+      apply('.model-component', el => el.style.paddingTop = isEditing ? '0.4rem' : '');
+      break;
+    }
+    case 'student_answer':
+    case 'student_info': {
+      // Only affect the student area being edited
+      apply('.points-awarded-badge', el => el.style.borderRadius = isEditing ? '10px' : '');
+      apply('.parenthesis', el => el.style.display = isEditing ? 'none' : '');
+      apply('.student-identifier-container', el => {
+        el.style.width = isEditing ? '-webkit-fill-available' : '';
+        el.style.display = isEditing ? 'flex' : '';
+        el.style.flexDirection = isEditing ? 'column' : '';
+        el.style.gap = isEditing ? '0.5rem' : '';
+      });
+      break;
+    }
+    case 'appendix': {
+      // Currently no special styles needed; keep as a no-op
+      break;
+    }
+    case 'question_context':
+    default: {
+      // IMPORTANT: Do NOT touch model/answers when editing context text
+      // No style overrides for question context to avoid leakage.
+      break;
+    }
+  }
+}
+
