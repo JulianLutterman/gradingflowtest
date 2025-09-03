@@ -56,13 +56,21 @@ async function handleEditClick(event) {
  * @param {string[]|null} fields
  */
 function toggleEditMode(container, isEditing, fields = null, editButtonParam = null) {
-    const editButton = editButtonParam || container.querySelector('.edit-btn'); // fallback, but we pass it now
+  const editButton = editButtonParam || container.querySelector('.edit-btn');
 
-    // was: const editButtonForTargetCheck = container.querySelector('.edit-btn');
-    // use the actual clicked button instead:
-    if (editButton?.dataset.editTarget === 'student_info') {
-        container.classList.toggle('is-editing-summary', isEditing);
-    }
+  // Use the area right around the clicked button as the host for Save/Cancel
+  const buttonParent =
+    editButton?.closest('.cell-header') ||
+    editButton?.parentElement ||
+    container;
+
+  // Only ever reuse .edit-actions if it's under THIS button's parent
+  let editActions = buttonParent.querySelector('.edit-actions');
+
+  // Keep the special-case class for student info
+  if (editButton?.dataset.editTarget === 'student_info') {
+    container.classList.toggle('is-editing-summary', isEditing);
+  }
 
   container
     .querySelectorAll('.points-badge')
@@ -104,30 +112,29 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
     .querySelectorAll('.student-identifier-container')
     .forEach((span) => (span.style.gap = isEditing ? '0.5rem' : ''));
 
-
-  let editActions = container.querySelector('.edit-actions');
-
-  const selector = fields ? fields.map((field) => `[data-editable="${field}"]`).join(', ') : '[data-editable]';
+  const selector = fields
+    ? fields.map((field) => `[data-editable="${field}"]`).join(', ')
+    : '[data-editable]';
 
   if (isEditing) {
     if (editButton) editButton.classList.add('hidden');
 
+    // Create edit-actions ONLY next to the clicked button
     if (!editActions) {
       editActions = document.createElement('div');
       editActions.className = 'edit-actions';
       editActions.innerHTML = `
-                <button class="save-btn">Save</button>
-                <button class="cancel-btn">Cancel</button>
-            `;
-      const buttonParent = editButton.closest('.cell-header') || editButton.parentElement;
+        <button class="save-btn">Save</button>
+        <button class="cancel-btn">Cancel</button>
+      `;
       buttonParent.appendChild(editActions);
     }
     editActions.classList.remove('hidden');
 
     const targetType = editButton?.dataset.editTarget;
     if (targetType === 'sub_question') {
-        container.style.display = 'block';
-        container.classList.add('is-editing-mcq'); // ← add this
+      container.style.display = 'block';
+      container.classList.add('is-editing-mcq');
     }
 
     container.querySelectorAll(selector).forEach((el) => {
@@ -136,37 +143,33 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
         return;
       }
 
-      // MODIFICATION: Store the rendered HTML for cancel, but use raw text for the input.
-      el.dataset.originalValue = el.innerHTML; // Store rendered HTML for perfect cancel
+      el.dataset.originalValue = el.innerHTML;
 
-      // --- WITH THIS BLOCK ---
       let rawText;
       try {
         if (el.dataset.originalText !== undefined && el.dataset.originalText !== null) {
           rawText = JSON.parse(el.dataset.originalText);
         } else {
-          rawText = el.textContent.trim(); // Fallback if attribute is missing
+          rawText = el.textContent.trim();
         }
       } catch (e) {
         rawText = el.dataset.originalText || el.textContent.trim();
       }
-      // --- END OF REPLACEMENT ---
 
       let input;
       const fieldType = el.dataset.editable;
 
       if (
-        ['context_text', 'extra_comment', 'feedback_comment', 'grading_regulations', 'answer_text', 'sub_q_text_content', 'app_text'].includes(
-          fieldType,
-        )
+        ['context_text', 'extra_comment', 'feedback_comment', 'grading_regulations', 'answer_text', 'sub_q_text_content', 'app_text'].includes(fieldType)
       ) {
+        const txt = fieldType === 'grading_regulations' ? el.innerHTML : rawText;
         input = document.createElement('textarea');
-        input.value = fieldType === 'grading_regulations' ? el.innerHTML : rawText; // Use raw text
+        input.value = txt;
         input.rows = Math.max(3, rawText.length / 70);
       } else {
         input = document.createElement('input');
         input.type = fieldType === 'component_points' || fieldType === 'sub_points_awarded' ? 'number' : 'text';
-        input.value = rawText; // Use raw text
+        input.value = rawText;
       }
 
       input.className = 'editable-input';
@@ -176,37 +179,38 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
       else input.focus();
     });
 
-      editActions.querySelector('.save-btn').onclick = () => saveChanges(container, editButton);
-      editActions.querySelector('.cancel-btn').onclick = () => toggleEditMode(container, false, fields, editButton);
+    editActions.querySelector('.save-btn').onclick = () => saveChanges(container, editButton);
+    editActions.querySelector('.cancel-btn').onclick = () => toggleEditMode(container, false, fields, editButton);
 
     if (editButton?.dataset.editTarget === 'sub_question') {
-        setupMcqEditingUI(container);
+      setupMcqEditingUI(container);
     }
   } else {
-      if (editButton) editButton.classList.remove('hidden');
-      if (editActions) editActions.classList.add('hidden');
+    if (editButton) editButton.classList.remove('hidden');
 
-      const targetType = editButton?.dataset.editTarget;
-      if (targetType === 'sub_question') {
-          container.style.display = 'flex';
-          container.classList.remove('is-editing-mcq'); // ← and remove it here
-          teardownMcqEditingUI(container);   // remove toolbar/convert/handlers
-          restoreMcqSnapshot(container);     // ✅ put MCQs back exactly as they were
-      }
+    // Hide ONLY the controls next to this button’s parent
+    if (editActions) editActions.classList.add('hidden');
 
-      container.querySelectorAll(selector).forEach((el) => {
-          // existing restore logic for non-MCQ fields
-          const isQuestionContextEdit = editButton.dataset.editTarget === 'question_context';
-          if (isQuestionContextEdit && el.dataset.editable === 'extra_comment' && el.closest('.model-alternative')) return;
-          if (el.dataset.originalValue) el.innerHTML = el.dataset.originalValue;
-      });
+    const targetType = editButton?.dataset.editTarget;
+    if (targetType === 'sub_question') {
+      container.style.display = 'flex';
+      container.classList.remove('is-editing-mcq');
+      teardownMcqEditingUI(container);
+      restoreMcqSnapshot(container);
+    }
 
-      // after the loop that restores originalValue
-      if (editButton?.dataset.editTarget === 'sub_question') {
-          cleanupMcqDomAfterCancel(container);
-      }
+    container.querySelectorAll(selector).forEach((el) => {
+      const isQuestionContextEdit = editButton.dataset.editTarget === 'question_context';
+      if (isQuestionContextEdit && el.dataset.editable === 'extra_comment' && el.closest('.model-alternative')) return;
+      if (el.dataset.originalValue) el.innerHTML = el.dataset.originalValue;
+    });
+
+    if (editButton?.dataset.editTarget === 'sub_question') {
+      cleanupMcqDomAfterCancel(container);
+    }
   }
 }
+
 
 /**
  * Persist edits to the database and refresh the UI.
