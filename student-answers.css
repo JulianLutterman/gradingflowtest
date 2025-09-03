@@ -4,7 +4,7 @@
     background: var(--color-blue-pastel-light-one);
     color: var(--color-text-light);
     border: 3px solid var(--color-blue-pastel-light-two);
-    border-radius: 10px;
+    border-radius: 15px;
     box-shadow: -4px 5px 0 var(--color-blue-pastel);
     /* Layout properties to center content in the large button */
     display: flex;
@@ -31,7 +31,7 @@
 .student-answer-item {
     padding: 1rem;
     background-color: var(--color-light-blue-two);
-    border-radius: 10px;
+    border-radius: 15px;
     margin: 0 0 1rem 0;
 }
 
