@@ -833,19 +833,15 @@ function setEditModeStyles(root, isEditing, targetType) {
   const apply = (sel, fn) => root.querySelectorAll(sel).forEach(fn);
 
   switch (targetType) {
-    case 'sub_question': {
-      // Styling that makes sense while editing sub-questions
-      apply('.points-badge', el => el.style.marginBottom = isEditing ? '0' : '');
-      apply('.points-badge', el => el.style.borderRadius = isEditing ? '10px' : '');
-      apply('.points-badge', el => el.style.paddingRight = isEditing ? '5px' : '');
-      break;
-    }
     case 'model_alternative': {
       // Only affect model components inside the model alternative being edited
       apply('.model-component p', el => el.style.height = isEditing ? '-webkit-fill-available' : '');
       apply('.model-component p', el => el.style.width = isEditing ? 'inherit' : '');
       apply('.model-component', el => el.style.borderBottom = isEditing ? 'none' : '');
       apply('.model-component', el => el.style.paddingTop = isEditing ? '0.4rem' : '');
+      apply('.points-badge', el => el.style.marginBottom = isEditing ? '0' : '');
+      apply('.points-badge', el => el.style.borderRadius = isEditing ? '10px' : '');
+      apply('.points-badge', el => el.style.paddingRight = isEditing ? '5px' : '');
       break;
     }
     case 'student_answer':
