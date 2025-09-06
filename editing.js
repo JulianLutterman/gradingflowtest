@@ -76,6 +76,20 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
   const targetType = editButton?.dataset.editTarget;
   setEditModeStyles(container, isEditing, targetType);
 
+  if (targetType === 'model_alternative') {
+      // Show/hide the model-alt inline tools only for THIS alternative being edited
+      const addCommentBtn = container.querySelector('.add-alt-comment-btn');
+      const addCompBtn = container.querySelector('.add-model-component-btn');
+    
+      // Button visibility: only in edit mode
+      if (addCompBtn) addCompBtn.classList.toggle('hidden', !isEditing);
+    
+      // Add-comment button: only in edit & only if not already present
+      const hasComment = !!container.querySelector('[data-editable="extra_comment"]');
+      if (addCommentBtn) addCommentBtn.classList.toggle('hidden', !isEditing || hasComment);
+  }
+
+
   const selector = fields
     ? fields.map((field) => `[data-editable="${field}"]`).join(', ')
     : '[data-editable]';
@@ -297,23 +311,54 @@ async function saveChanges(container, editButton) {
           break;
       }
       case 'model_alternative': {
-        const altId = editButton.dataset.alternativeId;
-        const extraComm = container.querySelector('[data-editable="extra_comment"] .editable-input');
-        if (extraComm) {
-          promises.push(sb.from('model_alternatives').update({ extra_comment: extraComm.value }).eq('id', altId));
-        }
-        container.querySelectorAll('.model-component').forEach((compEl) => {
-          const compId = compEl.dataset.componentId;
-          const compUpdates = {};
-          const compText = compEl.querySelector('[data-editable="component_text"] .editable-input');
-          const compPoints = compEl.querySelector('[data-editable="component_points"] .editable-input');
-          if (compText) compUpdates.component_text = compText.value;
-          if (compPoints) compUpdates.component_points = Number(compPoints.value);
-          if (Object.keys(compUpdates).length > 0) {
-            promises.push(sb.from('model_components').update(compUpdates).eq('id', compId));
+          const altId = editButton.dataset.alternativeId;
+        
+          // Save (or add) extra comment if present
+          const extraComm = container.querySelector('[data-editable="extra_comment"] .editable-input');
+          if (extraComm) {
+            promises.push(sb.from('model_alternatives').update({ extra_comment: extraComm.value }).eq('id', altId));
           }
-        });
-        break;
+        
+          // Collect components in DOM order (bottom stays bottom)
+          const compEls = Array.from(container.querySelectorAll('.model-component'));
+          const comps = compEls.map((el, idx) => {
+            const compId = el.dataset.componentId || null;
+            const compTextEl = el.querySelector('[data-editable="component_text"] .editable-input');
+            const compPointsEl = el.querySelector('[data-editable="component_points"] .editable-input');
+            return {
+              id: compId,
+              component_text: compTextEl ? compTextEl.value : null,
+              component_points: compPointsEl ? Number(compPointsEl.value || 0) : 0,
+              component_order: idx + 1,
+            };
+          });
+        
+          const toUpdate = comps.filter(c => !!c.id);
+          const toInsert = comps.filter(c => !c.id).map(c => ({
+            alternative_id: altId,
+            component_text: c.component_text,
+            component_points: c.component_points,
+            component_order: c.component_order,
+          }));
+        
+          // Updates (text, points, and order)
+          for (const upd of toUpdate) {
+            promises.push(
+              sb.from('model_components')
+                .update({
+                  component_text: upd.component_text,
+                  component_points: upd.component_points,
+                  component_order: upd.component_order,
+                })
+                .eq('id', upd.id)
+            );
+          }
+        
+          // Inserts
+          if (toInsert.length) {
+            promises.push(sb.from('model_components').insert(toInsert));
+          }
+          break;
       }
       case 'student_answer': {
         const ansId = editButton.dataset.answerId;
@@ -882,3 +927,240 @@ function setEditModeStyles(root, isEditing, targetType) {
     }
   }
 }
+
+
+
+// ====== ADD FLOWS (sub-question, alt, component, comment, student, full question) ======
+
+/** Create a brand new sub-question in a specific question, plus stub student answers. */
+async function addSubQuestion(questionId) {
+  const examId = new URLSearchParams(window.location.search).get('id');
+  try {
+    // 1) Insert sub-question
+    const { data: subQ, error: subQErr } = await sb
+      .from('sub_questions')
+      .insert({ question_id: questionId, sub_q_text_content: '', max_sub_points: 0 })
+      .select('id')
+      .single();
+    if (subQErr) throw subQErr;
+
+    // 2) Create placeholder answers for all existing student_exams of this exam
+    const { data: studentExams, error: seErr } = await sb
+      .from('student_exams')
+      .select('id')
+      .eq('exam_id', examId);
+    if (seErr) throw seErr;
+
+    if (studentExams && studentExams.length > 0) {
+      const placeholders = studentExams.map((se) => ({
+        student_exam_id: se.id,
+        sub_question_id: subQ.id,
+        answer_text: 'Student has not attempted to answer this sub question',
+        answer_visual: null,
+        sub_points_awarded: null,
+        feedback_comment: null,
+      }));
+      const { error: ansErr } = await sb.from('student_answers').insert(placeholders);
+      if (ansErr) throw ansErr;
+    }
+
+    // 3) Refresh + auto-enter edit mode on the new sub-question
+    await loadExamDetails(examId);
+    const subEditBtn = document.querySelector(
+      `.edit-btn[data-edit-target="sub_question"][data-sub-question-id="${subQ.id}"]`
+    );
+    if (subEditBtn) subEditBtn.click();
+  } catch (e) {
+    console.error('addSubQuestion failed:', e);
+    alert(`Could not add sub-question: ${e.message}`);
+  }
+}
+
+/** Add a new model alternative to a sub-question and jump into edit mode. */
+async function addModelAlternative(subQuestionId) {
+  try {
+    // Compute next alternative number
+    const { data: existing, error: exErr } = await sb
+      .from('model_alternatives')
+      .select('alternative_number')
+      .eq('sub_question_id', subQuestionId);
+    if (exErr) throw exErr;
+    const nextNum =
+      (existing || []).reduce((m, r) => Math.max(m, Number(r.alternative_number || 0)), 0) + 1;
+
+    const { data: alt, error: insErr } = await sb
+      .from('model_alternatives')
+      .insert({ sub_question_id: subQuestionId, alternative_number: nextNum, extra_comment: null })
+      .select('id')
+      .single();
+    if (insErr) throw insErr;
+
+    // Reload + open edit
+    const examId = new URLSearchParams(window.location.search).get('id');
+    await loadExamDetails(examId);
+    const altEditBtn = document.querySelector(
+      `.edit-btn[data-edit-target="model_alternative"][data-alternative-id="${alt.id}"]`
+    );
+    if (altEditBtn) altEditBtn.click();
+  } catch (e) {
+    console.error('addModelAlternative failed:', e);
+    alert(`Could not add model alternative: ${e.message}`);
+  }
+}
+
+/** Within a model alternative currently in edit mode, insert a blank extra_comment area if missing. */
+function addAlternativeCommentDom(alternativeEl) {
+  // Already present? No-op.
+  if (alternativeEl.querySelector('[data-editable="extra_comment"]')) return;
+
+  // Insert right after the <h5>
+  const h5 = alternativeEl.querySelector('h5');
+  const p = document.createElement('p');
+  p.className = 'formatted-text';
+  p.innerHTML = `<em><span data-editable="extra_comment" data-original-text=""></span></em>`;
+  if (h5 && h5.nextSibling) {
+    alternativeEl.insertBefore(p, h5.nextSibling);
+  } else {
+    alternativeEl.appendChild(p);
+  }
+
+  // Because we are already in edit-mode, convert the new span into an input immediately
+  const span = p.querySelector('[data-editable="extra_comment"]');
+  if (span) {
+    const input = document.createElement('textarea');
+    input.className = 'editable-input';
+    input.rows = 3;
+    input.placeholder = 'Add an optional comment for this alternative...';
+    span.innerHTML = '';
+    span.appendChild(input);
+    input.focus();
+  }
+}
+
+/** Append a new model component row (DOM-only); Save will persist inserts. */
+function addModelComponentDom(alternativeEl) {
+  // Find or create a dedicated container for components for clarity
+  let compsContainer = alternativeEl.querySelector('.model-components-container');
+  if (!compsContainer) {
+    compsContainer = document.createElement('div');
+    compsContainer.className = 'model-components-container';
+    // Place it after any comment (or after h5)
+    const after = alternativeEl.querySelector('[data-editable="extra_comment"]')?.closest('p') ||
+                  alternativeEl.querySelector('h5');
+    if (after && after.nextSibling) {
+      alternativeEl.insertBefore(compsContainer, after.nextSibling);
+    } else {
+      alternativeEl.appendChild(compsContainer);
+    }
+  }
+
+  const comp = document.createElement('div');
+  comp.className = 'model-component';
+  // No data-component-id => treated as new insert on save
+  comp.innerHTML = `
+      <p class="formatted-text" data-editable="component_text">
+        <input type="text" class="editable-input" placeholder="Component text..." />
+      </p>
+      <span class="points-badge">Points:
+        <span data-editable="component_points"><input type="number" class="editable-input" value="0" /></span>
+      </span>
+  `;
+  compsContainer.appendChild(comp);
+}
+
+/** Add a new student to the exam + stub answers across all sub-questions; then open name edit. */
+async function addStudentToExam(examId) {
+  try {
+    // 1) Create a blank student
+    const { data: student, error: sErr } = await sb
+      .from('students')
+      .insert({ full_name: '', student_number: null })
+      .select('id')
+      .single();
+    if (sErr) throw sErr;
+
+    // 2) Create student_exam for this exam
+    const { data: se, error: seErr } = await sb
+      .from('student_exams')
+      .insert({ student_id: student.id, exam_id: examId, status: 'pending' })
+      .select('id')
+      .single();
+    if (seErr) throw seErr;
+
+    // 3) Create placeholder answers for ALL sub-questions in this exam
+    // Use currentExamData if available to avoid extra queries
+    let subQIds = [];
+    if (currentExamData?.questions?.length) {
+      subQIds = currentExamData.questions.flatMap((q) =>
+        (q.sub_questions || []).map((sq) => sq.id)
+      );
+    } else {
+      // Fallback: fetch question ids then sub-questions
+      const { data: qs, error: qErr } = await sb.from('questions').select('id').eq('exam_id', examId);
+      if (qErr) throw qErr;
+      const qIds = (qs || []).map((r) => r.id);
+      const { data: sqs, error: sqErr } = await sb
+        .from('sub_questions')
+        .select('id')
+        .in('question_id', qIds);
+      if (sqErr) throw sqErr;
+      subQIds = (sqs || []).map((r) => r.id);
+    }
+    if (subQIds.length) {
+      const placeholders = subQIds.map((subId) => ({
+        student_exam_id: se.id,
+        sub_question_id: subId,
+        answer_text: 'Student has not attempted to answer this sub question',
+        answer_visual: null,
+        sub_points_awarded: null,
+        feedback_comment: null,
+      }));
+      const { error: ansErr } = await sb.from('student_answers').insert(placeholders);
+      if (ansErr) throw ansErr;
+    }
+
+    // 4) Reload + focus edit on the new student's name (any sub-question instance)
+    await loadExamDetails(examId);
+    const nameEditBtn = document.querySelector(
+      `.edit-btn[data-edit-target="student_info"][data-student-id="${student.id}"]`
+    );
+    if (nameEditBtn) {
+      // Open the dropdown (if needed) then enter edit mode
+      const details = nameEditBtn.closest('details');
+      if (details && !details.open) details.open = true;
+      nameEditBtn.click();
+    }
+  } catch (e) {
+    console.error('addStudentToExam failed:', e);
+    alert(`Could not add student: ${e.message}`);
+  }
+}
+
+/** Add a brand new full exam question at the end. */
+async function addFullQuestion() {
+  const examId = new URLSearchParams(window.location.search).get('id');
+  try {
+    const nums = (currentExamData?.questions || [])
+      .map((q) => parseInt((q.question_number || '').toString(), 10))
+      .filter((n) => !isNaN(n));
+    const nextNumber = (nums.length ? Math.max(...nums) : 0) + 1;
+
+    const { error } = await sb
+      .from('questions')
+      .insert({
+        exam_id: examId,
+        question_number: String(nextNumber),
+        context_text: '',
+        max_total_points: 0,
+      });
+    if (error) throw error;
+
+    await loadExamDetails(examId);
+    // Optional: scroll to bottom where the new question will be
+    questionsContainer.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  } catch (e) {
+    console.error('addFullQuestion failed:', e);
+    alert(`Could not add question: ${e.message}`);
+  }
+}
+
