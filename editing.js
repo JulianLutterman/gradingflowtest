@@ -165,7 +165,20 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
     container.querySelectorAll(selector).forEach((el) => {
       const isQuestionContextEdit = targetType === 'question_context';
       if (isQuestionContextEdit && el.dataset.editable === 'extra_comment' && el.closest('.model-alternative')) return;
-      if (el.dataset.originalValue) el.innerHTML = el.dataset.originalValue;
+    
+      // Restore even if the original HTML was an empty string
+      if (el.hasAttribute('data-original-value')) {
+        el.innerHTML = el.dataset.originalValue || '';
+        el.removeAttribute('data-original-value');
+      } else {
+        // Fallback: strip any injected input if we somehow have no snapshot
+        const input = el.querySelector('.editable-input');
+        if (input) {
+          const wrapper = input.parentElement;
+          if (wrapper) wrapper.innerHTML = '';
+          else el.innerHTML = '';
+        }
+      }
     });
 
     if (targetType === 'sub_question') {
