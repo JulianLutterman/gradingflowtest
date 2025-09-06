@@ -52,4 +52,43 @@ document.addEventListener('DOMContentLoaded', async () => {
   examNameTitle.addEventListener('click', handleEditClick);
   rulesModal.addEventListener('click', handleEditClick);
   appendixModal.addEventListener('click', handleEditClick);
+
+  // Delegated "add" buttons inside questions container
+  questionsContainer.addEventListener('click', (e) => {
+    const addSubQ = e.target.closest('.add-sub-question-btn');
+    if (addSubQ) {
+      addSubQuestion(addSubQ.dataset.questionId);
+      return;
+    }
+    const addAlt = e.target.closest('.add-model-alternative-btn');
+    if (addAlt) {
+      addModelAlternative(addAlt.dataset.subQuestionId);
+      return;
+    }
+    const addStudent = e.target.closest('.add-student-btn');
+    if (addStudent) {
+      addStudentToExam(addStudent.dataset.examId);
+      return;
+    }
+    const addAltComment = e.target.closest('.add-alt-comment-btn');
+    if (addAltComment) {
+      const altEl = addAltComment.closest('.model-alternative');
+      addAlternativeCommentDom(altEl);
+      return;
+    }
+    const addComp = e.target.closest('.add-model-component-btn');
+    if (addComp) {
+      const altEl = addComp.closest('.model-alternative');
+      addModelComponentDom(altEl);
+      return;
+    }
+  });
+  
+  // "Add Question" below all question blocks
+  questionsContainer.addEventListener('click', (e) => {
+    const addQ = e.target.closest('.add-full-question-btn');
+    if (addQ) {
+      addFullQuestion();
+    }
+  });
 });
