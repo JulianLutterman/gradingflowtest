@@ -1,4 +1,4 @@
-﻿// =================================================================
+// =================================================================
 // --- INLINE EDITING WORKFLOW ---
 // =================================================================
 
@@ -107,10 +107,7 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
       }
 
       // Store rendered HTML for cancel
-      if ('originalValue' in el.dataset) {
-          el.innerHTML = el.dataset.originalValue || '';
-          delete el.dataset.originalValue;
-      }
+      el.dataset.originalValue = el.innerHTML;
 
       // Use raw text for inputs
       let rawText;
@@ -872,4 +869,3 @@ function setEditModeStyles(root, isEditing, targetType) {
     }
   }
 }
-
