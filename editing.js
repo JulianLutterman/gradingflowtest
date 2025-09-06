@@ -107,7 +107,10 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
       }
 
       // Store rendered HTML for cancel
-      el.dataset.originalValue = el.innerHTML;
+      if ('originalValue' in el.dataset) {
+          el.innerHTML = el.dataset.originalValue || '';
+          delete el.dataset.originalValue;
+      }
 
       // Use raw text for inputs
       let rawText;
