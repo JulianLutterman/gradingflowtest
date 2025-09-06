@@ -67,35 +67,60 @@ function renderExam(questions) {
           if (sq.model_alternatives && sq.model_alternatives.length > 0) {
             sq.model_alternatives.sort((a, b) => a.alternative_number - b.alternative_number);
             const alternativesHtml = sq.model_alternatives
+              .sort((a, b) => a.alternative_number - b.alternative_number)
               .map((alt) => {
-                if (alt.model_components) alt.model_components.sort((a, b) => a.component_order - b.component_order);
-                const componentsHtml = alt.model_components
-                  .map(
-                    (comp) => `
-                            <div class="model-component" data-component-id="${comp.id}">
-                                ${comp.component_text ? `<p class="formatted-text" data-editable="component_text" data-original-text="${comp.component_text || ''}">${comp.component_text}</p>` : ''}
-                                ${comp.component_visual ? `<img src="${comp.component_visual}" alt="Model component visual">` : ''}
-                                <span class="points-badge">Points: <span data-editable="component_points">${comp.component_points}</span></span>
-                            </div>`,
-                  )
-                  .join('');
-
+                const comps = (alt.model_components || []).sort((a, b) => a.component_order - b.component_order);
+            
+                const componentsHtml = comps.map((comp) => `
+                  <div class="model-component" data-component-id="${comp.id}">
+                    ${comp.component_text ? `<p class="formatted-text" data-editable="component_text" data-original-text="${comp.component_text || ''}">${comp.component_text}</p>` : `
+                      <p class="formatted-text" data-editable="component_text"></p>`}
+                    ${comp.component_visual ? `<img src="${comp.component_visual}" alt="Model component visual">` : ''}
+                    <span class="points-badge">Points: <span data-editable="component_points">${comp.component_points}</span></span>
+                  </div>
+                `).join('');
+            
                 return `
-                            <div class="model-alternative" data-alternative-id="${alt.id}">
-                                <button id="model-alt-edit-btn" class="edit-btn" data-edit-target="model_alternative" data-alternative-id="${alt.id}">${EDIT_ICON_SVG}</button>
-                                <h5>Alternative ${alt.alternative_number}</h5>
-                                ${
-                                  alt.extra_comment
-                                    ? `<p class="formatted-text"><em><span data-editable="extra_comment" data-original-text="${alt.extra_comment || ''}">${alt.extra_comment}</span></em></p>`
-                                    : ''
-                                }
-                                ${componentsHtml}
-                            </div>`;
+                  <div class="model-alternative" data-alternative-id="${alt.id}">
+                    <button id="model-alt-edit-btn" class="edit-btn" data-edit-target="model_alternative" data-alternative-id="${alt.id}">${EDIT_ICON_SVG}</button>
+                    <h5>Alternative ${alt.alternative_number}</h5>
+            
+                    <!-- Edit-only: add extra comment (shown only if none yet) -->
+                    <button type="button"
+                            class="inline-add-btn add-alt-comment-btn hidden"
+                            data-alternative-id="${alt.id}">
+                      + Add comment
+                    </button>
+            
+                    ${alt.extra_comment
+                      ? `<p class="formatted-text"><em><span data-editable="extra_comment" data-original-text="${alt.extra_comment || ''}">${alt.extra_comment}</span></em></p>`
+                      : ''}
+            
+                    <!-- Components (wrapped so we can append new ones at the end) -->
+                    <div class="model-components-container">
+                      ${componentsHtml}
+                    </div>
+            
+                    <!-- Edit-only: add component -->
+                    <button type="button"
+                            class="mcq-convert-btn add-model-component-btn hidden"
+                            data-alternative-id="${alt.id}">
+                      + Add Model Component
+                    </button>
+                  </div>`;
               })
               .join('');
             modelAnswerHtml = `<div class="model-answer-section">${alternativesHtml}</div>`;
           }
-          const modelCell = `<div class="grid-cell" data-sub-question-id="${sq.id}">${modelAnswerHtml}</div>`;
+          const modelCell = `
+            <div class="grid-cell" data-sub-question-id="${sq.id}">
+              ${modelAnswerHtml}
+              <button type="button"
+                      class="mcq-convert-btn add-model-alternative-btn"
+                      data-sub-question-id="${sq.id}">
+                + Add Model Alternative
+              </button>
+            </div>`;
 
           let studentAnswersHtml = 'No answers submitted.';
           if (sq.student_answers && sq.student_answers.length > 0) {
@@ -153,7 +178,16 @@ function renderExam(questions) {
               .join('');
             studentAnswersHtml = studentDropdowns;
           }
-          const studentCell = `<div class="grid-cell">${studentAnswersHtml}</div>`;
+          const examId = new URLSearchParams(window.location.search).get('id');
+          const studentCell = `
+            <div class="grid-cell">
+              ${studentAnswersHtml}
+              <button type="button"
+                      class="mcq-convert-btn add-student-btn"
+                      data-exam-id="${examId}">
+                + Add Student
+              </button>
+            </div>`;
 
           return subQCell + modelCell + studentCell;
         })
@@ -193,6 +227,20 @@ function renderExam(questions) {
             ${gridHtml}
         `;
     questionsContainer.appendChild(questionBlock);
+    // After: questionsContainer.appendChild(questionBlock);
+    const leftCells = questionBlock.querySelectorAll('.sub-question-grid .grid-cell#sub-q-gridcell, .sub-question-grid .grid-cell[data-sub-question-id]');
+    const subLeftCells = Array.from(leftCells).filter(
+      (el) => el.id === 'sub-q-gridcell' && el.hasAttribute('data-sub-question-id') // left column cells
+    );
+    if (subLeftCells.length) {
+      const lastLeft = subLeftCells[subLeftCells.length - 1];
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'mcq-convert-btn add-sub-question-btn';
+      btn.dataset.questionId = q.id;
+      btn.textContent = '+ Add Sub-Question';
+      lastLeft.appendChild(btn);
+    }
   });
 
   questions.forEach((q) => {
@@ -228,6 +276,21 @@ function renderExam(questions) {
       }
     }
   });
+
+  // After all questionBlocks rendered:
+  const addQWrap = document.createElement('div');
+  addQWrap.style.display = 'flex';
+  addQWrap.style.justifyContent = 'center';
+  addQWrap.style.margin = '1rem 0 2rem 0';
+  
+  const addQBtn = document.createElement('button');
+  addQBtn.type = 'button';
+  addQBtn.className = 'mcq-convert-btn add-full-question-btn';
+  addQBtn.style.maxWidth = '320px';
+  addQBtn.textContent = '+ Add Question';
+  
+  addQWrap.appendChild(addQBtn);
+  questionsContainer.appendChild(addQWrap);
 
   renderMathInElement(questionsContainer, {
     delimiters: [
