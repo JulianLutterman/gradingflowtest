@@ -12,8 +12,8 @@
     margin-bottom: 10px;
     transform: translateY(-5px) translateX(4px);
     cursor: pointer;
-    padding: 7px 7px 7px 10px;
-    font-weight: 900;
+    padding: 4px 7px 4px 12px;
+    font-weight: 600;
     transition-duration: 0.2s;
 }
 

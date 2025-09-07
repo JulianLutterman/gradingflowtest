@@ -9,6 +9,10 @@
         font-size: 0.95rem;
     }
 
+.sub-question-content .formatted-text {
+    white-space: normal;
+}
+
 .sub-question-grid {
     display: grid;
     grid-template-columns: 2fr 3fr 3fr;
@@ -30,12 +34,21 @@
 
 .grid-cell {
     padding-bottom: 1.5rem;
+    border-bottom: 2px dashed var(--color-light-blue-two);
+    margin-bottom: 1.5rem;
 }
 
 #sub-q-gridcell {
     display: flex;
-    flex-direction: row;
+    justify-content: space-between;
+    flex-direction: column;
     width: 100%;
+    position: relative;
+}
+
+#alt-model-gridcell, #student-answer-gridcell {
+    display: flex;
+    flex-direction: column;
 }
 
 /* --- NEW: Styles for Inline Editing --- */
@@ -158,7 +171,7 @@
 
     .model-alternative .cancel-btn:hover,
     .student-answer-item .cancel-btn:hover {
-        background-color: var(--color-lighter-blue);
+        background-color: var(--color-light-blue-three);
     }
 
 .student-answer-dropdown summary .cancel-btn {
@@ -297,7 +310,7 @@ textarea.editable-input {
 }
 
 .sub-question-content {
-    width: inherit;
+    padding-right: 40px;
 }
 
     .sub-question-content .edit-btn {
@@ -375,7 +388,6 @@ textarea.editable-input {
 .mcq-edit-toolbar {
     display: flex;
     gap: 0.5rem;
-    margin: 0.5rem 0px;
 }
 
 h5 {
@@ -385,4 +397,14 @@ h5 {
 }
 
 .model-answer-section {
+}
+
+.no-model-placeholder {
+    margin: 0 0 0.4rem 0;
+}
+
+
+.grid-footer {
+    border-bottom: none;
+    margin-bottom: 0;
 }

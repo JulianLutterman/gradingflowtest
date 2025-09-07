@@ -117,11 +117,10 @@ button {
     width: fit-content;
 }
 
-.mcq-convert-btn {
-    padding: 0.5rem 0.8rem;
+.mcq-convert-btn, .add-row-btn {
     text-align: left;
-    --radius: 10px;
-    --bw: 2.5px; /* border thickness */
+    --radius: 15px;
+    --bw: 3px; /* border thickness */
     --border-color: var(--color-light-blue-two);
     --bg: var(--color-lighter-blue); /* button fill */
     --fg: var(--color-text-dark); /* text color */
@@ -135,29 +134,83 @@ button {
     linear-gradient(var(--border-color), var(--border-color)) left var(--radius) bottom 0 / calc(100% - 2*var(--radius)) var(--bw) no-repeat,
     /* BOTTOM-LEFT quarter-ring (the smooth turn) */
     radial-gradient(circle at right top, transparent calc(var(--radius) - var(--bw)), var(--border-color) calc(var(--radius) - var(--bw)) var(--radius), transparent var(--radius) ) left 0 bottom 0 / var(--radius) var(--radius) no-repeat;
-    background-color: var(--color-lighter-blue);
-    margin-left: 1rem;
+    background-color: var(--bg);
     width: -webkit-fill-available;
 }
 
-    .mcq-convert-btn:hover {
-        background-color: var(--color-light-blue-two);
+    .mcq-convert-btn:hover, .add-row-btn:hover {
+        background-color: var(--border-color);
     }
 
-.inline-add-btn {
-  padding: 0.35rem 0.6rem;
-  font-size: 0.9rem;
-  font-weight: 700;
-  border-radius: 10px;
-  border: 2px dashed var(--color-light-blue-two);
-  background: var(--color-background);
-  color: var(--color-text-dark);
-  cursor: pointer;
-  transition: 0.2s ease;
-  width: fit-content;
-  margin: 0.25rem 0 0.5rem 0;
-}
-.inline-add-btn:hover {
-  background: var(--color-background-border-between);
+.mcq-convert-btn {
+    margin-left: 1rem;
+    margin: 0.5rem 0px;
+    --radius: 10px;
+    --bw: 2.5px;
+    padding: 0.5rem 0.8rem;
 }
 
+.add-model-component-btn {
+    padding: 0.5rem 0.8rem;
+    margin-left: 0.75rem;
+    --border-color: var(--color-light-blue-three);
+    --bg: var(--color-light-blue-two);
+    display: block;
+    margin-top: 0.4rem;
+    --radius: 10px;
+    --bw: 2.5px;
+}
+
+    .add-model-component-btn:hover {
+    }
+
+.add-model-alt-btn, .add-student-btn, .add-subq-btn {
+    padding: 10px 15px;
+}
+
+.add-question-btn {
+    background-color: var(--color-background);
+    --border-color: var(--color-lighter-blue);
+    padding: 1.5rem;
+    font-size: 1.8rem;
+    font-weight: 800;
+    --radius: 25px;
+    --bw: 5px;
+}
+
+    /* Inline add button (edit-only helpers inside alternatives) */
+    .inline-add-btn {
+    padding: 0.4rem 0.6rem;
+    border: none;
+    border-radius: 8px;
+    background-color: var(--color-background-border-between);
+    color: var(--color-text-dark);
+    font-weight: 700;
+    cursor: pointer;
+    transition-duration: 0.2s;
+    width: fit-content;
+}
+
+    .inline-add-btn:hover {
+        background-color: var(--color-background-border);
+    }
+
+/* Small helper spacing for add-row buttons placed inside cells */
+.add-row-btn {
+    width: 50%;
+}
+
+.add-subq-btn {
+    width: -webkit-fill-available;
+}
+
+/* Visual separator for “footer” row at bottom of sub-q column */
+.add-alt-comment-btn {
+    background-color: transparent;
+    font-style: italic;
+    font-weight: 100;
+}
+
+.add-alt-comment-btn:hover {
+    background-color: var(--color-light-blue-three);
+}

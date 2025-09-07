@@ -47,11 +47,13 @@
 
         .question-context-text .edit-btn:hover,
         #sub-q-edit-btn:hover,
-        #model-alt-edit-btn:hover,
-        #student-answer-edit-btn:hover,
-        #student-name-edit-btn:hover,
         #modal-edit-btn:hover {
             background-color: var(--color-light-blue-two);
+        }
+
+        #model-alt-edit-btn:hover,
+        #student-answer-edit-btn:hover {
+            background-color: var(--color-light-blue-three);
         }
 
     .question-context-text svg,
@@ -80,7 +82,9 @@
 }
 
 #sub-q-edit-btn {
-    margin-left: 8px;
+    position: absolute;
+    right: 0;
+    z-index: 1;
 }
 
 #model-alt-edit-btn,
@@ -93,11 +97,6 @@
 
 #student-name-edit-btn:hover {
     background-color: var(--color-blue-pastel-light-two);
-}
-
-#model-alt-edit-btn:hover,
-#student-answer-edit-btn:hover {
-    background-color: var(--color-lighter-blue);
 }
 
 #modal-edit-btn {

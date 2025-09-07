@@ -7,6 +7,7 @@
     --color-text-dark: #14110f; /* Dark charcoal for text, borders, and success states */
     --color-text-light: #f7f7ff; /* Same as background, used for text on dark surfaces */
     --color-primary: #0066ff; /* Main blue for buttons */
+    --color-light-blue-three: #adceff;
     --color-light-blue-two: #c2daff;
     --color-lighter-blue: #d6e7ff;
     --color-blue-pastel: #334195;

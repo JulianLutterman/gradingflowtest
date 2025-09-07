@@ -2,16 +2,16 @@
     padding: 15px;
     background-color: var(--color-light-blue-two);
     border-radius: 15px;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
 }
 
 .model-component {
-    padding: 0.75rem 0 0.15rem 0;
+    padding: 0.75rem 0 0.25rem 0;
     margin-left: 0.75rem;
-    border-bottom: 2px solid var(--color-lighter-blue);
+    border-bottom: 2px solid var(--color-light-blue-three);
     display: flex; /* changed from inline-flex to flex */
     justify-content: space-between; /* distributes items left and right */
-    width: calc(100% - 1.5rem);
+    width: calc(100% - 0.75rem);
     align-items: center; /* vertically centers items */
 }
 
