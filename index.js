@@ -243,7 +243,12 @@ async function uploadExamToSupabase(teacherId, examName, examData, zip, setButto
         const questionId = question.id;
 
         if (q.sub_questions) {
+            // Establish a fallback counter if the JSON doesn't include sub_question_order
+            let fallbackOrder = 1;
+
             for (const sq of q.sub_questions) {
+                const subQuestionOrder = Number.isFinite(+sq.sub_question_order) ? +sq.sub_question_order : fallbackOrder++;
+
                 const { data: subQuestion, error: subQError } = await sb
                     .from('sub_questions')
                     .insert({
@@ -251,6 +256,7 @@ async function uploadExamToSupabase(teacherId, examName, examData, zip, setButto
                         sub_q_text_content: sq.sub_q_text_content,
                         orig_llm_sub_q_text_content: sq.sub_q_text_content,
                         max_sub_points: sq.max_sub_points,
+                        sub_question_order: subQuestionOrder,
                     })
                     .select('id')
                     .single();

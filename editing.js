@@ -453,16 +453,40 @@ async function saveChanges(container, editButton) {
                     const questionId = editButton.dataset.questionId;
                     if (!questionId) throw new Error('Missing question_id for new sub-question');
 
+                    // Determine next sub_question_order for this question from the DB (robust even if currentExamData is stale)
+                    let nextOrder = 1;
+                    try {
+                        const { data: latest, error: latestErr } = await sb
+                            .from('sub_questions')
+                            .select('sub_question_order')
+                            .eq('question_id', questionId)
+                            .order('sub_question_order', { ascending: false })
+                            .limit(1);
+                        if (latestErr) throw latestErr;
+                        if (latest && latest.length) nextOrder = Number(latest[0].sub_question_order || 0) + 1;
+                    } catch (e) {
+                        console.warn('Could not compute next sub_question_order; defaulting to 1', e);
+                    }
+
                     const ins = await sb.from('sub_questions')
-                        .insert({ question_id: questionId, sub_q_text_content: subQText || '' })
+                        .insert({
+                            question_id: questionId,
+                            sub_q_text_content: subQText || '',
+                            sub_question_order: nextOrder
+                        })
                         .select('id')
                         .single();
+
                     if (ins.error) throw ins.error;
                     const newSubId = ins.data.id;
 
                     // Insert MCQs, if any
                     if (finalList.length) {
-                        const mcqPayload = finalList.map(x => ({ sub_question_id: newSubId, mcq_letter: x.mcq_letter, mcq_content: x.mcq_content }));
+                        const mcqPayload = finalList.map(x => ({
+                            sub_question_id: newSubId,
+                            mcq_letter: x.mcq_letter,
+                            mcq_content: x.mcq_content
+                        }));
                         const mcqRes = await sb.from('mcq_options').insert(mcqPayload);
                         if (mcqRes.error) throw mcqRes.error;
                     }

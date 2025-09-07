@@ -37,8 +37,16 @@ function renderExam(questions) {
             appendixButtonHtml = `<button id="${buttonId}" class="appendix-button">Show Appendix</button>`;
         }
 
-        // Build rows: each sub-q produces 3 cells (sub, model, student)
-        const subRows = (q.sub_questions || []).map((sq) => {
+        const orderedSubQs = [...(q.sub_questions || [])]
+            .sort((a, b) => {
+                const aa = Number.isFinite(+a.sub_question_order) ? +a.sub_question_order : Number.MAX_SAFE_INTEGER;
+                const bb = Number.isFinite(+b.sub_question_order) ? +b.sub_question_order : Number.MAX_SAFE_INTEGER;
+                if (aa !== bb) return aa - bb;
+                // deterministic fallback if orders collide or are missing
+                return (a.id || '').localeCompare(b.id || '');
+            });
+
+        const subRows = orderedSubQs.map((sq) => {
             // MCQ (kept container even if empty for editing)
             const mcqHtml = (sq.mcq_options && sq.mcq_options.length > 0)
                 ? (`<div class="mcq-options">${[...sq.mcq_options].sort((a, b) => (a.mcq_letter || '').localeCompare(b.mcq_letter || ''))

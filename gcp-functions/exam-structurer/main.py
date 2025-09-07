@@ -31,11 +31,13 @@ Here is the base example JSON:
         "sub_questions": [
           {
             "sub_q_text_content": "placeholder text",
-            "max_sub_points": 3
+            "max_sub_points": 3,
+            "sub_question_order": 1
           },
           {
             "sub_q_text_content": "placeholder text",
-            "max_sub_points": 2
+            "max_sub_points": 2,
+            "sub_question_order": 2
           }
         ],
         "extra_comment": "You may use your calculator for this question"
@@ -56,7 +58,8 @@ Here is the base example JSON:
                 "mcq_letter": "b",
                 "mcq_content": "Lorem"
               }
-            ]
+            ],
+            "sub_question_order": 1
           }
         ]
       }
@@ -67,6 +70,7 @@ Here is the base example JSON:
 
 ### FURTHER INSTRUCTIONS:
 - Not all JSON attributes in the example need to be included in your output. For example, sometimes the user input does not contain images (context_visual attributes), or max_sub_points, or sometimes the question does not have subquestions at all but is just one question.
+- Include 'sub_question_order' for every sub-question. It must be a 1-based integer increasing in the same order the sub-questions appear in the source. Do not skip numbers.
 - It is possible that the input transcriptions contain titles of figures and charts and such (like "Figure 1" for example). Exclude these titles in your output.
 - If there are not really multiple subquestions, but just one main question, just output one sub question.
 - Typically, sub questions as given by the user are separated by hyphens, letters or other separators. For example, user input: "Explain why: - The US joined WW2 - The US dropped two bombs in Japan." In that case the two SEPARATE sub questions should be outputted by you: "Explain why the US joined WW2" and "Explain why the US dropped two bombs in Japan." This means you need to output full sentences, including the verb given at the start if the situation necessitates it.
