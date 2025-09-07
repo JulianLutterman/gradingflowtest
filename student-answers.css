@@ -28,6 +28,10 @@
     box-shadow: -2px 2px 0 var(--color-blue-pastel);
 }
 
+.is-editing-summary {
+    padding: padding: 4px 7px 4px 12px;
+}
+
 .student-answer-item {
     padding: 1rem;
     background-color: var(--color-light-blue-two);
