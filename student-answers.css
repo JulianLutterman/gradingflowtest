@@ -28,7 +28,7 @@
     box-shadow: -2px 2px 0 var(--color-blue-pastel);
 }
 
-.is-editing-summary {
+.student-answer-dropdown .is-editing-summary {
     padding: 4px 7px 4px 12px;
 }
 
