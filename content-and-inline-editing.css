@@ -13,6 +13,10 @@
     white-space: normal;
 }
 
+.is-editing-mcq .sub-question-content {
+    padding-right: 0;
+}
+
 .sub-question-grid {
     display: grid;
     grid-template-columns: 2fr 3fr 3fr;
