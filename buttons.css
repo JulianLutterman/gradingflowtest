@@ -144,7 +144,7 @@ button {
 
 .mcq-convert-btn {
     margin-left: 1rem;
-    margin: 0.5rem 0px;
+    margin: 0.5rem 0 0.5rem 1rem;
     --radius: 10px;
     --bw: 2.5px;
     padding: 0.5rem 0.8rem;
@@ -204,7 +204,7 @@ button {
     width: -webkit-fill-available;
 }
 
-/* Visual separator for ìfooterî row at bottom of sub-q column */
+/* Visual separator for ‚Äúfooter‚Äù row at bottom of sub-q column */
 .add-alt-comment-btn {
     background-color: transparent;
     font-style: italic;
