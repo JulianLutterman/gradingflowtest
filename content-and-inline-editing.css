@@ -1,4 +1,29 @@
-﻿.formatted-text {
+/* Top-right vertical stack (Sub-question: Delete above Edit) */
+.control-stack {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 2;
+}
+
+/* Top-right horizontal inline for model-alt (Edit left, Delete right) */
+.inline-controls { position: absolute; right: 8px; top: 8px; display: flex; gap: 6px; z-index: 2; }
+
+/* Keep model component delete hidden unless the alternative is in edit mode */
+.model-component .model-comp-delete-btn { display: none; }
+.model-alternative.is-editing .model-component .model-comp-delete-btn { display: inline-flex; }
+
+/* Right-side controls inside student summary */
+.student-summary-controls { margin-left: auto; display: inline-flex; gap: 6px; }
+
+/* Nudge delete buttons near badges/rows */
+.points-delete-btn { margin-left: 8px; }
+
+
+.formatted-text {
     white-space: pre-wrap;
     word-wrap: break-word;
     margin: 0;
