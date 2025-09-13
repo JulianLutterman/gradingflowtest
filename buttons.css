@@ -171,7 +171,7 @@ button {
 .add-question-btn {
     background-color: var(--color-background);
     --border-color: var(--color-lighter-blue);
-    padding: 1.5rem;
+    padding: 1rem 1.5rem;
     font-size: 1.8rem;
     font-weight: 800;
     --radius: 25px;

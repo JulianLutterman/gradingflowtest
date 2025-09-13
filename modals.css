@@ -46,3 +46,43 @@
     .modal-close:hover {
         color: var(--color-danger);
     }
+
+
+
+/* --- NEW: Confirmation Modal Styles --- */
+.confirm-modal-content {
+    max-width: 450px; /* Smaller modal */
+    padding: 2rem;
+    text-align: center;
+}
+
+    .confirm-modal-content h3 {
+        margin-top: 0;
+        margin-bottom: 1rem;
+        font-size: 1.5rem;
+    }
+
+    .confirm-modal-content p {
+        margin-bottom: 2rem;
+        font-size: 1.1rem;
+        line-height: 1.5;
+    }
+
+.confirm-modal-actions {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+}
+
+    .confirm-modal-actions button {
+        width: 120px; /* Fixed width for buttons */
+    }
+
+    /* Make the confirm button red */
+    .confirm-modal-actions .save-btn.danger {
+        background-color: var(--color-danger);
+    }
+
+        .confirm-modal-actions .save-btn.danger:hover {
+            filter: brightness(110%);
+        }
