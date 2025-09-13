@@ -37,7 +37,11 @@
     #model-alt-edit-btn,
     #student-answer-edit-btn,
     #student-name-edit-btn,
-    #modal-edit-btn {
+    #modal-edit-btn,
+    .sub-q-delete-btn,
+    .question-delete-btn,
+    .model-alt-delete-btn,
+    .student-delete-btn {
         margin-left: 0;
         padding: 5px;
         background-color: transparent;
@@ -52,18 +56,21 @@
         }
 
         #model-alt-edit-btn:hover,
+        .model-alt-delete-btn:hover,
         #student-answer-edit-btn:hover {
             background-color: var(--color-light-blue-three);
         }
 
     .question-context-text svg,
+    .question-header svg,
     #sub-q-gridcell svg,
     .model-alternative svg,
     .student-answer-item svg,
     .student-answer-dropdown summary svg,
-    .modal-content svg {
-        height: 1.5em;
-        width: 1.5em;
+    .modal-content svg,
+    .question-delete-btn svg {
+        height: 24px;
+        width: 24px;
         stroke: transparent;
         transition-duration: 0.3s;
     }
@@ -73,21 +80,21 @@
     .model-alternative:hover svg,
     .student-answer-item:hover svg,
     .student-answer-dropdown summary:hover svg,
-    .modal-content:hover svg {
+    .modal-content:hover svg,
+    .question-header:hover .question-delete-btn svg {
         stroke: var(--color-text-dark);
     }
+
 
 .student-answer-dropdown summary:hover svg {
     stroke: var(--color-text-light);
 }
 
 #sub-q-edit-btn {
-    position: absolute;
     right: 0;
     z-index: 1;
 }
 
-#model-alt-edit-btn,
 #student-answer-edit-btn {
     background-color: transparent;
     position: absolute;
@@ -95,7 +102,7 @@
     top: 8px;
 }
 
-#student-name-edit-btn:hover {
+#student-name-edit-btn:hover, .student-delete-btn:hover {
     background-color: var(--color-blue-pastel-light-two);
 }
 

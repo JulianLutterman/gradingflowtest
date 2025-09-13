@@ -56,7 +56,20 @@ async function handleEditClick(event) {
  */
 function toggleEditMode(container, isEditing, fields = null, editButtonParam = null) {
     const editButton = editButtonParam || container.querySelector('.edit-btn');
-    const buttonParent = editButton?.closest('.cell-header') || editButton?.parentElement || container;
+    let buttonParent = editButton?.closest('.cell-header') || editButton?.parentElement || container;
+
+    // Keep Save/Cancel OUT of icon stacks (delete-handlers puts Edit into these wrappers)
+    if (
+        buttonParent &&
+        (
+            buttonParent.classList.contains('control-stack') ||       // sub-question top-right stack
+            buttonParent.classList.contains('inline-controls') ||     // model-alternative top-right row
+            buttonParent.classList.contains('student-summary-controls') // student summary right-side row
+        )
+    ) {
+        buttonParent = container; // append Save/Cancel to the main container instead
+    }
+
     let editActions = buttonParent.querySelector('.edit-actions');
     const targetType = editButton?.dataset.editTarget;
 
@@ -973,7 +986,7 @@ function makeOptionsInteractive(mcqContainer) {
             const del = document.createElement('button');
             del.type = 'button';
             del.className = 'mcq-delete-btn';
-            del.textContent = 'x';
+            del.textContent = '×';
             del.addEventListener('click', () => {
                 opt.remove();
                 renumberLetters(mcqContainer);
@@ -1025,7 +1038,7 @@ function addMcqOption(mcqContainer) {
     const del = document.createElement('button');
     del.type = 'button';
     del.className = 'mcq-delete-btn';
-    del.textContent = 'x';
+    del.textContent = '×';
     del.addEventListener('click', () => {
         opt.remove();
         renumberLetters(mcqContainer);

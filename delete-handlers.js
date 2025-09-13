@@ -15,9 +15,35 @@
     const b = document.createElement('button');
     b.type = 'button';
     // reuse your red circular style
-    b.className = `mcq-delete-btn ${cls}`;
+    b.className = `${cls}`;
     b.title = title;
-    b.textContent = '×';
+    b.setAttribute('aria-label', 'Delete'); // accessibility
+    b.innerHTML = `
+        <!--
+        category: System
+        tags: [bin, litter, recycle, remove, delete, throw, away, waste]
+        version: "1.46"
+        unicode: "ef88"
+        -->
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="48"
+          height="48"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#14110f"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path d="M4 7h16" />
+          <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" />
+          <path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
+          <path d="M10 12l4 4m0 -4l-4 4" />
+        </svg>
+    `;
     return b;
   }
 
@@ -59,9 +85,7 @@
 
       // ensure space on the right inside the wrapper
       const holder = document.createElement('div');
-      holder.style.display = 'flex';
-      holder.style.alignItems = 'center';
-      holder.style.gap = '8px';
+      holder.className = 'question-points-delete-wrap';
 
       // move any trailing badge into the holder so delete stays far-right inside wrapper
       const pointsBadge = titleWrap.querySelector('.question-points-badge');
@@ -77,18 +101,18 @@
 
       const stack = ensureControlStack(cell);
 
-      // Move existing edit button into stack (bottom)
-      const editBtn = cell.querySelector('[data-edit-target="sub_question"]');
-      if (editBtn && !stack.contains(editBtn)) {
-        stack.appendChild(editBtn);
-      }
+        // First, add the delete button to the top
+        if (!stack.querySelector('.sub-q-delete-btn')) {
+            const del = makeBtn('sub-q-delete-btn', 'Delete this sub-question');
+            del.dataset.subQuestionId = subId;
+            stack.prepend(del); // or stack.insertBefore(del, stack.firstChild);
+        }
 
-      // Add delete button (top) once
-      if (!stack.querySelector('.subq-delete-btn')) {
-        const del = makeBtn('subq-delete-btn', 'Delete this sub-question');
-        del.dataset.subQuestionId = subId;
-        stack.insertBefore(del, stack.firstChild);
-      }
+        // Then, move the edit button, which will place it *above* the delete button
+        const editBtn = cell.querySelector('[data-edit-target="sub_question"]');
+        if (editBtn && !stack.contains(editBtn)) {
+            stack.prepend(editBtn); // or stack.insertBefore(editBtn, stack.firstChild);
+        }
     });
 
     // 3) Model-alternative: edit (left) + delete (right) at top-right
@@ -100,13 +124,6 @@
       // ensure a shared inline top-right holder
       const holder = ensureInlineControls(alt);
 
-      // position holder to the top-right
-      holder.style.position = 'absolute';
-      holder.style.right = '8px';
-      holder.style.top = '8px';
-      holder.style.display = 'flex';
-      holder.style.gap = '6px';
-
       if (editBtn && !holder.contains(editBtn)) {
         holder.appendChild(editBtn);
       }
@@ -116,18 +133,18 @@
         holder.appendChild(del);
       }
 
-      // 4) Model-component delete buttons (shown only during edit)
-      alt.querySelectorAll('.model-component').forEach(comp => {
-        const compId = comp.dataset.componentId;
-        if (!compId) return;
-        if (!comp.querySelector('.model-comp-delete-btn')) {
-          const del = makeBtn('model-comp-delete-btn', 'Delete this answer component');
-          del.dataset.componentId = compId;
-          // sit on the far right of the component row
-          del.style.marginLeft = '8px';
-          comp.appendChild(del);
-        }
-      });
+        // 4) Model-component delete buttons (shown only during edit)
+        alt.querySelectorAll('.model-component').forEach(comp => {
+            const compId = comp.dataset.componentId;
+            if (!compId) return;
+            if (!comp.querySelector('.model-comp-delete-btn')) {
+                const del = makeBtn('model-comp-delete-btn', 'Delete this answer component');
+                del.textContent = '×'; // use a plain "×" glyph instead of the SVG
+                del.dataset.componentId = compId;
+                comp.appendChild(del);
+            }
+        });
+
     });
 
     // 5) Student dropdown summary: delete whole submission (right of edit)
@@ -143,7 +160,7 @@
         ctrl = document.createElement('span');
         ctrl.className = 'student-summary-controls';
         ctrl.style.display = 'inline-flex';
-        ctrl.style.gap = '6px';
+        ctrl.style.gap = '2px';
         ctrl.style.marginLeft = 'auto';
         summary.appendChild(ctrl);
       }
@@ -161,20 +178,22 @@
       }
     });
 
-    // 6) Points delete (to the right of points-badge)
-    Q_CONTAINER.querySelectorAll('.student-answer-item').forEach(item => {
-      const ansId = item.dataset.answerId;
-      if (!ansId) return;
-      const badge = item.querySelector('.points-awarded-badge');
-      if (!badge) return;
+      // 6) Points delete (to the right of points-badge)
+      Q_CONTAINER.querySelectorAll('.student-answer-item').forEach(item => {
+          const ansId = item.dataset.answerId;
+          if (!ansId) return;
+          const badge = item.querySelector('.points-awarded-badge');
+          if (!badge) return;
 
-      if (!item.querySelector('.points-delete-btn')) {
-        const del = makeBtn('points-delete-btn', 'Clear points & feedback for this answer');
-        del.dataset.answerId = ansId;
-        del.style.marginLeft = '8px';
-        badge.insertAdjacentElement('afterend', del);
-      }
-    });
+          if (!item.querySelector('.points-delete-btn')) {
+              const del = makeBtn('points-delete-btn', 'Clear points & feedback for this answer');
+              del.textContent = '×'; // use a plain "×" glyph instead of the SVG
+              del.dataset.answerId = ansId;
+              del.style.marginLeft = '8px';
+              badge.insertAdjacentElement('afterend', del);
+          }
+      });
+
   }
 
   // Keep component delete buttons visible only while editing a model-alternative
@@ -189,7 +208,7 @@
     if (!examId) return;
 
     const qDel = e.target.closest('.question-delete-btn');
-    const sqDel = e.target.closest('.subq-delete-btn');
+    const sqDel = e.target.closest('.sub-q-delete-btn');
     const altDel = e.target.closest('.model-alt-delete-btn');
     const compDel = e.target.closest('.model-comp-delete-btn');
     const stuDel = e.target.closest('.student-delete-btn');
