@@ -25,8 +25,21 @@
 /* Right-side controls inside student summary */
 .student-summary-controls { margin-left: auto; display: inline-flex; gap: 2px; }
 
-/* Nudge delete buttons near badges/rows */
-.points-delete-btn { margin-left: 8px; }
+/* Hide sub-q delete while editing that sub-question */
+#sub-q-gridcell.grid-cell.is-editing .sub-q-delete-btn {
+    display: none;
+}
+
+/* Hide model-alt delete while editing that model alternative */
+.model-alternative.is-editing .model-alt-delete-btn {
+    display: none;
+}
+
+/* Hide student delete while editing the student summary */
+.student-answer-dropdown summary.is-editing-summary .student-delete-btn {
+    display: none;
+}
+
 
 
 .formatted-text {

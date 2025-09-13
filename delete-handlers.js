@@ -73,26 +73,36 @@
   function injectDeleteButtons() {
     if (!Q_CONTAINER) return;
 
-    // 1) Question delete (far right of title wrapper)
-    Q_CONTAINER.querySelectorAll('.question-block').forEach(block => {
-      const qid = block.dataset.questionId;
-      if (!qid) return;
-      const titleWrap = block.querySelector('.question-title-wrapper');
-      if (!titleWrap || titleWrap.querySelector('.question-delete-btn')) return;
+      // 1) Question delete (always far right of the header)
+      Q_CONTAINER.querySelectorAll('.question-block').forEach(block => {
+          const qid = block.dataset.questionId;
+          if (!qid) return;
 
-      const btn = makeBtn('question-delete-btn', 'Delete this question');
-      btn.dataset.questionId = qid;
+          const header = block.querySelector('.question-header');
+          if (!header) return;
 
-      // ensure space on the right inside the wrapper
-      const holder = document.createElement('div');
-      holder.className = 'question-points-delete-wrap';
+          // Ensure a right-side container inside the header
+          let rightWrap = header.querySelector('.question-header-right');
+          if (!rightWrap) {
+              rightWrap = document.createElement('div');
+              rightWrap.className = 'question-header-right';
+              header.appendChild(rightWrap);
+          }
 
-      // move any trailing badge into the holder so delete stays far-right inside wrapper
-      const pointsBadge = titleWrap.querySelector('.question-points-badge');
-      if (pointsBadge) holder.appendChild(pointsBadge);
-      holder.appendChild(btn);
-      titleWrap.appendChild(holder);
-    });
+          // Move any appendix button into the rightWrap (it’s rendered directly in header)
+          const appendixBtn = header.querySelector('.appendix-button');
+          if (appendixBtn && !rightWrap.contains(appendixBtn)) {
+              rightWrap.appendChild(appendixBtn);
+          }
+
+          // Add the delete button if missing
+          if (!rightWrap.querySelector('.question-delete-btn')) {
+              const btn = makeBtn('question-delete-btn', 'Delete this question');
+              btn.dataset.questionId = qid;
+              rightWrap.appendChild(btn);
+          }
+      });
+
 
     // 2) Sub-question delete stacked above edit (inside #sub-q-gridcell)
     Q_CONTAINER.querySelectorAll('#sub-q-gridcell.grid-cell').forEach(cell => {
@@ -133,17 +143,16 @@
         holder.appendChild(del);
       }
 
-        // 4) Model-component delete buttons (shown only during edit)
         alt.querySelectorAll('.model-component').forEach(comp => {
-            const compId = comp.dataset.componentId;
-            if (!compId) return;
+            const compId = comp.dataset.componentId || null;
             if (!comp.querySelector('.model-comp-delete-btn')) {
                 const del = makeBtn('model-comp-delete-btn', 'Delete this answer component');
-                del.textContent = '×'; // use a plain "×" glyph instead of the SVG
-                del.dataset.componentId = compId;
+                del.textContent = '×';
+                if (compId) del.dataset.componentId = compId;
                 comp.appendChild(del);
             }
         });
+
 
     });
 
@@ -178,22 +187,29 @@
       }
     });
 
-      // 6) Points delete (to the right of points-badge)
+      // 6) Points delete button lives next to the points badge (inside a flex row)
       Q_CONTAINER.querySelectorAll('.student-answer-item').forEach(item => {
           const ansId = item.dataset.answerId;
           if (!ansId) return;
           const badge = item.querySelector('.points-awarded-badge');
           if (!badge) return;
 
-          if (!item.querySelector('.points-delete-btn')) {
-              const del = makeBtn('points-delete-btn', 'Clear points & feedback for this answer');
-              del.textContent = '×'; // use a plain "×" glyph instead of the SVG
+          // Ensure wrapper row exists (render adds it; but just in case, create it)
+          let row = item.querySelector('.points-row');
+          if (!row) {
+              row = document.createElement('div');
+              row.className = 'points-row';
+              badge.parentElement?.insertBefore(row, badge);
+              row.appendChild(badge);
+          }
+
+          if (!row.querySelector('.points-delete-btn')) {
+              const del = makeBtn('points-delete-btn', 'Clear points & feedback (only saved on “Save”)');
+              del.textContent = '×';
               del.dataset.answerId = ansId;
-              del.style.marginLeft = '8px';
-              badge.insertAdjacentElement('afterend', del);
+              row.appendChild(del);
           }
       });
-
   }
 
   // Keep component delete buttons visible only while editing a model-alternative
@@ -245,20 +261,24 @@
         return;
       }
 
-      if (compDel) {
-        const id = compDel.dataset.componentId;
-        // If it's unsaved (no id), just remove from DOM during edit
-        if (!id) {
-          const row = compDel.closest('.model-component');
-          if (row) row.remove();
-          return;
+        if (compDel) {
+            // Only allow deleting model components *while editing* the alternative.
+            const altEl = compDel.closest('.model-alternative');
+            const isEditing = !!altEl?.classList.contains('is-editing') || !!altEl?.querySelector('.editable-input');
+
+            const row = compDel.closest('.model-component');
+            if (!row) return;
+
+            if (!isEditing) {
+                alert('You can delete components while editing the alternative. Click the edit icon first.');
+                return;
+            }
+
+            // Edit-mode: remove from DOM only (persist on Save)
+            row.remove();
+            return;
         }
-        if (!confirm('Delete this model component?')) return;
-        const { error } = await sb.rpc('delete_model_component', { p_component_id: id });
-        if (error) throw error;
-        await loadExamDetails(examId);
-        return;
-      }
+
 
       if (stuDel) {
         const studentId = stuDel.dataset.studentId;
@@ -270,15 +290,23 @@
         return;
       }
 
-      if (ptsDel) {
-        const answerId = ptsDel.dataset.answerId;
-        if (!answerId) return;
-        if (!confirm('Clear points and feedback for this answer?')) return;
-        const { error } = await sb.rpc('clear_points_and_feedback', { p_answer_id: answerId });
-        if (error) throw error;
-        await loadExamDetails(examId);
-        return;
-      }
+        if (ptsDel) {
+            const item = ptsDel.closest('.student-answer-item');
+            if (!item) return;
+
+            const isEditing = !!item.classList.contains('is-editing') || !!item.querySelector('.editable-input');
+            if (!isEditing) {
+                alert('Enter edit mode to clear points & feedback.');
+                return;
+            }
+
+            // Mark intent to clear on Save and hide visuals now
+            item.dataset.clearPointsFeedback = '1';
+            item.classList.add('points-cleared');
+            return;
+        }
+
+
 
       // When entering edit mode for model alternative, mark it as editing (to show component delete icons)
       const editAlt = e.target.closest('.edit-btn[data-edit-target="model_alternative"]');

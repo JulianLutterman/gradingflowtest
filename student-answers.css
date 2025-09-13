@@ -55,6 +55,12 @@
     border-radius: 15px;
     display: inline-block;
     font-weight: bold;
+}
+
+.points-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
     margin-top: 0.75rem;
 }
 
@@ -67,3 +73,26 @@
     color: var(--color-green-pastel);
     border-radius: 0 10px 10px 0;
 }
+
+/* Points row sits beside the delete button */
+.points-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Show the points-delete only in edit mode */
+.student-answer-item .points-delete-btn {
+    display: none;
+}
+
+.student-answer-item.is-editing .points-delete-btn {
+    display: inline-flex;
+}
+
+/* When cleared in edit mode, hide points row + feedback comment */
+.student-answer-item.is-editing.points-cleared .points-row,
+.student-answer-item.is-editing.points-cleared .feedback-comment {
+    display: none;
+}
+

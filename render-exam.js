@@ -132,7 +132,9 @@ function renderExam(questions) {
                     const answersContent = studentData.answers.map(ans => {
                         const corrected = ans.answer_text ? ans.answer_text.replace(/\\n/g, '\n') : '';
                         const pointsHtml = (ans.sub_points_awarded !== null)
-                            ? `<div class="points-awarded-badge">Points: <span data-editable="sub_points_awarded">${ans.sub_points_awarded}</span>/${sq.max_sub_points || '?'}</div>`
+                            ? `<div class="points-row">
+                                   <div class="points-awarded-badge">Points: <span data-editable="sub_points_awarded">${ans.sub_points_awarded}</span>/${sq.max_sub_points || '?'}</div>
+                                 </div>`
                             : '';
                         const feedbackHtml = ans.feedback_comment
                             ? `<div class="feedback-comment formatted-text" data-editable="feedback_comment" data-original-text="${ans.feedback_comment || ''}">${ans.feedback_comment}</div>`

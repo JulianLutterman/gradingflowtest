@@ -18,6 +18,13 @@
     align-items: end;
 }
 
+.question-header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+
 .context-visual {
     max-width: 40%;
     height: auto;

@@ -73,9 +73,42 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
     let editActions = buttonParent.querySelector('.edit-actions');
     const targetType = editButton?.dataset.editTarget;
 
+    // Take snapshot BEFORE applying edit-mode styles (keep inline styles so KaTeX stays intact)
+    if (isEditing && targetType === 'model_alternative' && !container.dataset.compSnapshotTaken) {
+        const comps = Array.from(container.querySelectorAll('.model-component'));
+        container.dataset.originalCompIds = JSON.stringify(
+            comps.map(el => el.dataset.componentId).filter(Boolean)
+        );
+
+        const tempWrap = document.createElement('div');
+        comps.forEach(el => {
+            const clone = el.cloneNode(true); // IMPORTANT: do NOT remove styles inside
+            tempWrap.appendChild(clone);
+        });
+
+        container.dataset.modelComponentsOriginalHtml = tempWrap.innerHTML;
+        container.dataset.compSnapshotTaken = '1';
+    }
+
+
+
+    // Already present for student_info:
     if (editButton?.dataset.editTarget === 'student_info') {
         container.classList.toggle('is-editing-summary', isEditing);
     }
+
+    // Add/ensure these toggles:
+    if (editButton?.dataset.editTarget === 'sub_question') {
+        container.classList.toggle('is-editing', isEditing);
+    }
+    if (editButton?.dataset.editTarget === 'model_alternative') {
+        container.classList.toggle('is-editing', isEditing);
+    }
+    if (editButton?.dataset.editTarget === 'student_answer') {
+        container.classList.toggle('is-editing', isEditing);
+    }
+
+
 
     setEditModeStyles(container, isEditing, targetType);
 
@@ -111,6 +144,19 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
 
         // Edit-only helpers inside model alternatives
         if (targetType === 'model_alternative') {
+            // Take a snapshot of the original components for Cancel restore + deletion tracking on Save
+            if (!container.dataset.compSnapshotTaken) {
+                const comps = Array.from(container.querySelectorAll('.model-component'));
+                container.dataset.originalCompIds = JSON.stringify(
+                    comps.map(el => el.dataset.componentId).filter(Boolean)
+                );
+                const snapshotWrapper = document.createElement('div');
+                snapshotWrapper.innerHTML = comps.map(el => el.outerHTML).join('');
+                container.dataset.modelComponentsOriginalHtml = snapshotWrapper.innerHTML;
+                container.dataset.compSnapshotTaken = '1';
+            }
+
+
             // Add "Add Comment" button (only if none yet)
             const hasComment = !!container.querySelector('[data-editable="extra_comment"]');
             if (!hasComment && !container.querySelector('.add-alt-comment-btn')) {
@@ -189,9 +235,17 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
                     const comp = document.createElement('div');
                     comp.className = 'model-component'; // staged, no data-component-id
                     comp.innerHTML = `
-      <p class="formatted-text" data-editable="component_text" data-original-text=""></p>
-      <span class="points-badge">Points: <span data-editable="component_points">0</span></span>
-    `;
+  <p class="formatted-text" data-editable="component_text" data-original-text=""></p>
+  <span class="points-badge">Points: <span data-editable="component_points">0</span></span>
+`;
+
+                    // Add a delete button right away (visible only in edit mode via CSS)
+                    const delBtn = document.createElement('button');
+                    delBtn.type = 'button';
+                    delBtn.className = 'model-comp-delete-btn';
+                    delBtn.textContent = '×';
+                    comp.appendChild(delBtn);
+
 
                     // Always insert the new component ABOVE the Add button (and thus also above Save/Cancel)
                     container.insertBefore(comp, addComp);
@@ -304,6 +358,37 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
             // Remove any newly created (unsaved) components
             container.querySelectorAll('.model-component:not([data-component-id])').forEach((el) => el.remove());
 
+            // Restore original components if a snapshot exists
+            if (container.dataset.modelComponentsOriginalHtml) {
+                // Remove all current components
+                container.querySelectorAll('.model-component').forEach(el => el.remove());
+
+                const html = container.dataset.modelComponentsOriginalHtml;
+                const temp = document.createElement('div');
+                temp.innerHTML = html;
+
+                // Insert restored components before Save/Cancel (if present) or at the end
+                const ref = (container.querySelector('.edit-actions')?.parentElement === container)
+                    ? container.querySelector('.edit-actions')
+                    : null;
+
+                Array.from(temp.children).forEach(child => {
+                    if (ref) container.insertBefore(child, ref);
+                    else container.appendChild(child);
+                });
+
+                // After restoring snapshot DOM:
+                container.querySelectorAll('.model-component, .model-component p, .points-badge').forEach(el => {
+                    el.removeAttribute('style');
+                });
+
+
+                // Clear snapshot flags
+                delete container.dataset.modelComponentsOriginalHtml;
+                delete container.dataset.originalCompIds;
+                delete container.dataset.compSnapshotTaken;
+            }
+
             // If the alternative itself was brand-new and user cancelled, remove it
             const isNew = container.dataset.isNew === '1';
             const hasId = !!container.dataset.alternativeId;
@@ -353,6 +438,13 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
                 });
             }
         }
+
+        if (targetType === 'student_answer') {
+            delete container.dataset.clearPointsFeedback;
+            container.classList.remove('points-cleared');
+        }
+
+
 
         // If new question context was cancelled, remove the staged question block
         if (targetType === 'question_context') {
@@ -553,6 +645,19 @@ async function saveChanges(container, editButton) {
                         }
                     }
 
+                    // DELETE components that were removed in the DOM during edit
+                    try {
+                        const originalIds = JSON.parse(container.dataset.originalCompIds || '[]');
+                        const presentIds = compEls
+                            .map(el => el.dataset.componentId)
+                            .filter(Boolean);
+                        const toDeleteIds = originalIds.filter(id => !presentIds.includes(id));
+                        if (toDeleteIds.length) {
+                            promises.push(sb.from('model_components').delete().in('id', toDeleteIds));
+                        }
+                    } catch { /* ignore */ }
+
+
                     const res = await Promise.all(promises);
                     const err = res.find(r => r?.error)?.error;
                     if (err) throw err;
@@ -602,27 +707,48 @@ async function saveChanges(container, editButton) {
                     }
                 }
                 break;
+
+                delete container.dataset.modelComponentsOriginalHtml;
+                delete container.dataset.originalCompIds;
+                delete container.dataset.compSnapshotTaken;
             }
 
             case 'student_answer': {
                 const ansId = editButton.dataset.answerId;
                 const ansUpdates = {};
+
                 const ansText = container.querySelector('[data-editable="answer_text"] .editable-input');
-                const ansPoints = container.querySelector('[data-editable="sub_points_awarded"] .editable-input');
+                const ansPointsInput = container.querySelector('[data-editable="sub_points_awarded"] .editable-input');
                 const ansFeedback = container.querySelector('[data-editable="feedback_comment"] .editable-input');
+
                 if (ansText) ansUpdates.answer_text = ansText.value;
-                if (ansPoints) ansUpdates.sub_points_awarded = Number(ansPoints.value);
-                if (ansFeedback) ansUpdates.feedback_comment = ansFeedback.value;
+
+                if (container.dataset.clearPointsFeedback === '1') {
+                    ansUpdates.sub_points_awarded = null;
+                    ansUpdates.feedback_comment = null;
+                } else {
+                    if (ansPointsInput) {
+                        const v = ansPointsInput.value;
+                        ansUpdates.sub_points_awarded = (v === '' || v === null) ? null : Number(v);
+                    }
+                    if (ansFeedback) {
+                        const v = ansFeedback.value;
+                        ansUpdates.feedback_comment = (v === '') ? null : v;
+                    }
+                }
+
 
                 const res = await sb.from('student_answers').update(ansUpdates).eq('id', ansId);
                 if (res.error) throw res.error;
 
+                // Recalc total after save
                 if (ansId) {
                     const { data: answerData, error: fetchError } = await sb.from('student_answers').select('student_exam_id').eq('id', ansId).single();
                     if (!fetchError && answerData?.student_exam_id) {
                         await sb.rpc('recalculate_student_total_points', { p_student_exam_id: answerData.student_exam_id });
                     }
                 }
+
                 break;
             }
 
