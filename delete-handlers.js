@@ -1,4 +1,3 @@
-<script>
 /* Uses globals from config.js/dom.js/load-exam-details.js:
    - sb (Supabase client)
    - loadExamDetails(examId)
@@ -292,4 +291,3 @@
     injectDeleteButtons();
   }
 })();
-</script>
