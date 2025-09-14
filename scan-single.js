@@ -118,8 +118,10 @@ async function handleDirectUpload(event) {
     const uploadedFilePaths = [];
 
     for (const file of files) {
-      const filePath = `temp_scans/${currentScanSessionToken}/${file.name}`;
-      uploadPromises.push(sb.storage.from(STORAGE_BUCKET).upload(filePath, file));
+        const sanitizedFilename = sanitizeFilename(file.name);
+        const sanitizedFile = new File([file], sanitizedFilename, { type: file.type });
+        const filePath = `temp_scans/${currentScanSessionToken}/${sanitizedFilename}`;
+        uploadPromises.push(sb.storage.from(STORAGE_BUCKET).upload(filePath, sanitizedFile));
     }
     const results = await Promise.all(uploadPromises);
 

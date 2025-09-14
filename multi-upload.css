@@ -86,16 +86,10 @@ td .file-input-label {
     font-size: 16px;
 }
 
-#multi-scan-add-row-button {
-    margin-top: 1rem;
-    width: auto;
-    padding: 0.8rem 1.5rem;
-}
 
-#multi-direct-add-row-button {
+#multi-direct-add-row-button, #multi-scan-add-row-button {
     margin-top: 1rem;
-    width: auto;
-    padding: 0.8rem 1.5rem;
+    width: 30%;
 }
 
 #multi-scan-qr-area p,

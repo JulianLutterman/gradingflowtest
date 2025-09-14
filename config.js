@@ -94,11 +94,43 @@ function getFilenameFromUrl(url) {
   }
 }
 
+// ... after the getFilenameFromUrl function ...
+
+/**
+ * Extract a filename from a URL string.
+ * @param {string} url
+ * @returns {string|null}
+ */
+function getFilenameFromUrl(url) {
+    if (!url) return null;
+    try {
+        const path = new URL(url).pathname;
+        const parts = path.split('/');
+        return decodeURIComponent(parts[parts.length - 1]);
+    } catch (e) {
+        console.error('Could not parse URL to get filename:', url, e);
+        return null;
+    }
+}
+
+// ADD THIS FUNCTION
+/**
+ * Sanitizes a filename by replacing spaces and %20 with underscores.
+ * @param {string} filename
+ * @returns {string}
+ */
+function sanitizeFilename(filename) {
+    if (!filename) return '';
+    // Replaces one or more whitespace characters or "%20" with a single underscore
+    return filename.replace(/[\s%20]+/g, '_');
+}
+
 /**
  * Wire up an input[type=file] to echo selection in a display element.
  * @param {string} inputId
  * @param {string} displayId
  */
+// ... rest of the file
 function setupFileInputFeedback(inputId, displayId) {
   const fileInput = document.getElementById(inputId);
   const fileDisplay = document.getElementById(displayId);

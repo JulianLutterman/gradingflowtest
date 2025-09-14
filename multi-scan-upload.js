@@ -2,6 +2,7 @@
 // --- MULTI-STUDENT UPLOAD WORKFLOW ---
 // =================================================================
 
+
 /**
  * Generate the student table for scan or direct uploads.
  * @param {'scan'|'direct'} type
@@ -234,6 +235,7 @@ async function handleProcessAllSubmissions(type) {
   const processButton = type === 'scan' ? multiScanProcessButton : multiDirectProcessButton;
   const spinner = type === 'scan' ? spinnerMultiProcess : spinnerMultiDirectProcess;
   const buttonText = type === 'scan' ? multiScanProcessButtonText : multiDirectProcessButtonText;
+  let isError = false; // Add a flag to track success/failure
 
   processButton.disabled = true;
   showSpinner(true, spinner);
@@ -268,20 +270,31 @@ async function handleProcessAllSubmissions(type) {
     return;
   }
 
-  try {
-    setButtonText(buttonText, `Processing ${submissions.length} submissions (~4 mins)...`);
-    const processingPromises = submissions.map((sub) => processSingleSubmission(examId, sub, type));
-    await Promise.all(processingPromises);
+    try {
+        setButtonText(buttonText, `Processing ${submissions.length} submissions (~4 mins)...`);
+        const processingPromises = submissions.map((sub) => processSingleSubmission(examId, sub, type));
+        await Promise.all(processingPromises);
 
-    setButtonText(buttonText, 'All processed! Refreshing...');
-    await loadExamDetails(examId);
-    setTimeout(() => multiUploadModal.classList.add('hidden'), 2000);
-  } catch (error) {
-    console.error('Error during multi-submission processing:', error);
-    setButtonText(buttonText, 'Error! See console.');
-  } finally {
-    showSpinner(false, spinner);
-  }
+        setButtonText(buttonText, 'All processed! Refreshing...');
+        await loadExamDetails(examId);
+        setTimeout(() => multiUploadModal.classList.add('hidden'), 2000);
+    } catch (error) {
+        console.error('Error during multi-submission processing:', error);
+        setButtonText(buttonText, 'Error! See console.');
+        isError = true; // Set flag on error
+    } finally {
+        // START: MODIFICATION - Remove the timeout and reset logic
+        showSpinner(false, spinner);
+        // END: MODIFICATION
+        // START: MODIFICATION
+        // After a delay to show the final message, reset the button's state.
+        // This ensures it's re-enabled and ready for another use.
+        setTimeout(() => {
+            processButton.disabled = false;
+            setButtonText(buttonText, 'Process All Submissions');
+        }, isError ? 10000 : 5000); // Longer delay on error, shorter on success
+        // END: MODIFICATION
+    }
 }
 
 /**
@@ -299,11 +312,13 @@ async function processSingleSubmission(examId, submission, type) {
         console.log(`Skipping ${submission.studentName || submission.studentNumber} - no files provided.`);
         return;
       }
-      const tempTokenForUpload = generateUUID();
-      const uploadPromises = Array.from(submission.files).map((file) => {
-        const filePath = `temp_scans/${tempTokenForUpload}/${file.name}`;
-        return sb.storage.from(STORAGE_BUCKET).upload(filePath, file);
-      });
+        const tempTokenForUpload = generateUUID();
+        const uploadPromises = Array.from(submission.files).map((file) => {
+            const sanitizedFilename = sanitizeFilename(file.name);
+            const sanitizedFile = new File([file], sanitizedFilename, { type: file.type });
+            const filePath = `temp_scans/${tempTokenForUpload}/${sanitizedFilename}`;
+            return sb.storage.from(STORAGE_BUCKET).upload(filePath, sanitizedFile);
+        });
       const results = await Promise.all(uploadPromises);
 
       uploadedFilePaths = results.map((r) => {

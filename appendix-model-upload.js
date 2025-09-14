@@ -166,9 +166,10 @@ async function processAndUploadAppendices(examId, appendices, zip) {
       const visualFile = zip.file(app.app_visual);
       if (visualFile) {
         setButtonText(submitAppendixButtonText, `Uploading visuals...`);
-        const filePath = `public/${examId}/appendices/${Date.now()}_${app.app_visual}`;
+        const sanitizedFilename = sanitizeFilename(app.app_visual);
+        const filePath = `public/${examId}/appendices/${Date.now()}_${sanitizedFilename}`;
         const fileBlob = await visualFile.async('blob');
-        const fileToUpload = new File([fileBlob], app.app_visual, { type: `image/${app.app_visual.split('.').pop()}` });
+        const fileToUpload = new File([fileBlob], sanitizedFilename, { type: `image/${app.app_visual.split('.').pop()}` });
 
         const { error: uploadError } = await sb.storage.from(STORAGE_BUCKET).upload(filePath, fileToUpload);
         if (uploadError) throw new Error(`Failed to upload ${app.app_visual}: ${uploadError.message}`);
@@ -286,10 +287,11 @@ async function processAndUploadModel(examId, modelQuestions, zip) {
           if (comp_model.component_visual) {
             const visualFile = zip.file(comp_model.component_visual);
             if (visualFile) {
-              const filePath = `public/${examId}/models/${Date.now()}_${comp_model.component_visual}`;
+              const sanitizedFilename = sanitizeFilename(comp_model.component_visual);
+              const filePath = `public/${examId}/models/${Date.now()}_${sanitizedFilename}`;
               const fileBlob = await visualFile.async('blob');
-              const fileToUpload = new File([fileBlob], comp_model.component_visual, {
-                type: `image/${comp_model.component_visual.split('.').pop()}`,
+              const fileToUpload = new File([fileBlob], sanitizedFilename, {
+                  type: `image/${comp_model.component_visual.split('.').pop()}`,
               });
               const { error: uploadError } = await sb.storage.from(STORAGE_BUCKET).upload(filePath, fileToUpload);
               if (uploadError) throw new Error(`Failed to upload ${comp_model.component_visual}: ${uploadError.message}`);

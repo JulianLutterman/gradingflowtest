@@ -59,7 +59,7 @@ async function loadExamDetails(examId) {
     }
   });
 
-  chooseMultiStudentButton.addEventListener('click', () => {
+    chooseMultiStudentButton.addEventListener('click', () => {
     multiUploadModal.classList.remove('hidden');
     multiUploadChoiceArea.classList.remove('hidden');
     multiScanArea.classList.add('hidden');
@@ -108,5 +108,11 @@ async function loadExamDetails(examId) {
 
   await checkAndShowActionButtons(examId);
 
-  renderExam(examData.questions);
+    renderExam(examData.questions);
+
+    // Refresh / (re)apply the student view selector after render
+    if (typeof refreshStudentView === 'function') {
+        refreshStudentView();
+    }
+
 }

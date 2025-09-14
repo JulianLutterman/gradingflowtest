@@ -54,3 +54,125 @@
         height: 19px; /* Smaller icon */
         width: auto;
     }
+
+/* Student View: Custom Dropdown (house style) */
+.student-view-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+/* Wrapper */
+.custom-dropdown {
+    position: relative;
+    display: inline-block;
+    min-width: 200px;
+}
+
+    /* Toggle button styled like pushable buttons */
+    .custom-dropdown .dropdown-btn {
+        width: 100%;
+        border-radius: 15px;
+        border: 3px solid var(--color-blue-pastel-light-two);
+        background: var(--color-blue-pastel-light-one);
+        color: var(--color-text-light);
+        font-weight: 800;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        box-shadow: -4px 8px 0 var(--color-blue-pastel);
+        transform: translateY(-3px) translateX(0);
+        padding: 0.7rem 0.9rem;
+        text-align: left;
+    }
+
+        /* Keep the toggle button visually "down" when open or when View All is active */
+        .custom-dropdown .dropdown-btn.is-open,
+        .custom-dropdown .dropdown-btn.is-active {
+            transform: translateY(1px) translateX(-2px);
+            box-shadow: -2px 4px 0 var(--color-blue-pastel);
+        }
+
+
+        .custom-dropdown .dropdown-btn:hover {
+            transform: translateY(1px) translateX(-2px);
+            box-shadow: -2px 4px 0 var(--color-blue-pastel);
+        }
+
+    /* Menu panel */
+    .custom-dropdown .dropdown-menu {
+        display: none;
+        position: absolute;
+        top: calc(100% + 20px);
+        left: 0;
+        width: 300px;
+        z-index: 1000;
+        background: var(--color-background);
+        border: 3px solid var(--color-light-blue-two);
+        border-radius: 15px;
+        padding: 10px;
+        max-height: 420px;
+        overflow-y: auto;
+        transform: translateX(-4px);
+    }
+
+        .custom-dropdown .dropdown-menu.show {
+            display: block;
+        }
+
+/* Top strip for "All Students" */
+.dropdown-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--color-lighter-blue);
+    border-radius: 10px;
+    padding: 8px 10px;
+    transition-duration: 0.3s;
+    margin-bottom: 10px;
+}
+
+    .dropdown-header:hover {
+        background: var(--color-light-blue-two);
+    }
+
+
+/* Labels + checkboxes */
+.dropdown-label {
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 4px 0;
+}
+
+.dropdown-item {
+    padding: 4px 6px;
+    border-radius: 10px;
+    transition-duration: 0.3s;
+}
+
+    .dropdown-item:hover {
+        background: var(--color-light-blue-two);
+    }
+
+    .dropdown-item label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+/* Checkboxes tuned to theme */
+.dropdown-menu input[type="checkbox"] {
+    appearance: none;
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--color-light-blue-two);
+    background: var(--color-background);
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+    .dropdown-menu input[type="checkbox"]:checked {
+        background: var(--color-light-blue-three);
+        border-color: var(--color-light-blue-three);
+    }

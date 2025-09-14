@@ -760,15 +760,20 @@ async function saveChanges(container, editButton) {
                 const student_number = numEl ? numEl.value : null;
 
                 if (studentId) {
+                    // UPDATE existing student
                     const res = await sb.from('students').update({ full_name, student_number }).eq('id', studentId);
                     if (res.error) throw res.error;
                 } else {
-                    // INSERT student + student_exam + placeholders on all sub-questions
+                    // INSERT new student + linkage + placeholders
                     const sIns = await sb.from('students').insert({ full_name, student_number }).select('id').single();
                     if (sIns.error) throw sIns.error;
                     const newStudentId = sIns.data.id;
 
-                    const seIns = await sb.from('student_exams').insert({ student_id: newStudentId, exam_id: examId }).select('id').single();
+                    const seIns = await sb
+                        .from('student_exams')
+                        .insert({ student_id: newStudentId, exam_id: examId })
+                        .select('id')
+                        .single();
                     if (seIns.error) throw seIns.error;
                     const studentExamId = seIns.data.id;
 
@@ -788,12 +793,16 @@ async function saveChanges(container, editButton) {
                             sub_points_awarded: null,
                             feedback_comment: null
                         }));
-                        const res = await sb.from('student_answers').insert(payload);
-                        if (res.error) throw res.error;
+                        const insAns = await sb.from('student_answers').insert(payload);
+                        if (insAns.error) throw insAns.error;
                     }
+
+                    // Tell the UI to auto-select this newly added student after reload
+                    window.__selectStudentAfterReload = newStudentId;
                 }
                 break;
             }
+
 
             case 'appendix': {
                 const items = container.querySelectorAll('.appendix-item');

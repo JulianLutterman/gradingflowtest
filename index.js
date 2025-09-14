@@ -205,11 +205,12 @@ async function uploadExamToSupabase(teacherId, examName, examData, zip, setButto
         if (q.context_visual) {
             const visualFile = zip.file(q.context_visual);
             if (visualFile) {
-                const filePath = `public/${examId}/${Date.now()}_${q.context_visual}`;
+                const sanitizedFilename = sanitizeFilename(q.context_visual);
+                const filePath = `public/${examId}/${Date.now()}_${sanitizedFilename}`;
                 const fileBlob = await visualFile.async('blob');
                 const fileExtension = q.context_visual.split('.').pop().toLowerCase();
                 const mimeType = `image/${fileExtension === 'jpg' ? 'jpeg' : fileExtension}`;
-                const fileToUpload = new File([fileBlob], q.context_visual, { type: mimeType });
+                const fileToUpload = new File([fileBlob], sanitizedFilename, { type: mimeType });
 
                 const { error: uploadError } = await sb.storage
                     .from(STORAGE_BUCKET)

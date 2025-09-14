@@ -96,3 +96,24 @@
     display: none;
 }
 
+/* Hide/show helpers for filtering */
+.hidden-by-filter {
+    display: none !important;
+}
+
+/* Single-student view: hide summaries and student-level controls, show only answers */
+body.single-student-view .student-answer-dropdown > summary {
+    display: none !important;
+}
+
+/* When summaries are hidden, keep the content compact and clean */
+body.single-student-view .student-answer-dropdown {
+    box-shadow: none;
+    border: none;
+    margin: 0 0 10px 0;
+}
+
+/* No adding students in single-student mode */
+body.single-student-view .add-student-btn {
+    display: none !important;
+}
