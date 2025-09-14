@@ -112,7 +112,7 @@
         padding: 10px;
         max-height: 420px;
         overflow-y: auto;
-        transform: translateX(-4px);
+        transform: translateX(-128px);
     }
 
         .custom-dropdown .dropdown-menu.show {

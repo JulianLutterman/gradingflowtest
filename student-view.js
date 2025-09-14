@@ -30,6 +30,13 @@ function _syncDropdownButtonVisual() {
     btn.classList.toggle('is-active', showActive);
 }
 
+function _setStudentViewVisibility(hasStudents) {
+    const wrap = document.getElementById('studentViewDropdown');
+    const btn = document.getElementById('studentViewBtn');
+    const target = wrap || btn; // prefer wrapping div if present
+    if (!target) return;
+    target.classList.toggle('hidden', !hasStudents);
+}
 
 
 
@@ -52,6 +59,16 @@ function buildStudentViewSelector() {
             (a.full_name || '').localeCompare(b.full_name || '') ||
             (a.student_number || '').localeCompare(b.student_number || '')
         );
+
+    // Show/hide control based on availability
+    _setStudentViewVisibility(students.length > 0);
+
+    // If there are no students, make sure the menu is closed and stop here
+    if (students.length === 0) {
+        menu.classList.remove('show');
+        _syncDropdownButtonVisual();
+        return;
+    }
 
     // Merge “new student after reload” into existing selection (unless "All")
     const newId = window.__selectStudentAfterReload || null;
@@ -82,49 +99,41 @@ function buildStudentViewSelector() {
     list.className = 'dropdown-list';
     menu.appendChild(list);
 
-    if (students.length === 0) {
-        const empty = document.createElement('div');
-        empty.className = 'dropdown-item';
-        empty.textContent = 'No students yet';
-        list.appendChild(empty);
-    } else {
-        students.forEach(s => {
-            const id = String(s.id);
-            const name = s.full_name || 'Unnamed';
-            const num = s.student_number || 'No number';
+    students.forEach(s => {
+        const id = String(s.id);
+        const name = s.full_name || 'Unnamed';
+        const num = s.student_number || 'No number';
 
-            const item = document.createElement('div');
-            item.className = 'dropdown-item';
-            item.innerHTML = `
-        <label>
-          <input type="checkbox" class="student-checkbox" value="${id}">
-          <span>${name} (${num})</span>
-        </label>
-      `;
-            const cb = item.querySelector('.student-checkbox');
+        const item = document.createElement('div');
+        item.className = 'dropdown-item';
+        item.innerHTML = `
+      <label>
+        <input type="checkbox" class="student-checkbox" value="${id}">
+        <span>${name} (${num})</span>
+      </label>
+    `;
+        const cb = item.querySelector('.student-checkbox');
 
-            cb.checked = window.studentViewState.mode !== 'all' && window.studentViewState.selectedIds.has(id);
+        cb.checked = window.studentViewState.mode !== 'all' && window.studentViewState.selectedIds.has(id);
 
-            cb.addEventListener('change', () => {
-                window.studentViewState.userInteracted = true; // NEW
-                if (cb.checked) window.studentViewState.selectedIds.add(id);
-                else window.studentViewState.selectedIds.delete(id);
+        cb.addEventListener('change', () => {
+            window.studentViewState.userInteracted = true;
+            if (cb.checked) window.studentViewState.selectedIds.add(id);
+            else window.studentViewState.selectedIds.delete(id);
 
-                allToggle.checked = false;
-                _normalizeModeFromSelection();
-                updateDropdownBtnText();
-                applyStudentFilter();
-                _syncDropdownButtonVisual(); // NEW
-            });
-
-
-            list.appendChild(item);
+            allToggle.checked = false;
+            _normalizeModeFromSelection();
+            updateDropdownBtnText();
+            applyStudentFilter();
+            _syncDropdownButtonVisual();
         });
-    }
+
+        list.appendChild(item);
+    });
 
     // All toggle behavior
     allToggle.addEventListener('change', () => {
-        window.studentViewState.userInteracted = true; // NEW
+        window.studentViewState.userInteracted = true;
         if (allToggle.checked) {
             window.studentViewState.mode = 'all';
             window.studentViewState.selectedIds.clear();
@@ -137,14 +146,14 @@ function buildStudentViewSelector() {
         }
         updateDropdownBtnText();
         applyStudentFilter();
-        _syncDropdownButtonVisual(); // NEW
+        _syncDropdownButtonVisual();
     });
 
-
+    // Toggle/open menu + outside click
     btn.onclick = (e) => {
         e.stopPropagation();
         menu.classList.toggle('show');
-        window.studentViewState.userInteracted = true; // NEW
+        window.studentViewState.userInteracted = true;
         _syncDropdownButtonVisual();
     };
     document.addEventListener('click', (e) => {
@@ -155,9 +164,9 @@ function buildStudentViewSelector() {
         }
     });
 
-
     updateDropdownBtnText();
 }
+
 
 /* Button label */
 function updateDropdownBtnText() {
