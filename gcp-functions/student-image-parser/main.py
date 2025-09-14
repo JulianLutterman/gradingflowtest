@@ -26,7 +26,7 @@ TEMPERATURE_FOR_JSON = 0
 # --- System Prompts ---
 # Switched to the simpler prompt used by the Gemini reference implementation.
 ELEMENT_EXTRACTION_PROMPT = """
-Detect items ("diagram", "chart", "graph", "table", "drawing", "photograph"). Capture 0-5 items maximum. Output a json list where each entry contains the 2D bounding box in "box_2d" and a short (two words max, seperated by "_") text label in "label".
+Detect items ("diagram", "chart", "graph", "table", "drawing", "photograph"). Items may not include handwritten text, but only obvious visual elements like graphs, etc. Capture 0-5 items maximum. Output a json list where each entry contains the 2D bounding box in "box_2d" and a short (two words max, seperated by "_") text label in "label".
 """
 
 TRANSCRIPTION_PROMPT = """
