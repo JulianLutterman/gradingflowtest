@@ -101,7 +101,7 @@
     .custom-dropdown .dropdown-menu {
         display: none;
         position: absolute;
-        top: calc(100% + 20px);
+        top: calc(100% + 15px);
         right: 2px;
         width: 300px;
         z-index: 1000;
