@@ -102,7 +102,7 @@
         display: none;
         position: absolute;
         top: calc(100% + 20px);
-        left: 0;
+        right: 2px;
         width: 300px;
         z-index: 1000;
         background: var(--color-background);
@@ -111,7 +111,6 @@
         padding: 10px;
         max-height: 420px;
         overflow-y: auto;
-        transform: translateX(-128px);
     }
 
         .custom-dropdown .dropdown-menu.show {
