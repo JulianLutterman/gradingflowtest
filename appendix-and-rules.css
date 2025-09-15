@@ -28,7 +28,7 @@
 .appendix-button {
     border: none;
     border-radius: 15px;
-    background-color: var(--color-light-blue-two);
+    background-color: transparent;
     color: var(--color-text-dark);
     font-size: 1rem;
     font-weight: 600;
@@ -42,5 +42,5 @@
 }
 
     .appendix-button:hover {
-        background-color: var(--color-light-blue-three);
+        background-color: var(--color-light-blue-two);
     }
