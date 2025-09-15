@@ -1,3 +1,5 @@
+// FILE: grading.js
+
 // --- AUTOMATIC GRADING LOGIC (REFACTORED) ---
 gradeAllButton.addEventListener('click', async (e) => {
   e.preventDefault();
@@ -12,11 +14,14 @@ gradeAllButton.addEventListener('click', async (e) => {
 
   try {
     updateGradingButtonText('Finding submissions...');
+    
+    // START OF CHANGE: Switched from checking points to checking status
     const { data: ungradedExams, error: findError } = await sb
       .from('student_exams')
       .select('id, students(full_name, student_number)')
       .eq('exam_id', examId)
-      .is('total_points_awarded', null);
+      .eq('status', 'submitted'); // <-- This is the corrected line
+    // END OF CHANGE
 
     if (findError) throw findError;
 
