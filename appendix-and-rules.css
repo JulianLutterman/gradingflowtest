@@ -37,10 +37,10 @@
     text-align: center;
     display: inline-block;
     transition-duration: 0.3s;
-    width: 11rem !important;
+    white-space: nowrap;
+    padding: 0.7rem 0.9rem;
 }
 
     .appendix-button:hover {
-        background-color: var(--color-primary);
-        color: var(--color-text-light);
+        background-color: var(--color-light-blue-three);
     }
