@@ -88,7 +88,7 @@
     .student-answer-item:hover svg,
     .student-answer-dropdown summary:hover svg,
     .modal-content:hover svg,
-    .question-header:hover .question-delete-btn svg {
+    .question-block:hover .question-delete-btn svg {
         stroke: var(--color-text-dark);
     }
 
