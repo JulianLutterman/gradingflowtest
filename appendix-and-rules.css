@@ -29,7 +29,7 @@
     border: none;
     border-radius: 15px;
     background-color: transparent;
-    color: var(--color-text-dark);
+    color: transparent;
     font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
@@ -39,6 +39,10 @@
     transition-duration: 0.3s;
     white-space: nowrap;
     padding: 0.7rem 0.9rem;
+}
+
+.question-block:hover .appendix-button {
+    color: var(--color-text-dark);
 }
 
     .appendix-button:hover {
