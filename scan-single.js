@@ -61,7 +61,7 @@ generateScanLinkButton.addEventListener('click', async () => {
 
     startScanPolling(examId);
   } catch (error) {
-    setButtonText(generateScanLinkButtonText, 'Error!');
+    setButtonText(generateScanLinkButtonText, 'Error! Make sure to add both name & student number');
     console.error(error);
     showSpinner(false, spinnerStudent);
     setTimeout(() => {
