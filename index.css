@@ -159,6 +159,7 @@ button {
     border: 3px solid var(--color-danger-light);
     box-shadow: -4px 8px 0 var(--color-danger);
     transform: translateY(-4px) translateX(0);
+    padding: 0.7rem 0.9rem;
 }
 
     #logout-button:hover {
@@ -176,6 +177,7 @@ button {
     align-items: center;
     justify-content: center;
     gap: 0.8rem;
+    padding: 0.7rem 0.9rem;
 }
 
     #submit-exam-button:hover, #submit-exam-button:disabled {
@@ -253,3 +255,4 @@ button {
         font-size: 0.9rem;
         color: #666;
     }
+
