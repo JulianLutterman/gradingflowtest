@@ -20,6 +20,18 @@ const examCardsContainer = document.getElementById('exam-cards-container');
 // --- CONSTANTS ---
 const DEFAULT_EXAM_BUTTON_TEXT = 'Process and Upload Exam';
 
+// ADD THIS FUNCTION
+/**
+ * Sanitizes a filename by replacing spaces and %20 with underscores.
+ * @param {string} filename
+ * @returns {string}
+ */
+function sanitizeFilename(filename) {
+    if (!filename) return '';
+    // Replaces one or more whitespace characters or "%20" with a single underscore
+    return filename.replace(/[\s%20]+/g, '_');
+}
+
 // --- HELPER FUNCTIONS ---
 const setButtonText = (message) => {
     if (submitExamButtonText) submitExamButtonText.textContent = message;
@@ -278,4 +290,5 @@ async function uploadExamToSupabase(teacherId, examName, examData, zip, setButto
             }
         }
     }
+
 }
