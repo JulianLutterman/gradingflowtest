@@ -1,4 +1,47 @@
 // --- STUDENT SCAN LINK GENERATION (MODIFIED LOGGING) ---
+
+const uploadStatusContexts = (() => {
+  const createContext = (textElement) => ({
+    setStatus(message) {
+      if (!message) return;
+      if (textElement) {
+        setButtonText(textElement, message);
+      } else {
+        console.log(`[Upload] ${message}`);
+      }
+    },
+  });
+
+  const contexts = {
+    singleScan: createContext(generateScanLinkButtonText),
+    multiScan:
+      typeof multiScanProcessButtonText !== 'undefined'
+        ? createContext(multiScanProcessButtonText)
+        : createContext(null),
+    multiDirect:
+      typeof multiDirectProcessButtonText !== 'undefined'
+        ? createContext(multiDirectProcessButtonText)
+        : createContext(null),
+  };
+
+  contexts.none = {
+    setStatus(message) {
+      if (!message) return;
+      console.log(`[Upload] ${message}`);
+    },
+  };
+
+  return contexts;
+})();
+
+window.uploadStatusContexts = uploadStatusContexts;
+
+function getStatusContextOrDefault(context) {
+  if (context && typeof context.setStatus === 'function') {
+    return context;
+  }
+  return uploadStatusContexts.none;
+}
 generateScanLinkButton.addEventListener('click', async () => {
   generateScanLinkButton.disabled = true;
   showSpinner(true, spinnerStudent);
@@ -250,9 +293,14 @@ async function checkScanStatus(examId) {
  * @param {any} scanSession
  * @param {string} examId
  */
-async function processScannedAnswersBackground(scanSession, examId) {
+async function processScannedAnswersBackground(
+  scanSession,
+  examId,
+  statusContext = uploadStatusContexts.singleScan,
+) {
+  const statusUpdater = getStatusContextOrDefault(statusContext);
   try {
-    setButtonText(generateScanLinkButtonText, 'Fetching exam...');
+    statusUpdater.setStatus('Fetching exam...');
     const { data: examStructure, error: fetchExamError } = await sb
       .from('questions')
       .select(`question_number, sub_questions(sub_q_text_content)`)
@@ -262,7 +310,7 @@ async function processScannedAnswersBackground(scanSession, examId) {
     if (fetchExamError) throw fetchExamError;
     const examStructureForGcf = { questions: examStructure };
 
-    setButtonText(generateScanLinkButtonText, 'Downloading images...');
+    statusUpdater.setStatus('Downloading images...');
     const formData = new FormData();
     formData.append('exam_structure', JSON.stringify(examStructureForGcf));
 
@@ -296,7 +344,7 @@ async function processScannedAnswersBackground(scanSession, examId) {
       throw new Error('No image files could be downloaded or processed. Aborting GCF call.');
     }
 
-    setButtonText(generateScanLinkButtonText, 'Thinking... (~4 mins)');
+    statusUpdater.setStatus('Thinking... (~4 mins)');
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 300000);
 
@@ -312,7 +360,7 @@ async function processScannedAnswersBackground(scanSession, examId) {
         throw new Error(`Cloud function failed: ${gcfResponse.statusText} - ${errorText}`);
       }
 
-      setButtonText(generateScanLinkButtonText, 'Parsing results...');
+      statusUpdater.setStatus('Parsing results...');
       const zipBlob = await gcfResponse.blob();
       const jszip = new JSZip();
       const zip = await jszip.loadAsync(zipBlob);
@@ -321,8 +369,8 @@ async function processScannedAnswersBackground(scanSession, examId) {
       const jsonContent = await jsonFile.async('string');
       const responseData = JSON.parse(jsonContent);
 
-      setButtonText(generateScanLinkButtonText, 'Saving answers...');
-      await saveStudentAnswersFromScan(scanSession, examId, responseData, zip);
+      statusUpdater.setStatus('Saving answers...');
+      await saveStudentAnswersFromScan(scanSession, examId, responseData, zip, statusUpdater);
 
       await sb.from('scan_sessions').update({ status: 'completed' }).eq('id', scanSession.id);
       cleanupTempFiles(scanSession);
@@ -335,6 +383,7 @@ async function processScannedAnswersBackground(scanSession, examId) {
     }
   } catch (error) {
     console.error('Background processing failed:', error);
+    statusUpdater.setStatus(`Failed: ${error.message}`);
     throw error;
   }
 }
@@ -371,7 +420,7 @@ async function processScannedAnswers(examId, preloadedSession = null) {
       await sb.from('scan_sessions').update({ status: 'completed' }).eq('id', scanSession.id);
       setButtonText(generateScanLinkButtonText, 'No images uploaded.');
     } else {
-      await processScannedAnswersBackground(scanSession, examId);
+      await processScannedAnswersBackground(scanSession, examId, uploadStatusContexts.singleScan);
       setButtonText(generateScanLinkButtonText, 'Processed!');
     }
 
@@ -405,7 +454,8 @@ async function processScannedAnswers(examId, preloadedSession = null) {
  * @param {any} responseData
  * @param {JSZip} zip
  */
-async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip) {
+async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip, statusContext) {
+  const statusUpdater = getStatusContextOrDefault(statusContext);
   const studentExamId = scanSession.student_exam_id;
 
   if (!studentExamId) {
@@ -455,7 +505,7 @@ async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip
             const visualFilename = decodeURIComponent(sq_res.student_answers.answer_visual);
             const visualFile = zip.file(sq_res.student_answers.answer_visual);
             if (visualFile) {
-              setButtonText(generateScanLinkButtonText, `Uploading ${visualFilename}...`);
+              statusUpdater.setStatus(`Uploading ${visualFilename}...`);
               const filePath = `public/${examId}/answers/${studentExamId}/${Date.now()}_${visualFilename}`;
               const fileBlob = await visualFile.async('blob');
               const fileExtension = visualFilename.split('.').pop().toLowerCase();

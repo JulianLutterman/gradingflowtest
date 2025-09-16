@@ -34,6 +34,7 @@ const DEFAULT_GRADING_BUTTON_TEXT = 'Grade New Submissions';
 const DEFAULT_APPENDIX_BUTTON_TEXT = 'Upload Appendix';
 const DEFAULT_MODEL_BUTTON_TEXT = 'Upload Answer Model';
 const DEFAULT_SCAN_BUTTON_TEXT = 'Scan Answers';
+const DEFAULT_MULTI_PROCESS_BUTTON_TEXT = 'Process All Submissions';
 const MULTI_SCAN_PAGE_BASE_URL = `${window.location.origin}/multi-scan.html`;
 
 const EDIT_ICON_SVG =

@@ -27,11 +27,12 @@ function generateStudentTable(type, rowCount = 10) {
   tableHtml += `</tbody></table>`;
   container.innerHTML = tableHtml;
 
-  container.addEventListener('click', function (event) {
-    if (event.target.classList.contains('delete-row-btn')) {
-      handleDeleteRow(event.target, tableId);
+  container.onclick = (event) => {
+    const target = event.target;
+    if (target && target.classList.contains('delete-row-btn')) {
+      handleDeleteRow(target, tableId);
     }
-  });
+  };
 }
 
 /**
@@ -69,6 +70,40 @@ function addStudentTableRow(type) {
   const table = document.getElementById(`${type}-student-table`).getElementsByTagName('tbody')[0];
   const newIndex = table.rows.length;
   table.insertAdjacentHTML('beforeend', generateStudentTableRowHtml(newIndex, type));
+}
+
+const FALLBACK_STATUS_CONTEXT =
+  (window.uploadStatusContexts && window.uploadStatusContexts.none) ||
+  ({ setStatus: (message) => console.log(`[Multi Upload] ${message}`) });
+
+function ensureStatusContext(context) {
+  return context && typeof context.setStatus === 'function' ? context : FALLBACK_STATUS_CONTEXT;
+}
+
+function getStatusContextForType(type) {
+  if (window.uploadStatusContexts) {
+    if (type === 'direct' && window.uploadStatusContexts.multiDirect) {
+      return window.uploadStatusContexts.multiDirect;
+    }
+    if (type === 'scan' && window.uploadStatusContexts.multiScan) {
+      return window.uploadStatusContexts.multiScan;
+    }
+    if (window.uploadStatusContexts.none) {
+      return window.uploadStatusContexts.none;
+    }
+  }
+  return FALLBACK_STATUS_CONTEXT;
+}
+
+function createPrefixedStatusContext(baseContext, prefix) {
+  const context = ensureStatusContext(baseContext);
+  const safePrefix = prefix || '';
+  return {
+    setStatus(message) {
+      if (!message) return;
+      context.setStatus(`${safePrefix}${message}`);
+    },
+  };
 }
 
 /**
@@ -235,6 +270,12 @@ async function handleProcessAllSubmissions(type) {
   const processButton = type === 'scan' ? multiScanProcessButton : multiDirectProcessButton;
   const spinner = type === 'scan' ? spinnerMultiProcess : spinnerMultiDirectProcess;
   const buttonText = type === 'scan' ? multiScanProcessButtonText : multiDirectProcessButtonText;
+
+  if (type === 'scan' && !currentMultiScanSession?.session_token) {
+    alert('No active multi-scan session. Start a scanning session first.');
+    return;
+  }
+
   let isError = false; // Add a flag to track success/failure
 
   processButton.disabled = true;
@@ -266,35 +307,46 @@ async function handleProcessAllSubmissions(type) {
     alert('No valid submissions to process.');
     processButton.disabled = false;
     showSpinner(false, spinner);
-    setButtonText(buttonText, 'Process All Submissions');
+    setButtonText(buttonText, DEFAULT_MULTI_PROCESS_BUTTON_TEXT);
     return;
   }
 
-    try {
-        setButtonText(buttonText, `Processing ${submissions.length} submissions (~4 mins)...`);
-        const processingPromises = submissions.map((sub) => processSingleSubmission(examId, sub, type));
-        await Promise.all(processingPromises);
+  try {
+    const baseStatusContext = getStatusContextForType(type);
+    setButtonText(buttonText, `Processing ${submissions.length} submissions (~4 mins)...`);
 
-        setButtonText(buttonText, 'All processed! Refreshing...');
-        await loadExamDetails(examId);
-        setTimeout(() => multiUploadModal.classList.add('hidden'), 2000);
-    } catch (error) {
-        console.error('Error during multi-submission processing:', error);
-        setButtonText(buttonText, 'Error! See console.');
-        isError = true; // Set flag on error
-    } finally {
-        // START: MODIFICATION - Remove the timeout and reset logic
-        showSpinner(false, spinner);
-        // END: MODIFICATION
-        // START: MODIFICATION
-        // After a delay to show the final message, reset the button's state.
-        // This ensures it's re-enabled and ready for another use.
-        setTimeout(() => {
-            processButton.disabled = false;
-            setButtonText(buttonText, 'Process All Submissions');
-        }, isError ? 10000 : 5000); // Longer delay on error, shorter on success
-        // END: MODIFICATION
+    for (let i = 0; i < submissions.length; i++) {
+      const submission = submissions[i];
+      const identifiers = [submission.studentName, submission.studentNumber].filter(Boolean);
+      const label = identifiers.length > 0 ? identifiers.join(' • ') : `Submission ${i + 1}`;
+      const prefixedContext = createPrefixedStatusContext(
+        baseStatusContext,
+        `${i + 1}/${submissions.length} • ${label}: `,
+      );
+      prefixedContext.setStatus('Preparing...');
+      await processSingleSubmission(examId, submission, type, prefixedContext);
     }
+
+    setButtonText(buttonText, 'All processed! Refreshing...');
+    await loadExamDetails(examId);
+    setTimeout(() => {
+      multiUploadModal.classList.add('hidden');
+      if (typeof window.resetMultiUploadState === 'function') {
+        window.resetMultiUploadState();
+      }
+    }, 2000);
+  } catch (error) {
+    console.error('Error during multi-submission processing:', error);
+    setButtonText(buttonText, 'Error! See console.');
+    isError = true; // Set flag on error
+  } finally {
+    showSpinner(false, spinner);
+    const resetDelay = isError ? 4000 : 1200;
+    setTimeout(() => {
+      processButton.disabled = false;
+      setButtonText(buttonText, DEFAULT_MULTI_PROCESS_BUTTON_TEXT);
+    }, resetDelay);
+  }
 }
 
 /**
@@ -303,7 +355,8 @@ async function handleProcessAllSubmissions(type) {
  * @param {any} submission
  * @param {'scan'|'direct'} type
  */
-async function processSingleSubmission(examId, submission, type) {
+async function processSingleSubmission(examId, submission, type, statusContext) {
+  const statusUpdater = ensureStatusContext(statusContext);
   let uploadedFilePaths = [];
 
   try {
@@ -312,6 +365,7 @@ async function processSingleSubmission(examId, submission, type) {
         console.log(`Skipping ${submission.studentName || submission.studentNumber} - no files provided.`);
         return;
       }
+        statusUpdater.setStatus(`Uploading ${submission.files.length} file(s)...`);
         const tempTokenForUpload = generateUUID();
         const uploadPromises = Array.from(submission.files).map((file) => {
             const sanitizedFilename = sanitizeFilename(file.name);
@@ -325,10 +379,13 @@ async function processSingleSubmission(examId, submission, type) {
         if (r.error) throw new Error(`File upload failed: ${r.error.message}`);
         return sb.storage.from(STORAGE_BUCKET).getPublicUrl(r.data.path).data.publicUrl;
       });
+      statusUpdater.setStatus('Files uploaded. Preparing session...');
     } else {
-      uploadedFilePaths = submission.uploaded_image_paths;
+      statusUpdater.setStatus('Preparing uploaded images...');
+      uploadedFilePaths = submission.uploaded_image_paths || [];
     }
 
+    statusUpdater.setStatus('Creating submission session...');
     const response = await fetch(CREATE_SUBMISSION_SESSION_URL, {
       method: 'POST',
       headers: {
@@ -350,11 +407,14 @@ async function processSingleSubmission(examId, submission, type) {
 
     const newSession = await response.json();
 
-    await processScannedAnswersBackground(newSession, examId);
+    statusUpdater.setStatus('Processing answers...');
+    await processScannedAnswersBackground(newSession, examId, statusUpdater);
 
     console.log(`Successfully processed submission for ${submission.studentName || submission.studentNumber}`);
+    statusUpdater.setStatus('Submission processed.');
   } catch (error) {
     console.error(`Processing failed for ${submission.studentName || submission.studentNumber}:`, error);
+    statusUpdater.setStatus(`Failed: ${error.message}`);
     throw error;
   }
 }
