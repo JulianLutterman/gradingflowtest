@@ -1,7 +1,9 @@
 // --- APPENDIX UPLOAD LOGIC (MODIFIED LOGGING) ---
 appendixForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const operationToken = setButtonBusy(submitAppendixButton, spinnerAppendix, submitAppendixButtonText, 'Starting...');
+  submitAppendixButton.disabled = true;
+  showSpinner(true, spinnerAppendix);
+  setButtonText(submitAppendixButtonText, 'Starting...');
 
   const urlParams = new URLSearchParams(window.location.search);
   const examId = urlParams.get('id');
@@ -10,13 +12,9 @@ appendixForm.addEventListener('submit', async (e) => {
 
   if (!examId || files.length === 0) {
     alert('Cannot proceed without an Exam ID and at least one file.');
-    setButtonIdle(
-      submitAppendixButton,
-      spinnerAppendix,
-      submitAppendixButtonText,
-      DEFAULT_APPENDIX_BUTTON_TEXT,
-      operationToken,
-    );
+    submitAppendixButton.disabled = false;
+    showSpinner(false, spinnerAppendix);
+    setButtonText(submitAppendixButtonText, DEFAULT_APPENDIX_BUTTON_TEXT);
     return;
   }
 
@@ -62,21 +60,20 @@ appendixForm.addEventListener('submit', async (e) => {
     if (!isError) {
       setButtonText(submitAppendixButtonText, 'Success!');
     }
-    setButtonIdle(
-      submitAppendixButton,
-      spinnerAppendix,
-      submitAppendixButtonText,
-      DEFAULT_APPENDIX_BUTTON_TEXT,
-      operationToken,
-      { delay: isError ? 5000 : 3000 },
-    );
+    showSpinner(false, spinnerAppendix);
+    setTimeout(() => {
+      submitAppendixButton.disabled = false;
+      setButtonText(submitAppendixButtonText, DEFAULT_APPENDIX_BUTTON_TEXT);
+    }, isError ? 5000 : 3000);
   }
 });
 
 // --- ANSWER MODEL UPLOAD LOGIC (MODIFIED LOGGING) ---
 modelForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const operationToken = setButtonBusy(submitModelButton, spinnerModel, submitModelButtonText, 'Starting...');
+  submitModelButton.disabled = true;
+  showSpinner(true, spinnerModel);
+  setButtonText(submitModelButtonText, 'Starting...');
 
   const urlParams = new URLSearchParams(window.location.search);
   const examId = urlParams.get('id');
@@ -85,13 +82,9 @@ modelForm.addEventListener('submit', async (e) => {
 
   if (!examId || files.length === 0) {
     alert('Cannot proceed without an Exam ID and at least one file.');
-    setButtonIdle(
-      submitModelButton,
-      spinnerModel,
-      submitModelButtonText,
-      DEFAULT_MODEL_BUTTON_TEXT,
-      operationToken,
-    );
+    submitModelButton.disabled = false;
+    showSpinner(false, spinnerModel);
+    setButtonText(submitModelButtonText, DEFAULT_MODEL_BUTTON_TEXT);
     return;
   }
 
@@ -137,14 +130,11 @@ modelForm.addEventListener('submit', async (e) => {
     if (!isError) {
       setButtonText(submitModelButtonText, 'Success!');
     }
-    setButtonIdle(
-      submitModelButton,
-      spinnerModel,
-      submitModelButtonText,
-      DEFAULT_MODEL_BUTTON_TEXT,
-      operationToken,
-      { delay: isError ? 5000 : 3000 },
-    );
+    showSpinner(false, spinnerModel);
+    setTimeout(() => {
+      submitModelButton.disabled = false;
+      setButtonText(submitModelButtonText, DEFAULT_MODEL_BUTTON_TEXT);
+    }, isError ? 5000 : 3000);
   }
 });
 
