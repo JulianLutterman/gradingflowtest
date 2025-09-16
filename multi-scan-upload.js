@@ -3,6 +3,9 @@
 // =================================================================
 
 
+const DEFAULT_MULTI_PROCESS_TEXT = 'Process All Submissions';
+let multiScanStartToken = null;
+
 /**
  * Generate the student table for scan or direct uploads.
  * @param {'scan'|'direct'} type
@@ -25,13 +28,18 @@ function generateStudentTable(type, rowCount = 10) {
   }
 
   tableHtml += `</tbody></table>`;
+  container.dataset.tableId = tableId;
   container.innerHTML = tableHtml;
 
-  container.addEventListener('click', function (event) {
-    if (event.target.classList.contains('delete-row-btn')) {
-      handleDeleteRow(event.target, tableId);
-    }
-  });
+  if (!container.dataset.deleteHandlerAttached) {
+    container.addEventListener('click', function (event) {
+      const deleteBtn = event.target.closest('.delete-row-btn');
+      if (!deleteBtn) return;
+      const targetTableId = this.dataset.tableId;
+      handleDeleteRow(deleteBtn, targetTableId);
+    });
+    container.dataset.deleteHandlerAttached = 'true';
+  }
 }
 
 /**
@@ -75,6 +83,9 @@ function addStudentTableRow(type) {
  * Create a multi-scan session and start polling.
  */
 async function handleStartMultiScan() {
+  multiScanStartToken = Symbol('multi-scan-start');
+  const localToken = multiScanStartToken;
+
   multiScanStartButton.disabled = true;
   multiScanAddRowButton.disabled = true;
   const rows = document.querySelectorAll('#scan-student-table tbody tr');
@@ -87,8 +98,11 @@ async function handleStartMultiScan() {
 
   if (students.length === 0) {
     alert('Please fill in at least one student name or number.');
-    multiScanStartButton.disabled = false;
-    multiScanAddRowButton.disabled = false;
+    if (multiScanStartToken === localToken) {
+      multiScanStartToken = null;
+      multiScanStartButton.disabled = false;
+      multiScanAddRowButton.disabled = false;
+    }
     return;
   }
 
@@ -100,6 +114,10 @@ async function handleStartMultiScan() {
       students_arg: students,
     });
     if (error) throw error;
+
+    if (multiScanStartToken !== localToken) {
+      return;
+    }
 
     currentMultiScanSession = data;
 
@@ -121,11 +139,15 @@ async function handleStartMultiScan() {
     multiScanQrArea.classList.remove('hidden');
     multiScanStartButton.classList.add('hidden');
     startMultiScanPolling();
+    multiScanStartToken = null;
   } catch (error) {
     console.error('Failed to create multi-scan session:', error);
     alert(`Error: ${error.message}`);
-    multiScanStartButton.disabled = false;
-    multiScanAddRowButton.disabled = false;
+    if (multiScanStartToken === localToken) {
+      multiScanStartToken = null;
+      multiScanStartButton.disabled = false;
+      multiScanAddRowButton.disabled = false;
+    }
   }
 }
 
@@ -236,13 +258,16 @@ async function handleProcessAllSubmissions(type) {
   const spinner = type === 'scan' ? spinnerMultiProcess : spinnerMultiDirectProcess;
   const buttonText = type === 'scan' ? multiScanProcessButtonText : multiDirectProcessButtonText;
   let isError = false; // Add a flag to track success/failure
-
-  processButton.disabled = true;
-  showSpinner(true, spinner);
-  setButtonText(buttonText, 'Processing...');
+  const operationToken = setButtonBusy(processButton, spinner, buttonText, 'Processing...');
 
   const examId = new URLSearchParams(window.location.search).get('id');
   let submissions = [];
+
+  if (!examId) {
+    alert('Missing exam identifier. Please reload the page.');
+    setButtonIdle(processButton, spinner, buttonText, DEFAULT_MULTI_PROCESS_TEXT, operationToken);
+    return;
+  }
 
   if (type === 'direct') {
     const rows = document.querySelectorAll('#direct-student-table tbody tr');
@@ -250,10 +275,18 @@ async function handleProcessAllSubmissions(type) {
       .map((row) => ({
         studentName: row.querySelector('.student-name-input').value.trim(),
         studentNumber: row.querySelector('.student-number-input').value.trim(),
-        files: row.querySelector('input[type="file"]').files,
+        files: (() => {
+          const fileInput = row.querySelector('input[type="file"]');
+          return fileInput ? Array.from(fileInput.files || []) : [];
+        })(),
       }))
       .filter((s) => (s.studentName || s.studentNumber) && s.files.length > 0);
   } else {
+    if (!currentMultiScanSession?.session_token) {
+      alert('No active multi-scan session found. Please start a new session.');
+      setButtonIdle(processButton, spinner, buttonText, DEFAULT_MULTI_PROCESS_TEXT, operationToken);
+      return;
+    }
     const { data } = await sb.rpc('get_multi_scan_session_by_token', { token_arg: currentMultiScanSession.session_token });
     submissions = data.students.map((s) => ({
       studentName: s.student_name,
@@ -264,36 +297,33 @@ async function handleProcessAllSubmissions(type) {
 
   if (submissions.length === 0) {
     alert('No valid submissions to process.');
-    processButton.disabled = false;
-    showSpinner(false, spinner);
-    setButtonText(buttonText, 'Process All Submissions');
+    setButtonIdle(processButton, spinner, buttonText, DEFAULT_MULTI_PROCESS_TEXT, operationToken);
     return;
   }
 
-    try {
-        setButtonText(buttonText, `Processing ${submissions.length} submissions (~4 mins)...`);
+  try {
+    setButtonText(buttonText, `Processing ${submissions.length} submissions (~4 mins)...`);
         const processingPromises = submissions.map((sub) => processSingleSubmission(examId, sub, type));
         await Promise.all(processingPromises);
 
         setButtonText(buttonText, 'All processed! Refreshing...');
         await loadExamDetails(examId);
-        setTimeout(() => multiUploadModal.classList.add('hidden'), 2000);
+        setTimeout(() => {
+          resetMultiUploadState({ closeModal: true });
+        }, 2000);
     } catch (error) {
         console.error('Error during multi-submission processing:', error);
         setButtonText(buttonText, 'Error! See console.');
         isError = true; // Set flag on error
     } finally {
-        // START: MODIFICATION - Remove the timeout and reset logic
-        showSpinner(false, spinner);
-        // END: MODIFICATION
-        // START: MODIFICATION
-        // After a delay to show the final message, reset the button's state.
-        // This ensures it's re-enabled and ready for another use.
-        setTimeout(() => {
-            processButton.disabled = false;
-            setButtonText(buttonText, 'Process All Submissions');
-        }, isError ? 10000 : 5000); // Longer delay on error, shorter on success
-        // END: MODIFICATION
+        setButtonIdle(
+          processButton,
+          spinner,
+          buttonText,
+          DEFAULT_MULTI_PROCESS_TEXT,
+          operationToken,
+          { delay: isError ? 10000 : 5000 },
+        );
     }
 }
 
@@ -308,12 +338,13 @@ async function processSingleSubmission(examId, submission, type) {
 
   try {
     if (type === 'direct') {
-      if (!submission.files || submission.files.length === 0) {
+      const files = submission.files || [];
+      if (files.length === 0) {
         console.log(`Skipping ${submission.studentName || submission.studentNumber} - no files provided.`);
         return;
       }
         const tempTokenForUpload = generateUUID();
-        const uploadPromises = Array.from(submission.files).map((file) => {
+        const uploadPromises = files.map((file) => {
             const sanitizedFilename = sanitizeFilename(file.name);
             const sanitizedFile = new File([file], sanitizedFilename, { type: file.type });
             const filePath = `temp_scans/${tempTokenForUpload}/${sanitizedFilename}`;
@@ -369,4 +400,52 @@ function generateUUID() {
     const v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
+}
+
+/**
+ * Reset the multi-upload modal to a clean state.
+ * @param {{closeModal?: boolean}=} options
+ */
+function resetMultiUploadState(options = {}) {
+  const { closeModal = false } = options;
+
+  if (multiScanPollingInterval) {
+    clearInterval(multiScanPollingInterval);
+    multiScanPollingInterval = null;
+  }
+
+  currentMultiScanSession = null;
+  multiScanStartToken = null;
+
+  multiScanTableContainer.innerHTML = '';
+  multiDirectUploadTableContainer.innerHTML = '';
+
+  multiScanArea.classList.add('hidden');
+  multiDirectUploadArea.classList.add('hidden');
+  multiUploadChoiceArea.classList.remove('hidden');
+
+  multiScanStartButton.disabled = false;
+  multiScanAddRowButton.disabled = false;
+  multiScanStartButton.classList.remove('hidden');
+  multiDirectAddRowButton.disabled = false;
+
+  multiScanQrArea.classList.add('hidden');
+  multiScanUrlLink.textContent = '';
+  multiScanUrlLink.removeAttribute('href');
+  if (multiQrcodeCanvas && typeof multiQrcodeCanvas.getContext === 'function') {
+    const ctx = multiQrcodeCanvas.getContext('2d');
+    if (ctx) {
+      ctx.clearRect(0, 0, multiQrcodeCanvas.width, multiQrcodeCanvas.height);
+    }
+  }
+
+  multiScanProcessButton.classList.add('hidden');
+  multiScanProcessButton.onclick = null;
+
+  forceResetButton(multiScanProcessButton, spinnerMultiProcess, multiScanProcessButtonText, DEFAULT_MULTI_PROCESS_TEXT);
+  forceResetButton(multiDirectProcessButton, spinnerMultiDirectProcess, multiDirectProcessButtonText, DEFAULT_MULTI_PROCESS_TEXT);
+
+  if (closeModal) {
+    multiUploadModal.classList.add('hidden');
+  }
 }
