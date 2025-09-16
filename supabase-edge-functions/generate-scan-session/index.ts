@@ -57,10 +57,11 @@ serve(async (req) => {
                 .from('students')
                 .select('id')
                 .eq('student_number', normalizedNumber)
-                .maybeSingle();
+                .order('created_at', { ascending: false })
+                .limit(1);
             if (findByNumberError) throw findByNumberError;
-            if (existingByNumber) {
-                studentId = existingByNumber.id;
+            if (existingByNumber && existingByNumber.length > 0) {
+                studentId = existingByNumber[0].id;
             }
         }
         if (!studentId && normalizedName) {
@@ -68,10 +69,11 @@ serve(async (req) => {
                 .from('students')
                 .select('id')
                 .ilike('full_name', normalizedName)
-                .maybeSingle();
+                .order('created_at', { ascending: false })
+                .limit(1);
             if (findByNameError) throw findByNameError;
-            if (existingByName) {
-                studentId = existingByName.id;
+            if (existingByName && existingByName.length > 0) {
+                studentId = existingByName[0].id;
             }
         }
         if (!studentId) {
