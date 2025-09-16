@@ -2,6 +2,153 @@
 // --- MULTI-STUDENT UPLOAD WORKFLOW ---
 // =================================================================
 
+const multiScanSessionStateDefaults = {
+  status: 'idle',
+  disabled: false,
+  showQr: false,
+  startButtonHidden: false,
+  sessionToken: null,
+};
+const multiScanSessionState = { ...multiScanSessionStateDefaults };
+
+const multiScanProcessStateDefaults = {
+  status: 'hidden',
+  buttonText: 'Process All Submissions',
+  spinner: false,
+  disabled: false,
+  visible: false,
+};
+const multiScanProcessState = { ...multiScanProcessStateDefaults };
+let multiScanProcessResetTimeout = null;
+
+const multiDirectProcessStateDefaults = {
+  status: 'idle',
+  buttonText: 'Process All Submissions',
+  spinner: false,
+  disabled: false,
+};
+const multiDirectProcessState = { ...multiDirectProcessStateDefaults };
+let multiDirectProcessResetTimeout = null;
+
+function applyMultiScanSessionState() {
+  if (!multiScanStartButton || !multiScanAddRowButton) return;
+  multiScanStartButton.disabled = multiScanSessionState.disabled;
+  multiScanAddRowButton.disabled = multiScanSessionState.disabled;
+  multiScanStartButton.classList.toggle('hidden', multiScanSessionState.startButtonHidden);
+  multiScanQrArea.classList.toggle('hidden', !multiScanSessionState.showQr);
+
+  if (!multiScanSessionState.showQr) {
+    multiScanUrlLink.href = '#';
+    multiScanUrlLink.textContent = '';
+    if (multiQrcodeCanvas && typeof multiQrcodeCanvas.getContext === 'function') {
+      const ctx = multiQrcodeCanvas.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, multiQrcodeCanvas.width, multiQrcodeCanvas.height);
+      }
+    }
+  }
+}
+
+function setMultiScanSessionState(patch) {
+  Object.assign(multiScanSessionState, patch);
+  applyMultiScanSessionState();
+}
+
+function resetMultiScanSessionState() {
+  Object.assign(multiScanSessionState, multiScanSessionStateDefaults);
+  applyMultiScanSessionState();
+}
+
+function applyMultiScanProcessState() {
+  if (!multiScanProcessButton || !multiScanProcessButtonText) return;
+  multiScanProcessButton.disabled = multiScanProcessState.disabled;
+  showSpinner(multiScanProcessState.spinner, spinnerMultiProcess);
+  multiScanProcessButtonText.textContent = multiScanProcessState.buttonText;
+  multiScanProcessButton.classList.toggle('hidden', !multiScanProcessState.visible);
+}
+
+function setMultiScanProcessState(patch) {
+  Object.assign(multiScanProcessState, patch);
+  applyMultiScanProcessState();
+}
+
+function scheduleMultiScanProcessReset(delayMs) {
+  if (multiScanProcessResetTimeout) clearTimeout(multiScanProcessResetTimeout);
+  multiScanProcessResetTimeout = setTimeout(() => {
+    multiScanProcessResetTimeout = null;
+    Object.assign(multiScanProcessState, multiScanProcessStateDefaults);
+    applyMultiScanProcessState();
+  }, delayMs);
+}
+
+function applyMultiDirectProcessState() {
+  if (!multiDirectProcessButton || !multiDirectProcessButtonText) return;
+  multiDirectProcessButton.disabled = multiDirectProcessState.disabled;
+  showSpinner(multiDirectProcessState.spinner, spinnerMultiDirectProcess);
+  multiDirectProcessButtonText.textContent = multiDirectProcessState.buttonText;
+}
+
+function setMultiDirectProcessState(patch) {
+  Object.assign(multiDirectProcessState, patch);
+  applyMultiDirectProcessState();
+}
+
+function scheduleMultiDirectProcessReset(delayMs) {
+  if (multiDirectProcessResetTimeout) clearTimeout(multiDirectProcessResetTimeout);
+  multiDirectProcessResetTimeout = setTimeout(() => {
+    multiDirectProcessResetTimeout = null;
+    Object.assign(multiDirectProcessState, multiDirectProcessStateDefaults);
+    applyMultiDirectProcessState();
+  }, delayMs);
+}
+
+applyMultiScanSessionState();
+applyMultiScanProcessState();
+applyMultiDirectProcessState();
+window.applyMultiScanSessionState = applyMultiScanSessionState;
+window.applyMultiScanProcessState = applyMultiScanProcessState;
+window.applyMultiDirectProcessState = applyMultiDirectProcessState;
+window.getMultiScanProcessState = () => ({ ...multiScanProcessState });
+window.getMultiDirectProcessState = () => ({ ...multiDirectProcessState });
+window.getMultiScanSessionState = () => ({ ...multiScanSessionState });
+
+async function cancelMultiScanSession(reason = 'cancelled') {
+  if (multiScanProcessState.status === 'processing') {
+    return false;
+  }
+
+  if (multiScanPollingInterval) {
+    clearInterval(multiScanPollingInterval);
+    multiScanPollingInterval = null;
+  }
+
+  if (currentMultiScanSession?.session_token) {
+    try {
+      await sb.rpc('update_multi_scan_session_status', {
+        session_token_arg: currentMultiScanSession.session_token,
+        new_status_arg: reason,
+      });
+    } catch (error) {
+      console.warn('Failed to update multi-scan session status during cancel:', error);
+    }
+  }
+
+  currentMultiScanSession = null;
+  resetMultiScanSessionState();
+  if (multiScanProcessResetTimeout) {
+    clearTimeout(multiScanProcessResetTimeout);
+    multiScanProcessResetTimeout = null;
+  }
+  Object.assign(multiScanProcessState, multiScanProcessStateDefaults);
+  applyMultiScanProcessState();
+  if (multiScanTableContainer) {
+    multiScanTableContainer.innerHTML = '';
+  }
+  return true;
+}
+
+window.cancelMultiScanSession = cancelMultiScanSession;
+
 
 /**
  * Generate the student table for scan or direct uploads.
@@ -27,11 +174,14 @@ function generateStudentTable(type, rowCount = 10) {
   tableHtml += `</tbody></table>`;
   container.innerHTML = tableHtml;
 
-  container.addEventListener('click', function (event) {
-    if (event.target.classList.contains('delete-row-btn')) {
-      handleDeleteRow(event.target, tableId);
-    }
-  });
+  if (!container.dataset.listenerAttached) {
+    container.addEventListener('click', function (event) {
+      if (event.target.classList.contains('delete-row-btn')) {
+        handleDeleteRow(event.target, tableId);
+      }
+    });
+    container.dataset.listenerAttached = 'true';
+  }
 }
 
 /**
@@ -75,8 +225,7 @@ function addStudentTableRow(type) {
  * Create a multi-scan session and start polling.
  */
 async function handleStartMultiScan() {
-  multiScanStartButton.disabled = true;
-  multiScanAddRowButton.disabled = true;
+  setMultiScanSessionState({ status: 'starting', disabled: true });
   const rows = document.querySelectorAll('#scan-student-table tbody tr');
   const students = Array.from(rows)
     .map((row) => ({
@@ -87,8 +236,7 @@ async function handleStartMultiScan() {
 
   if (students.length === 0) {
     alert('Please fill in at least one student name or number.');
-    multiScanStartButton.disabled = false;
-    multiScanAddRowButton.disabled = false;
+    resetMultiScanSessionState();
     return;
   }
 
@@ -118,14 +266,20 @@ async function handleStartMultiScan() {
     new QRious({ element: multiQrcodeCanvas, value: scanUrl, size: 200 });
     multiScanUrlLink.href = scanUrl;
     multiScanUrlLink.textContent = 'Open Link in New Tab';
-    multiScanQrArea.classList.remove('hidden');
-    multiScanStartButton.classList.add('hidden');
+    setMultiScanSessionState({
+      status: 'waiting',
+      disabled: true,
+      startButtonHidden: true,
+      showQr: true,
+      sessionToken: data.session_token,
+    });
+    Object.assign(multiScanProcessState, multiScanProcessStateDefaults);
+    applyMultiScanProcessState();
     startMultiScanPolling();
   } catch (error) {
     console.error('Failed to create multi-scan session:', error);
     alert(`Error: ${error.message}`);
-    multiScanStartButton.disabled = false;
-    multiScanAddRowButton.disabled = false;
+    resetMultiScanSessionState();
   }
 }
 
@@ -209,7 +363,14 @@ function startMultiScanPolling() {
             console.error('Failed to update session status:', rpcError);
           }
 
-          multiScanProcessButton.classList.remove('hidden');
+          setMultiScanSessionState({ showQr: false, startButtonHidden: true });
+          setMultiScanProcessState({
+            status: 'ready',
+            visible: true,
+            disabled: false,
+            spinner: false,
+            buttonText: 'Process All Submissions',
+          });
           multiScanProcessButton.onclick = () => handleProcessAllSubmissions('scan');
         }
       }
@@ -232,14 +393,13 @@ async function handleProcessAllDirectUploads() {
  * @param {'scan'|'direct'} type
  */
 async function handleProcessAllSubmissions(type) {
-  const processButton = type === 'scan' ? multiScanProcessButton : multiDirectProcessButton;
-  const spinner = type === 'scan' ? spinnerMultiProcess : spinnerMultiDirectProcess;
-  const buttonText = type === 'scan' ? multiScanProcessButtonText : multiDirectProcessButtonText;
   let isError = false; // Add a flag to track success/failure
 
-  processButton.disabled = true;
-  showSpinner(true, spinner);
-  setButtonText(buttonText, 'Processing...');
+  if (type === 'scan') {
+    setMultiScanProcessState({ status: 'processing', visible: true, disabled: true, spinner: true, buttonText: 'Processing...' });
+  } else {
+    setMultiDirectProcessState({ status: 'processing', disabled: true, spinner: true, buttonText: 'Processing...' });
+  }
 
   const examId = new URLSearchParams(window.location.search).get('id');
   let submissions = [];
@@ -264,36 +424,46 @@ async function handleProcessAllSubmissions(type) {
 
   if (submissions.length === 0) {
     alert('No valid submissions to process.');
-    processButton.disabled = false;
-    showSpinner(false, spinner);
-    setButtonText(buttonText, 'Process All Submissions');
+    if (type === 'scan') {
+      setMultiScanProcessState({ status: 'ready', visible: true, disabled: false, spinner: false, buttonText: 'Process All Submissions' });
+    } else {
+      setMultiDirectProcessState({ status: 'idle', disabled: false, spinner: false, buttonText: 'Process All Submissions' });
+    }
     return;
   }
 
     try {
-        setButtonText(buttonText, `Processing ${submissions.length} submissions (~4 mins)...`);
+        if (type === 'scan') {
+            setMultiScanProcessState({ buttonText: `Processing ${submissions.length} submissions (~4 mins)...`, spinner: true });
+        } else {
+            setMultiDirectProcessState({ buttonText: `Processing ${submissions.length} submissions (~4 mins)...`, spinner: true });
+        }
         const processingPromises = submissions.map((sub) => processSingleSubmission(examId, sub, type));
         await Promise.all(processingPromises);
 
-        setButtonText(buttonText, 'All processed! Refreshing...');
+        if (type === 'scan') {
+            setMultiScanProcessState({ buttonText: 'All processed! Refreshing...', spinner: false, disabled: true, visible: true, status: 'success' });
+            currentMultiScanSession = null;
+            resetMultiScanSessionState();
+        } else {
+            setMultiDirectProcessState({ buttonText: 'All processed! Refreshing...', spinner: false, disabled: true, status: 'success' });
+        }
         await loadExamDetails(examId);
         setTimeout(() => multiUploadModal.classList.add('hidden'), 2000);
     } catch (error) {
         console.error('Error during multi-submission processing:', error);
-        setButtonText(buttonText, 'Error! See console.');
+        if (type === 'scan') {
+            setMultiScanProcessState({ status: 'error', buttonText: 'Error! See console.', spinner: false, disabled: true, visible: true });
+        } else {
+            setMultiDirectProcessState({ status: 'error', buttonText: 'Error! See console.', spinner: false, disabled: true });
+        }
         isError = true; // Set flag on error
     } finally {
-        // START: MODIFICATION - Remove the timeout and reset logic
-        showSpinner(false, spinner);
-        // END: MODIFICATION
-        // START: MODIFICATION
-        // After a delay to show the final message, reset the button's state.
-        // This ensures it's re-enabled and ready for another use.
-        setTimeout(() => {
-            processButton.disabled = false;
-            setButtonText(buttonText, 'Process All Submissions');
-        }, isError ? 10000 : 5000); // Longer delay on error, shorter on success
-        // END: MODIFICATION
+        if (type === 'scan') {
+            scheduleMultiScanProcessReset(isError ? 10000 : 5000);
+        } else {
+            scheduleMultiDirectProcessReset(isError ? 10000 : 5000);
+        }
     }
 }
 

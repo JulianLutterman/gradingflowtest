@@ -35,26 +35,56 @@ serve(async (req) => {
                 status: 400
             });
         }
+        const normalizedName = typeof studentName === 'string' ? studentName.trim() : '';
+        const normalizedNumber = typeof studentNumber === 'string' ? studentNumber.trim() : '';
+        if (!normalizedName && !normalizedNumber) {
+            return new Response(JSON.stringify({
+                error: 'A student name or student number is required'
+            }), {
+                headers: {
+                    ...corsHeaders,
+                    'Content-Type': 'application/json'
+                },
+                status: 400
+            });
+        }
         const supabaseClient = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
         // --- START: ROBUST STUDENT & STUDENT_EXAM CREATION ---
         let studentId = null;
         // Find or create student
-        if (studentName || studentNumber) {
-            const { data: existingStudent, error: findStudentError } = await supabaseClient.from('students').select('id').or(`full_name.eq.${studentName},student_number.eq.${studentNumber}`).maybeSingle();
-            if (findStudentError) throw findStudentError;
-            if (existingStudent) {
-                studentId = existingStudent.id;
-            } else {
-                const { data: newStudent, error: createStudentError } = await supabaseClient.from('students').insert({
-                    full_name: studentName || null,
-                    student_number: studentNumber || null
-                }).select('id').single();
-                if (createStudentError) throw createStudentError;
-                studentId = newStudent.id;
+        if (normalizedNumber) {
+            const { data: existingByNumber, error: findByNumberError } = await supabaseClient
+                .from('students')
+                .select('id')
+                .eq('student_number', normalizedNumber)
+                .maybeSingle();
+            if (findByNumberError) throw findByNumberError;
+            if (existingByNumber) {
+                studentId = existingByNumber.id;
+            }
+        }
+        if (!studentId && normalizedName) {
+            const { data: existingByName, error: findByNameError } = await supabaseClient
+                .from('students')
+                .select('id')
+                .ilike('full_name', normalizedName)
+                .maybeSingle();
+            if (findByNameError) throw findByNameError;
+            if (existingByName) {
+                studentId = existingByName.id;
             }
         }
         if (!studentId) {
-            throw new Error("Could not find or create a student record.");
+            const { data: newStudent, error: createStudentError } = await supabaseClient
+                .from('students')
+                .insert({
+                    full_name: normalizedName || null,
+                    student_number: normalizedNumber || null
+                })
+                .select('id')
+                .single();
+            if (createStudentError) throw createStudentError;
+            studentId = newStudent.id;
         }
         // Find or create the student_exam record to get its ID
         let studentExamId;
@@ -80,8 +110,8 @@ serve(async (req) => {
             exam_id: examId,
             student_id: studentId,
             student_exam_id: studentExamId,
-            student_name: studentName || null,
-            student_number: studentNumber || null,
+            student_name: normalizedName || null,
+            student_number: normalizedNumber || null,
             expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
             status: 'pending'
         }).select('session_token') // Only need to return the token to the client

@@ -1,9 +1,45 @@
+// --- APPENDIX / MODEL UPLOAD UI STATE ---
+const appendixUploadStateDefaults = {
+  status: 'idle',
+  buttonText: DEFAULT_APPENDIX_BUTTON_TEXT,
+  spinner: false,
+  disabled: false,
+};
+const appendixUploadState = { ...appendixUploadStateDefaults };
+let appendixResetTimeout = null;
+
+function applyAppendixUploadState() {
+  if (!submitAppendixButton || !submitAppendixButtonText) return;
+  submitAppendixButton.disabled = appendixUploadState.disabled;
+  showSpinner(appendixUploadState.spinner, spinnerAppendix);
+  setButtonText(submitAppendixButtonText, appendixUploadState.buttonText);
+}
+
+function setAppendixUploadState(patch) {
+  Object.assign(appendixUploadState, patch);
+  applyAppendixUploadState();
+}
+
+function scheduleAppendixReset(delayMs) {
+  if (appendixResetTimeout) clearTimeout(appendixResetTimeout);
+  appendixResetTimeout = setTimeout(() => {
+    appendixResetTimeout = null;
+    Object.assign(appendixUploadState, appendixUploadStateDefaults);
+    applyAppendixUploadState();
+  }, delayMs);
+}
+
+applyAppendixUploadState();
+window.applyAppendixUploadState = applyAppendixUploadState;
+
 // --- APPENDIX UPLOAD LOGIC (MODIFIED LOGGING) ---
 appendixForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  submitAppendixButton.disabled = true;
-  showSpinner(true, spinnerAppendix);
-  setButtonText(submitAppendixButtonText, 'Starting...');
+  if (appendixResetTimeout) {
+    clearTimeout(appendixResetTimeout);
+    appendixResetTimeout = null;
+  }
+  setAppendixUploadState({ status: 'processing', disabled: true, spinner: true, buttonText: 'Starting...' });
 
   const urlParams = new URLSearchParams(window.location.search);
   const examId = urlParams.get('id');
@@ -12,19 +48,17 @@ appendixForm.addEventListener('submit', async (e) => {
 
   if (!examId || files.length === 0) {
     alert('Cannot proceed without an Exam ID and at least one file.');
-    submitAppendixButton.disabled = false;
-    showSpinner(false, spinnerAppendix);
-    setButtonText(submitAppendixButtonText, DEFAULT_APPENDIX_BUTTON_TEXT);
+    setAppendixUploadState({ status: 'idle', disabled: false, spinner: false, buttonText: DEFAULT_APPENDIX_BUTTON_TEXT });
     return;
   }
 
   try {
-    setButtonText(submitAppendixButtonText, 'Fetching exam...');
+    setAppendixUploadState({ buttonText: 'Fetching exam...' });
     const { data: examData, error: fetchError } = await fetchExamDataForAppendixJson(examId);
     if (fetchError) throw new Error(`Could not fetch exam data: ${fetchError.message}`);
     const examStructureForGcf = { questions: examData.questions };
 
-    setButtonText(submitAppendixButtonText, 'Thinking... (~2 mins)');
+    setAppendixUploadState({ buttonText: 'Thinking... (~2 mins)' });
     const formData = new FormData();
     for (const file of files) {
       formData.append('files', file);
@@ -36,7 +70,7 @@ appendixForm.addEventListener('submit', async (e) => {
       throw new Error(`Cloud function failed: ${gcfResponse.statusText} - ${errorText}`);
     }
 
-    setButtonText(submitAppendixButtonText, 'Processing...');
+    setAppendixUploadState({ buttonText: 'Processing...' });
     const zipBlob = await gcfResponse.blob();
     const jszip = new JSZip();
     const zip = await jszip.loadAsync(zipBlob);
@@ -45,35 +79,69 @@ appendixForm.addEventListener('submit', async (e) => {
     const jsonContent = await jsonFile.async('string');
     const appendixData = JSON.parse(jsonContent);
 
-    setButtonText(submitAppendixButtonText, 'Saving...');
+    setAppendixUploadState({ buttonText: 'Saving...' });
     await processAndUploadAppendices(examId, appendixData.appendices, zip);
 
-    setButtonText(submitAppendixButtonText, 'Refreshing data...');
+    setAppendixUploadState({ buttonText: 'Refreshing data...' });
     appendixForm.reset();
     document.getElementById('appendix-file-display').textContent = 'No files chosen';
     await loadExamDetails(examId);
   } catch (error) {
-    setButtonText(submitAppendixButtonText, `Error!`);
+    setAppendixUploadState({ status: 'error', buttonText: 'Error!', spinner: false });
     console.error(error);
     isError = true;
   } finally {
     if (!isError) {
-      setButtonText(submitAppendixButtonText, 'Success!');
+      setAppendixUploadState({ status: 'success', buttonText: 'Success!', spinner: false });
     }
-    showSpinner(false, spinnerAppendix);
-    setTimeout(() => {
-      submitAppendixButton.disabled = false;
-      setButtonText(submitAppendixButtonText, DEFAULT_APPENDIX_BUTTON_TEXT);
-    }, isError ? 5000 : 3000);
+    if (isError) {
+      setAppendixUploadState({ status: 'error', spinner: false });
+    }
+    scheduleAppendixReset(isError ? 5000 : 3000);
   }
 });
+
+const modelUploadStateDefaults = {
+  status: 'idle',
+  buttonText: DEFAULT_MODEL_BUTTON_TEXT,
+  spinner: false,
+  disabled: false,
+};
+const modelUploadState = { ...modelUploadStateDefaults };
+let modelResetTimeout = null;
+
+function applyModelUploadState() {
+  if (!submitModelButton || !submitModelButtonText) return;
+  submitModelButton.disabled = modelUploadState.disabled;
+  showSpinner(modelUploadState.spinner, spinnerModel);
+  setButtonText(submitModelButtonText, modelUploadState.buttonText);
+}
+
+function setModelUploadState(patch) {
+  Object.assign(modelUploadState, patch);
+  applyModelUploadState();
+}
+
+function scheduleModelReset(delayMs) {
+  if (modelResetTimeout) clearTimeout(modelResetTimeout);
+  modelResetTimeout = setTimeout(() => {
+    modelResetTimeout = null;
+    Object.assign(modelUploadState, modelUploadStateDefaults);
+    applyModelUploadState();
+  }, delayMs);
+}
+
+applyModelUploadState();
+window.applyModelUploadState = applyModelUploadState;
 
 // --- ANSWER MODEL UPLOAD LOGIC (MODIFIED LOGGING) ---
 modelForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  submitModelButton.disabled = true;
-  showSpinner(true, spinnerModel);
-  setButtonText(submitModelButtonText, 'Starting...');
+  if (modelResetTimeout) {
+    clearTimeout(modelResetTimeout);
+    modelResetTimeout = null;
+  }
+  setModelUploadState({ status: 'processing', disabled: true, spinner: true, buttonText: 'Starting...' });
 
   const urlParams = new URLSearchParams(window.location.search);
   const examId = urlParams.get('id');
@@ -82,19 +150,17 @@ modelForm.addEventListener('submit', async (e) => {
 
   if (!examId || files.length === 0) {
     alert('Cannot proceed without an Exam ID and at least one file.');
-    submitModelButton.disabled = false;
-    showSpinner(false, spinnerModel);
-    setButtonText(submitModelButtonText, DEFAULT_MODEL_BUTTON_TEXT);
+    setModelUploadState({ status: 'idle', disabled: false, spinner: false, buttonText: DEFAULT_MODEL_BUTTON_TEXT });
     return;
   }
 
   try {
-    setButtonText(submitModelButtonText, 'Fetching exam...');
+    setModelUploadState({ buttonText: 'Fetching exam...' });
     const { data: examStructure, error: fetchError } = await fetchExamDataForModelJson(examId);
     if (fetchError) throw new Error(`Could not fetch exam data for model: ${fetchError.message}`);
     const examStructureForGcf = { questions: examStructure };
 
-    setButtonText(submitModelButtonText, 'Thinking... (~4 mins)');
+    setModelUploadState({ buttonText: 'Thinking... (~4 mins)' });
     const formData = new FormData();
     for (const file of files) {
       formData.append('files', file);
@@ -106,7 +172,7 @@ modelForm.addEventListener('submit', async (e) => {
       throw new Error(`Cloud function failed: ${gcfResponse.statusText} - ${errorText}`);
     }
 
-    setButtonText(submitModelButtonText, 'Processing...');
+    setModelUploadState({ buttonText: 'Processing...' });
     const zipBlob = await gcfResponse.blob();
     const jszip = new JSZip();
     const zip = await jszip.loadAsync(zipBlob);
@@ -115,26 +181,25 @@ modelForm.addEventListener('submit', async (e) => {
     const jsonContent = await jsonFile.async('string');
     const modelData = JSON.parse(jsonContent);
 
-    setButtonText(submitModelButtonText, 'Saving...');
+    setModelUploadState({ buttonText: 'Saving...' });
     await processAndUploadModel(examId, modelData.questions, zip);
 
-    setButtonText(submitModelButtonText, 'Refreshing data...');
+    setModelUploadState({ buttonText: 'Refreshing data...' });
     modelForm.reset();
     document.getElementById('model-file-display').textContent = 'No files chosen';
     await loadExamDetails(examId);
   } catch (error) {
-    setButtonText(submitModelButtonText, `Error!`);
+    setModelUploadState({ status: 'error', buttonText: 'Error!', spinner: false });
     console.error(error);
     isError = true;
   } finally {
     if (!isError) {
-      setButtonText(submitModelButtonText, 'Success!');
+      setModelUploadState({ status: 'success', buttonText: 'Success!', spinner: false });
     }
-    showSpinner(false, spinnerModel);
-    setTimeout(() => {
-      submitModelButton.disabled = false;
-      setButtonText(submitModelButtonText, DEFAULT_MODEL_BUTTON_TEXT);
-    }, isError ? 5000 : 3000);
+    if (isError) {
+      setModelUploadState({ status: 'error', spinner: false });
+    }
+    scheduleModelReset(isError ? 5000 : 3000);
   }
 });
 
@@ -145,7 +210,7 @@ modelForm.addEventListener('submit', async (e) => {
  * @param {JSZip} zip
  */
 async function processAndUploadAppendices(examId, appendices, zip) {
-  setButtonText(submitAppendixButtonText, 'Matching appendices...');
+  setAppendixUploadState({ buttonText: 'Matching appendices...' });
   const { data: questions, error: qError } = await sb.from('questions').select('id, question_number').eq('exam_id', examId);
   if (qError) throw new Error(`Could not fetch question IDs: ${qError.message}`);
 
@@ -165,7 +230,7 @@ async function processAndUploadAppendices(examId, appendices, zip) {
     if (app.app_visual) {
       const visualFile = zip.file(app.app_visual);
       if (visualFile) {
-        setButtonText(submitAppendixButtonText, `Uploading visuals...`);
+        setAppendixUploadState({ buttonText: 'Uploading visuals...' });
         const sanitizedFilename = sanitizeFilename(app.app_visual);
         const filePath = `public/${examId}/appendices/${Date.now()}_${sanitizedFilename}`;
         const fileBlob = await visualFile.async('blob');
@@ -192,7 +257,7 @@ async function processAndUploadAppendices(examId, appendices, zip) {
   }
 
   if (appendicesToInsert.length > 0) {
-    setButtonText(submitAppendixButtonText, `Saving ${appendicesToInsert.length} records...`);
+    setAppendixUploadState({ buttonText: `Saving ${appendicesToInsert.length} records...` });
     const { error: insertError } = await sb.from('appendices').insert(appendicesToInsert);
     if (insertError) throw new Error(`Failed to insert appendices: ${insertError.message}`);
   } else {
@@ -207,7 +272,7 @@ async function processAndUploadAppendices(examId, appendices, zip) {
  * @param {JSZip} zip
  */
 async function processAndUploadModel(examId, modelQuestions, zip) {
-  setButtonText(submitModelButtonText, 'Processing rules...');
+  setModelUploadState({ buttonText: 'Processing rules...' });
   const rulesFile = zip.file('grading_rules.txt');
   if (rulesFile) {
     try {
@@ -266,7 +331,7 @@ async function processAndUploadModel(examId, modelQuestions, zip) {
       }
 
       if (!sq_model.model_alternatives || sq_model.model_alternatives.length === 0) continue;
-      setButtonText(submitModelButtonText, `Saving Q#${q_model.question_number}...`);
+      setModelUploadState({ buttonText: `Saving Q#${q_model.question_number}...` });
       for (const alt_model of sq_model.model_alternatives) {
         const { data: newAlternative, error: altError } = await sb
           .from('model_alternatives')
@@ -320,7 +385,7 @@ async function processAndUploadModel(examId, modelQuestions, zip) {
   }
 
   // --- NEW: RECALCULATE AND UPDATE TOTAL POINTS ---
-  setButtonText(submitModelButtonText, 'Recalculating totals...');
+  setModelUploadState({ buttonText: 'Recalculating totals...' });
 
   const { data: questionsWithSubPoints, error: refetchError } = await sb
     .from('questions')

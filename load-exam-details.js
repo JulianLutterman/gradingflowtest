@@ -1,3 +1,5 @@
+let examUiInitialized = false;
+
 /**
  * Load exam details, wire modal and multi-upload events, and render.
  * @param {string} examId
@@ -11,92 +13,132 @@ async function loadExamDetails(examId) {
     return;
   }
 
-  // NEW: Add event listeners for multi-upload modal
-  multiUploadModal.addEventListener('click', (event) => {
-    if (event.target === multiUploadModal) multiUploadModal.classList.add('hidden');
+  if (!examUiInitialized) {
+    examUiInitialized = true;
 
-    if (event.target.closest('.back-to-multi-choice-btn')) {
+    const showMultiUploadChoice = () => {
       multiScanArea.classList.add('hidden');
       multiDirectUploadArea.classList.add('hidden');
-
       multiUploadChoiceArea.classList.remove('hidden');
+    };
 
-      multiScanTableContainer.innerHTML = '';
-      multiDirectUploadTableContainer.innerHTML = '';
+    const showMultiScanArea = ({ regenerate = false } = {}) => {
+      multiUploadChoiceArea.classList.add('hidden');
+      multiDirectUploadArea.classList.add('hidden');
+      multiScanArea.classList.remove('hidden');
+      if (regenerate || !multiScanTableContainer.querySelector('table')) {
+        generateStudentTable('scan');
+      }
+      applyMultiScanSessionState();
+      applyMultiScanProcessState();
+    };
 
-      multiScanQrArea.classList.add('hidden');
-      multiScanStartButton.classList.remove('hidden');
-      multiScanStartButton.disabled = false;
-      multiScanAddRowButton.disabled = false;
-      multiScanProcessButton.classList.add('hidden');
+    const showMultiDirectArea = ({ regenerate = false } = {}) => {
+      multiUploadChoiceArea.classList.add('hidden');
+      multiScanArea.classList.add('hidden');
+      multiDirectUploadArea.classList.remove('hidden');
+      if (regenerate || !multiDirectUploadTableContainer.querySelector('table')) {
+        generateStudentTable('direct');
+      }
+      applyMultiDirectProcessState();
+    };
 
-      if (multiScanPollingInterval) clearInterval(multiScanPollingInterval);
-      multiScanPollingInterval = null;
-      currentMultiScanSession = null;
-    }
-  });
-  multiUploadModalClose.addEventListener('click', () => multiUploadModal.classList.add('hidden'));
+    const restoreMultiUploadView = () => {
+      const scanProcessState = window.getMultiScanProcessState ? window.getMultiScanProcessState() : null;
+      const scanSessionState = window.getMultiScanSessionState ? window.getMultiScanSessionState() : null;
+      const directProcessState = window.getMultiDirectProcessState ? window.getMultiDirectProcessState() : null;
 
-  chooseSingleStudentButton.addEventListener('click', () => {
-    submissionChoiceContainer.classList.add('hidden');
-    studentAnswersForm.classList.remove('hidden');
-    backToSubmissionChoice.classList.remove('hidden');
-  });
+      if (scanProcessState && (scanProcessState.status === 'processing' || scanProcessState.status === 'success' || scanProcessState.status === 'error' || scanProcessState.visible)) {
+        showMultiScanArea();
+        return;
+      }
+      if (scanSessionState && scanSessionState.sessionToken) {
+        showMultiScanArea();
+        return;
+      }
+      if (directProcessState && (directProcessState.status === 'processing' || directProcessState.status === 'error' || directProcessState.status === 'success')) {
+        showMultiDirectArea();
+        return;
+      }
+      showMultiUploadChoice();
+    };
 
-  backToSubmissionChoice.addEventListener('click', () => {
-    studentAnswersForm.classList.add('hidden');
-    submissionChoiceContainer.classList.remove('hidden');
-    backToSubmissionChoice.classList.add('hidden');
+    const handleMultiUploadBack = async () => {
+      const scanProcessState = window.getMultiScanProcessState ? window.getMultiScanProcessState() : null;
+      const canCancelScan = !scanProcessState || scanProcessState.status !== 'processing';
+      if (canCancelScan) {
+        await cancelMultiScanSession('cancelled');
+      }
+      showMultiUploadChoice();
+    };
 
-    stopScanPolling();
-    studentAnswersForm.reset();
-    scanLinkArea.classList.add('hidden');
-    generateScanLinkButton.disabled = false;
-    setButtonText(generateScanLinkButtonText, DEFAULT_SCAN_BUTTON_TEXT);
-    showSpinner(false, spinnerStudent);
-    if (directUploadInput) {
-      directUploadInput.value = '';
-    }
-  });
+    const handleMultiUploadModalClose = async () => {
+      await handleMultiUploadBack();
+      multiUploadModal.classList.add('hidden');
+    };
+
+    multiUploadModal.addEventListener('click', async (event) => {
+      if (event.target === multiUploadModal) {
+        await handleMultiUploadModalClose();
+      }
+
+      if (event.target.closest('.back-to-multi-choice-btn')) {
+        await handleMultiUploadBack();
+      }
+    });
+    multiUploadModalClose.addEventListener('click', handleMultiUploadModalClose);
+
+    chooseSingleStudentButton.addEventListener('click', () => {
+      submissionChoiceContainer.classList.add('hidden');
+      studentAnswersForm.classList.remove('hidden');
+      backToSubmissionChoice.classList.remove('hidden');
+      applySingleScanState();
+    });
+
+    backToSubmissionChoice.addEventListener('click', async () => {
+      const singleState = window.getSingleScanState ? window.getSingleScanState() : null;
+      if (!singleState || (singleState.status !== 'processing' && singleState.status !== 'uploading')) {
+        await cancelSingleScanSession('cancelled_by_user');
+      }
+      studentAnswersForm.classList.add('hidden');
+      submissionChoiceContainer.classList.remove('hidden');
+      backToSubmissionChoice.classList.add('hidden');
+      applySingleScanState();
+    });
 
     chooseMultiStudentButton.addEventListener('click', () => {
-    multiUploadModal.classList.remove('hidden');
-    multiUploadChoiceArea.classList.remove('hidden');
-    multiScanArea.classList.add('hidden');
-    multiDirectUploadArea.classList.add('hidden');
-  });
+      multiUploadModal.classList.remove('hidden');
+      restoreMultiUploadView();
+    });
 
-  multiScanButton.addEventListener('click', () => {
-    multiUploadChoiceArea.classList.add('hidden');
-    multiScanArea.classList.remove('hidden');
-    generateStudentTable('scan');
-  });
-  multiDirectUploadButton.addEventListener('click', () => {
-    multiUploadChoiceArea.classList.add('hidden');
-    multiDirectUploadArea.classList.remove('hidden');
-    generateStudentTable('direct');
-  });
+    multiScanButton.addEventListener('click', () => {
+      showMultiScanArea({ regenerate: true });
+    });
+    multiDirectUploadButton.addEventListener('click', () => {
+      showMultiDirectArea({ regenerate: true });
+    });
 
-  multiScanAddRowButton.addEventListener('click', () => addStudentTableRow('scan'));
-  multiDirectAddRowButton.addEventListener('click', () => addStudentTableRow('direct'));
-  multiScanStartButton.addEventListener('click', handleStartMultiScan);
-  multiDirectProcessButton.addEventListener('click', handleProcessAllDirectUploads);
+    multiScanAddRowButton.addEventListener('click', () => addStudentTableRow('scan'));
+    multiDirectAddRowButton.addEventListener('click', () => addStudentTableRow('direct'));
+    multiScanStartButton.addEventListener('click', handleStartMultiScan);
+    multiDirectProcessButton.addEventListener('click', handleProcessAllDirectUploads);
 
-  multiDirectUploadArea.addEventListener('change', (event) => {
-    if (event.target.matches('#direct-student-table input[type="file"]')) {
-      const fileInput = event.target;
-      const files = fileInput.files;
-      const label = fileInput.nextElementSibling;
+    multiDirectUploadArea.addEventListener('change', (event) => {
+      if (event.target.matches('#direct-student-table input[type="file"]')) {
+        const fileInput = event.target;
+        const files = fileInput.files;
+        const label = fileInput.nextElementSibling;
 
-      if (label) {
-        if (files && files.length > 0) {
-          label.textContent = files.length === 1 ? `1 file` : `${files.length} files`;
-        } else {
-          label.textContent = 'Choose Files';
+        if (label) {
+          if (files && files.length > 0) {
+            label.textContent = files.length === 1 ? `1 file` : `${files.length} files`;
+          } else {
+            label.textContent = 'Choose Files';
+          }
         }
       }
-    }
-  });
+    });
+  }
 
   currentExamData = examData;
   examNameTitle.innerHTML = `
@@ -114,5 +156,12 @@ async function loadExamDetails(examId) {
     if (typeof refreshStudentView === 'function') {
         refreshStudentView();
     }
+
+    applyAppendixUploadState();
+    applyModelUploadState();
+    applySingleScanState();
+    applyMultiScanSessionState();
+    applyMultiScanProcessState();
+    applyMultiDirectProcessState();
 
 }
