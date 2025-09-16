@@ -12,7 +12,7 @@ Of course. Here is a completely new, detailed README for the GradingFlow project
 </p>
 
 <p align="center">
-  A full-stack, AI-native platform that transforms static exam documents (PDFs/images) into interactive, auto-gradable digital formats. Built from first principles with vanilla JS, Python, and a suite of modern generative AI models.
+  A full-stack, AI-native platform that transforms static exam documents (PDFs/images) into interactive, auto-gradable digital formats.
 </p>
 
 ---
