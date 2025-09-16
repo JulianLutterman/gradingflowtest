@@ -1,9 +1,122 @@
+const singleScanDefaultState = {
+  status: 'idle',
+  buttonText: DEFAULT_SCAN_BUTTON_TEXT,
+  spinner: false,
+  disabled: false,
+  showScanLinkArea: false,
+  directUploadDisabled: true,
+  scanUrl: '',
+  sessionToken: null,
+};
+const singleScanState = { ...singleScanDefaultState };
+let singleScanResetTimeout = null;
+
+function applySingleScanState() {
+  if (!generateScanLinkButton || !generateScanLinkButtonText) return;
+  generateScanLinkButton.disabled = singleScanState.disabled;
+  showSpinner(singleScanState.spinner, spinnerStudent);
+  setButtonText(generateScanLinkButtonText, singleScanState.buttonText);
+
+  if (singleScanState.showScanLinkArea) {
+    scanLinkArea.classList.remove('hidden');
+  } else {
+    scanLinkArea.classList.add('hidden');
+    scanLinkArea.classList.remove('hiding');
+  }
+
+  if (directUploadInput) {
+    directUploadInput.disabled = singleScanState.directUploadDisabled;
+  }
+
+  if (singleScanState.scanUrl) {
+    scanUrlLink.href = singleScanState.scanUrl;
+    scanUrlLink.textContent = singleScanState.scanUrl;
+  } else {
+    scanUrlLink.href = '#';
+    scanUrlLink.textContent = '';
+  }
+}
+
+function setSingleScanState(patch) {
+  Object.assign(singleScanState, patch);
+  applySingleScanState();
+}
+
+function resetSingleScanState() {
+  Object.assign(singleScanState, singleScanDefaultState);
+  applySingleScanState();
+}
+
+function clearSingleScanResetTimer() {
+  if (singleScanResetTimeout) {
+    clearTimeout(singleScanResetTimeout);
+    singleScanResetTimeout = null;
+  }
+}
+
+function scheduleSingleScanReset(delayMs) {
+  clearSingleScanResetTimer();
+  singleScanResetTimeout = setTimeout(() => {
+    resetSingleScanForm();
+    setSingleScanSessionToken(null);
+    resetSingleScanState();
+    singleScanResetTimeout = null;
+  }, delayMs);
+}
+
+function resetSingleScanForm() {
+  if (studentAnswersForm) {
+    studentAnswersForm.reset();
+  }
+  if (directUploadInput) {
+    directUploadInput.value = '';
+  }
+}
+
+function setSingleScanSessionToken(token) {
+  currentScanSessionToken = token;
+  singleScanState.sessionToken = token;
+}
+
+function isSingleScanProcessing() {
+  return singleScanState.status === 'processing' || singleScanState.status === 'uploading';
+}
+
+function isSingleScanWaiting() {
+  return singleScanState.status === 'waiting' || singleScanState.status === 'creating';
+}
+
+async function cancelSingleScanSession(reason = 'cancelled') {
+  if (isSingleScanProcessing()) {
+    return false;
+  }
+
+  stopScanPolling();
+  clearSingleScanResetTimer();
+
+  const token = singleScanState.sessionToken || currentScanSessionToken;
+  if (token) {
+    try {
+      await sb.from('scan_sessions').update({ status: 'cancelled', error_message: reason }).eq('session_token', token);
+    } catch (error) {
+      console.warn('Failed to cancel scan session:', error);
+    }
+  }
+
+  setSingleScanSessionToken(null);
+  resetSingleScanForm();
+  resetSingleScanState();
+  return true;
+}
+
+applySingleScanState();
+window.applySingleScanState = applySingleScanState;
+window.cancelSingleScanSession = cancelSingleScanSession;
+window.getSingleScanState = () => ({ ...singleScanState });
+
 // --- STUDENT SCAN LINK GENERATION (MODIFIED LOGGING) ---
 generateScanLinkButton.addEventListener('click', async () => {
-  generateScanLinkButton.disabled = true;
-  showSpinner(true, spinnerStudent);
-  setButtonText(generateScanLinkButtonText, 'Generating link...');
-
+  clearSingleScanResetTimer();
   const urlParams = new URLSearchParams(window.location.search);
   const examId = urlParams.get('id');
   const studentName = document.getElementById('student-name').value.trim();
@@ -11,21 +124,27 @@ generateScanLinkButton.addEventListener('click', async () => {
 
   if (!studentName && !studentNumber) {
     alert('Please provide a student name or student number.');
-    generateScanLinkButton.disabled = false;
-    showSpinner(false, spinnerStudent);
-    setButtonText(generateScanLinkButtonText, DEFAULT_SCAN_BUTTON_TEXT);
+    setSingleScanState({ status: 'idle', disabled: false, spinner: false, buttonText: DEFAULT_SCAN_BUTTON_TEXT });
     return;
   }
   if (!examId) {
     alert('Cannot proceed without an Exam ID.');
-    generateScanLinkButton.disabled = false;
-    showSpinner(false, spinnerStudent);
-    setButtonText(generateScanLinkButtonText, DEFAULT_SCAN_BUTTON_TEXT);
+    setSingleScanState({ status: 'idle', disabled: false, spinner: false, buttonText: DEFAULT_SCAN_BUTTON_TEXT });
     return;
   }
 
+  setSingleScanState({
+    status: 'creating',
+    disabled: true,
+    spinner: true,
+    buttonText: 'Generating link...',
+    showScanLinkArea: false,
+    directUploadDisabled: true,
+    scanUrl: '',
+  });
+
   try {
-    setButtonText(generateScanLinkButtonText, 'Creating session...');
+    setSingleScanState({ buttonText: 'Creating session...' });
     const response = await fetch(GENERATE_SCAN_SESSION_URL, {
       method: 'POST',
       headers: {
@@ -41,7 +160,7 @@ generateScanLinkButton.addEventListener('click', async () => {
     }
 
     const { session_token } = await response.json();
-    currentScanSessionToken = session_token;
+    setSingleScanSessionToken(session_token);
 
     const scanUrl = `${SCAN_PAGE_BASE_URL}?token=${session_token}`;
 
@@ -51,23 +170,21 @@ generateScanLinkButton.addEventListener('click', async () => {
       size: 200,
     });
 
-    scanUrlLink.href = scanUrl;
-    scanUrlLink.textContent = scanUrl;
-    scanLinkArea.classList.remove('hidden');
-    scanLinkArea.classList.remove('hiding');
-
-    showSpinner(false, spinnerStudent);
-    setButtonText(generateScanLinkButtonText, 'Waiting for your scan...');
+    setSingleScanState({
+      status: 'waiting',
+      spinner: false,
+      buttonText: 'Waiting for your scan...',
+      showScanLinkArea: true,
+      disabled: true,
+      directUploadDisabled: false,
+      scanUrl,
+    });
 
     startScanPolling(examId);
   } catch (error) {
-    setButtonText(generateScanLinkButtonText, 'Error! Make sure to add both name & student number');
     console.error(error);
-    showSpinner(false, spinnerStudent);
-    setTimeout(() => {
-      generateScanLinkButton.disabled = false;
-      setButtonText(generateScanLinkButtonText, DEFAULT_SCAN_BUTTON_TEXT);
-    }, 5000);
+    setSingleScanState({ status: 'error', spinner: false, buttonText: 'Error! Please try again.' });
+    scheduleSingleScanReset(5000);
   }
 });
 
@@ -89,17 +206,13 @@ async function handleDirectUpload(event) {
   }
 
   stopScanPolling();
-  directUploadInput.disabled = true;
-  setButtonText(generateScanLinkButtonText, 'Uploading...');
-  showSpinner(true, spinnerStudent);
-
-  if (scanLinkArea && !scanLinkArea.classList.contains('hiding')) {
-    scanLinkArea.classList.add('hiding');
-    setTimeout(() => {
-      scanLinkArea.classList.add('hidden');
-      scanLinkArea.classList.remove('hiding');
-    }, 600);
-  }
+  setSingleScanState({
+    status: 'uploading',
+    buttonText: 'Uploading...',
+    spinner: true,
+    showScanLinkArea: false,
+    directUploadDisabled: true,
+  });
 
   try {
     const examId = new URLSearchParams(window.location.search).get('id');
@@ -147,19 +260,14 @@ async function handleDirectUpload(event) {
 
     const sessionForProcessing = sessionDetails;
     sessionForProcessing.uploaded_image_paths = uploadedFilePaths;
+    setSingleScanSessionToken(sessionDetails.session_token || currentScanSessionToken);
 
     await processScannedAnswers(examId, sessionForProcessing);
   } catch (error) {
     console.error('Direct upload failed:', error);
-    setButtonText(generateScanLinkButtonText, 'Upload Error!');
-    showSpinner(false, spinnerStudent);
-    setTimeout(() => {
-      generateScanLinkButton.disabled = false;
-      setButtonText(generateScanLinkButtonText, DEFAULT_SCAN_BUTTON_TEXT);
-      currentScanSessionToken = null;
-      directUploadInput.disabled = false;
-      event.target.value = '';
-    }, 5000);
+    setSingleScanState({ status: 'error', buttonText: 'Upload Error!', spinner: false, directUploadDisabled: true });
+    event.target.value = '';
+    scheduleSingleScanReset(5000);
   }
 }
 
@@ -175,12 +283,8 @@ function startScanPolling(examId) {
 
   scanProcessingTimeout = setTimeout(() => {
     stopScanPolling();
-    setButtonText(generateScanLinkButtonText, 'Timed out.');
-    setTimeout(() => {
-      generateScanLinkButton.disabled = false;
-      setButtonText(generateScanLinkButtonText, DEFAULT_SCAN_BUTTON_TEXT);
-      scanLinkArea.classList.add('hidden');
-    }, 4000);
+    setSingleScanState({ status: 'error', buttonText: 'Timed out.', spinner: false, showScanLinkArea: false, directUploadDisabled: true });
+    scheduleSingleScanReset(4000);
   }, 10 * 60 * 1000);
 
   scanPollingInterval = setInterval(async () => {
@@ -227,15 +331,14 @@ async function checkScanStatus(examId) {
     const session = await response.json();
 
     if (session.status === 'uploaded') {
-      setButtonText(generateScanLinkButtonText, 'Images detected!');
-
-      if (scanLinkArea && !scanLinkArea.classList.contains('hiding')) {
-        scanLinkArea.classList.add('hiding');
-        setTimeout(() => {
-          scanLinkArea.classList.add('hidden');
-          scanLinkArea.classList.remove('hiding');
-        }, 600);
-      }
+      setSingleScanSessionToken(session.session_token || currentScanSessionToken);
+      setSingleScanState({
+        status: 'processing',
+        buttonText: 'Images detected!',
+        spinner: true,
+        showScanLinkArea: false,
+        directUploadDisabled: true,
+      });
 
       stopScanPolling();
       await processScannedAnswers(examId, session);
@@ -250,9 +353,9 @@ async function checkScanStatus(examId) {
  * @param {any} scanSession
  * @param {string} examId
  */
-async function processScannedAnswersBackground(scanSession, examId) {
+async function processScannedAnswersBackground(scanSession, examId, progressCb = () => {}) {
   try {
-    setButtonText(generateScanLinkButtonText, 'Fetching exam...');
+    progressCb('Fetching exam...');
     const { data: examStructure, error: fetchExamError } = await sb
       .from('questions')
       .select(`question_number, sub_questions(sub_q_text_content)`)
@@ -262,7 +365,7 @@ async function processScannedAnswersBackground(scanSession, examId) {
     if (fetchExamError) throw fetchExamError;
     const examStructureForGcf = { questions: examStructure };
 
-    setButtonText(generateScanLinkButtonText, 'Downloading images...');
+    progressCb('Downloading images...');
     const formData = new FormData();
     formData.append('exam_structure', JSON.stringify(examStructureForGcf));
 
@@ -296,7 +399,7 @@ async function processScannedAnswersBackground(scanSession, examId) {
       throw new Error('No image files could be downloaded or processed. Aborting GCF call.');
     }
 
-    setButtonText(generateScanLinkButtonText, 'Thinking... (~4 mins)');
+    progressCb('Thinking... (~4 mins)');
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 300000);
 
@@ -312,7 +415,7 @@ async function processScannedAnswersBackground(scanSession, examId) {
         throw new Error(`Cloud function failed: ${gcfResponse.statusText} - ${errorText}`);
       }
 
-      setButtonText(generateScanLinkButtonText, 'Parsing results...');
+      progressCb('Parsing results...');
       const zipBlob = await gcfResponse.blob();
       const jszip = new JSZip();
       const zip = await jszip.loadAsync(zipBlob);
@@ -321,8 +424,8 @@ async function processScannedAnswersBackground(scanSession, examId) {
       const jsonContent = await jsonFile.async('string');
       const responseData = JSON.parse(jsonContent);
 
-      setButtonText(generateScanLinkButtonText, 'Saving answers...');
-      await saveStudentAnswersFromScan(scanSession, examId, responseData, zip);
+      progressCb('Saving answers...');
+      await saveStudentAnswersFromScan(scanSession, examId, responseData, zip, progressCb);
 
       await sb.from('scan_sessions').update({ status: 'completed' }).eq('id', scanSession.id);
       cleanupTempFiles(scanSession);
@@ -345,14 +448,25 @@ async function processScannedAnswersBackground(scanSession, examId) {
  * @param {any|null} preloadedSession
  */
 async function processScannedAnswers(examId, preloadedSession = null) {
-  showSpinner(true, spinnerStudent);
-  setButtonText(generateScanLinkButtonText, 'Processing...');
+  clearSingleScanResetTimer();
+  setSingleScanState({
+    status: 'processing',
+    buttonText: 'Processing...',
+    spinner: true,
+    disabled: true,
+    showScanLinkArea: false,
+    directUploadDisabled: true,
+  });
+
   let isError = false;
   let scanSession;
 
   try {
     if (preloadedSession) {
       scanSession = preloadedSession;
+      if (scanSession?.session_token) {
+        setSingleScanSessionToken(scanSession.session_token);
+      }
     } else {
       const sessionToken = currentScanSessionToken;
       if (!sessionToken || !examId) throw new Error('Session token and Exam ID are required');
@@ -365,36 +479,31 @@ async function processScannedAnswers(examId, preloadedSession = null) {
     if (!scanSession) throw new Error('Scan session not found or expired.');
     if (new Date(scanSession.expires_at) < new Date()) throw new Error('Scan session has expired.');
 
+    if (!singleScanState.sessionToken && scanSession.session_token) {
+      setSingleScanSessionToken(scanSession.session_token);
+    }
+
     await sb.from('scan_sessions').update({ status: 'processing' }).eq('id', scanSession.id);
 
     if (!scanSession.uploaded_image_paths || scanSession.uploaded_image_paths.length === 0) {
       await sb.from('scan_sessions').update({ status: 'completed' }).eq('id', scanSession.id);
-      setButtonText(generateScanLinkButtonText, 'No images uploaded.');
+      setSingleScanState({ status: 'success', buttonText: 'No images uploaded.', spinner: false });
     } else {
-      await processScannedAnswersBackground(scanSession, examId);
-      setButtonText(generateScanLinkButtonText, 'Processed!');
+      const progressCb = (message) => setSingleScanState({ buttonText: message, spinner: true });
+      await processScannedAnswersBackground(scanSession, examId, progressCb);
+      setSingleScanState({ status: 'success', buttonText: 'Processed!', spinner: false });
     }
 
     await loadExamDetails(examId);
   } catch (error) {
     console.error('Error processing scanned session:', error.message);
-    setButtonText(generateScanLinkButtonText, 'Error!');
+    setSingleScanState({ status: 'error', buttonText: 'Error!', spinner: false });
     isError = true;
     if (scanSession?.id) {
       await sb.from('scan_sessions').update({ status: 'failed', error_message: error.message }).eq('id', scanSession.id);
     }
   } finally {
-    showSpinner(false, spinnerStudent);
-    setTimeout(() => {
-      studentAnswersForm.reset();
-      generateScanLinkButton.disabled = false;
-      setButtonText(generateScanLinkButtonText, DEFAULT_SCAN_BUTTON_TEXT);
-      currentScanSessionToken = null;
-      if (directUploadInput) {
-        directUploadInput.disabled = false;
-        directUploadInput.value = '';
-      }
-    }, isError ? 5000 : 3000);
+    scheduleSingleScanReset(isError ? 5000 : 3000);
   }
 }
 
@@ -405,7 +514,7 @@ async function processScannedAnswers(examId, preloadedSession = null) {
  * @param {any} responseData
  * @param {JSZip} zip
  */
-async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip) {
+async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip, progressCb = () => {}) {
   const studentExamId = scanSession.student_exam_id;
 
   if (!studentExamId) {
@@ -455,7 +564,7 @@ async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip
             const visualFilename = decodeURIComponent(sq_res.student_answers.answer_visual);
             const visualFile = zip.file(sq_res.student_answers.answer_visual);
             if (visualFile) {
-              setButtonText(generateScanLinkButtonText, `Uploading ${visualFilename}...`);
+              progressCb(`Uploading ${visualFilename}...`);
               const filePath = `public/${examId}/answers/${studentExamId}/${Date.now()}_${visualFilename}`;
               const fileBlob = await visualFile.async('blob');
               const fileExtension = visualFilename.split('.').pop().toLowerCase();
