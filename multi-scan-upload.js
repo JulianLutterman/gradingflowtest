@@ -448,7 +448,11 @@ async function handleProcessAllSubmissions(type) {
         } else {
             setMultiDirectProcessState({ buttonText: 'All processed! Refreshing...', spinner: false, disabled: true, status: 'success' });
         }
-        await loadExamDetails(examId);
+        if (typeof window.enqueueExamRefresh === 'function' && window.isEditSessionActive?.()) {
+            await window.enqueueExamRefresh(() => loadExamDetails(examId));
+        } else {
+            await loadExamDetails(examId);
+        }
         setTimeout(() => multiUploadModal.classList.add('hidden'), 2000);
     } catch (error) {
         console.error('Error during multi-submission processing:', error);

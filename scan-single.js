@@ -114,6 +114,27 @@ window.applySingleScanState = applySingleScanState;
 window.cancelSingleScanSession = cancelSingleScanSession;
 window.getSingleScanState = () => ({ ...singleScanState });
 
+function prepareExamSnapshot(questions = []) {
+  const subQuestionLookup = {};
+  const sanitizedQuestions = questions.map((question) => {
+    const safeSubQuestions = (question.sub_questions || []).map((subQuestion) => {
+      if (subQuestion?.id) {
+        if (!subQuestionLookup[question.question_number]) {
+          subQuestionLookup[question.question_number] = {};
+        }
+        subQuestionLookup[question.question_number][subQuestion.sub_q_text_content] = subQuestion.id;
+      }
+      return { sub_q_text_content: subQuestion.sub_q_text_content };
+    });
+    return {
+      question_number: question.question_number,
+      sub_questions: safeSubQuestions,
+    };
+  });
+
+  return { subQuestionLookup, sanitizedQuestions };
+}
+
 // --- STUDENT SCAN LINK GENERATION (MODIFIED LOGGING) ---
 generateScanLinkButton.addEventListener('click', async () => {
   clearSingleScanResetTimer();
@@ -358,12 +379,13 @@ async function processScannedAnswersBackground(scanSession, examId, progressCb =
     progressCb('Fetching exam...');
     const { data: examStructure, error: fetchExamError } = await sb
       .from('questions')
-      .select(`question_number, sub_questions(sub_q_text_content)`)
+      .select(`question_number, sub_questions(id, sub_q_text_content)`)
       .eq('exam_id', examId)
       .order('question_number', { ascending: true });
 
     if (fetchExamError) throw fetchExamError;
-    const examStructureForGcf = { questions: examStructure };
+    const { subQuestionLookup, sanitizedQuestions } = prepareExamSnapshot(examStructure || []);
+    const examStructureForGcf = { questions: sanitizedQuestions };
 
     progressCb('Downloading images...');
     const formData = new FormData();
@@ -425,7 +447,7 @@ async function processScannedAnswersBackground(scanSession, examId, progressCb =
       const responseData = JSON.parse(jsonContent);
 
       progressCb('Saving answers...');
-      await saveStudentAnswersFromScan(scanSession, examId, responseData, zip, progressCb);
+      await saveStudentAnswersFromScan(scanSession, examId, responseData, zip, progressCb, subQuestionLookup);
 
       await sb.from('scan_sessions').update({ status: 'completed' }).eq('id', scanSession.id);
       cleanupTempFiles(scanSession);
@@ -494,7 +516,11 @@ async function processScannedAnswers(examId, preloadedSession = null) {
       setSingleScanState({ status: 'success', buttonText: 'Processed!', spinner: false });
     }
 
-    await loadExamDetails(examId);
+    if (typeof window.enqueueExamRefresh === 'function' && window.isEditSessionActive?.()) {
+      await window.enqueueExamRefresh(() => loadExamDetails(examId));
+    } else {
+      await loadExamDetails(examId);
+    }
   } catch (error) {
     console.error('Error processing scanned session:', error.message);
     setSingleScanState({ status: 'error', buttonText: 'Error!', spinner: false });
@@ -514,7 +540,14 @@ async function processScannedAnswers(examId, preloadedSession = null) {
  * @param {any} responseData
  * @param {JSZip} zip
  */
-async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip, progressCb = () => {}) {
+async function saveStudentAnswersFromScan(
+  scanSession,
+  examId,
+  responseData,
+  zip,
+  progressCb = () => {},
+  precomputedLookup = null,
+) {
   const studentExamId = scanSession.student_exam_id;
 
   if (!studentExamId) {
@@ -532,19 +565,22 @@ async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip
     processedData = responseData[0];
   }
 
-  const { data: dbQuestions, error: fetchQError } = await sb
-    .from('questions')
-    .select('id, question_number, sub_questions(id, sub_q_text_content)')
-    .eq('exam_id', examId);
-  if (fetchQError) throw new Error(`Could not fetch exam structure for matching: ${fetchQError.message}`);
+  let subQuestionLookup = precomputedLookup;
+  if (!subQuestionLookup) {
+    const { data: dbQuestions, error: fetchQError } = await sb
+      .from('questions')
+      .select('id, question_number, sub_questions(id, sub_q_text_content)')
+      .eq('exam_id', examId);
+    if (fetchQError) throw new Error(`Could not fetch exam structure for matching: ${fetchQError.message}`);
 
-  const subQuestionLookup = dbQuestions.reduce((qMap, q) => {
-    qMap[q.question_number] = q.sub_questions.reduce((sqMap, sq) => {
-      sqMap[sq.sub_q_text_content] = sq.id;
-      return sqMap;
+    subQuestionLookup = dbQuestions.reduce((qMap, q) => {
+      qMap[q.question_number] = q.sub_questions.reduce((sqMap, sq) => {
+        sqMap[sq.sub_q_text_content] = sq.id;
+        return sqMap;
+      }, {});
+      return qMap;
     }, {});
-    return qMap;
-  }, {});
+  }
 
   const answersToInsert = [];
   if (!processedData || !processedData.questions || !Array.isArray(processedData.questions)) {

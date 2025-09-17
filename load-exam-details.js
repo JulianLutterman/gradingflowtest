@@ -1,16 +1,34 @@
 let examUiInitialized = false;
+let loadExamDetailsRequestToken = 0;
 
 /**
  * Load exam details, wire modal and multi-upload events, and render.
  * @param {string} examId
  */
-async function loadExamDetails(examId) {
+async function loadExamDetails(examId, { bypassQueue = false } = {}) {
+  if (!bypassQueue && typeof window.isEditSessionActive === 'function' && window.isEditSessionActive()) {
+    if (typeof window.enqueueExamRefresh === 'function') {
+      return window.enqueueExamRefresh(() => loadExamDetails(examId, { bypassQueue: true }));
+    }
+  }
+
+  const requestToken = ++loadExamDetailsRequestToken;
   const { data: examData, error } = await fetchFullExamDetails(examId);
+
+  if (requestToken < loadExamDetailsRequestToken) {
+    return;
+  }
 
   if (error) {
     examNameTitle.textContent = 'Error Loading Exam';
     questionsContainer.innerHTML = `<p>Could not load exam details: ${error.message}</p>`;
     return;
+  }
+
+  if (typeof window.isEditSessionActive === 'function' && window.isEditSessionActive()) {
+    if (typeof window.enqueueExamRefresh === 'function') {
+      return window.enqueueExamRefresh(() => loadExamDetails(examId, { bypassQueue: true }));
+    }
   }
 
   if (!examUiInitialized) {

@@ -85,7 +85,11 @@ appendixForm.addEventListener('submit', async (e) => {
     setAppendixUploadState({ buttonText: 'Refreshing data...' });
     appendixForm.reset();
     document.getElementById('appendix-file-display').textContent = 'No files chosen';
-    await loadExamDetails(examId);
+    if (typeof window.enqueueExamRefresh === 'function' && window.isEditSessionActive?.()) {
+      await window.enqueueExamRefresh(() => loadExamDetails(examId));
+    } else {
+      await loadExamDetails(examId);
+    }
   } catch (error) {
     setAppendixUploadState({ status: 'error', buttonText: 'Error!', spinner: false });
     console.error(error);
@@ -134,6 +138,27 @@ function scheduleModelReset(delayMs) {
 applyModelUploadState();
 window.applyModelUploadState = applyModelUploadState;
 
+function prepareModelExamSnapshot(questions = []) {
+  const subQuestionLookup = {};
+  const sanitizedQuestions = questions.map((question) => {
+    const sanitizedSubQuestions = (question.sub_questions || []).map((subQuestion) => {
+      if (subQuestion?.id) {
+        if (!subQuestionLookup[question.question_number]) {
+          subQuestionLookup[question.question_number] = {};
+        }
+        subQuestionLookup[question.question_number][subQuestion.sub_q_text_content] = subQuestion.id;
+      }
+      return { sub_q_text_content: subQuestion.sub_q_text_content };
+    });
+    return {
+      question_number: question.question_number,
+      sub_questions: sanitizedSubQuestions,
+    };
+  });
+
+  return { subQuestionLookup, sanitizedQuestions };
+}
+
 // --- ANSWER MODEL UPLOAD LOGIC (MODIFIED LOGGING) ---
 modelForm.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -158,7 +183,8 @@ modelForm.addEventListener('submit', async (e) => {
     setModelUploadState({ buttonText: 'Fetching exam...' });
     const { data: examStructure, error: fetchError } = await fetchExamDataForModelJson(examId);
     if (fetchError) throw new Error(`Could not fetch exam data for model: ${fetchError.message}`);
-    const examStructureForGcf = { questions: examStructure };
+    const { subQuestionLookup, sanitizedQuestions } = prepareModelExamSnapshot(examStructure || []);
+    const examStructureForGcf = { questions: sanitizedQuestions };
 
     setModelUploadState({ buttonText: 'Thinking... (~4 mins)' });
     const formData = new FormData();
@@ -182,12 +208,16 @@ modelForm.addEventListener('submit', async (e) => {
     const modelData = JSON.parse(jsonContent);
 
     setModelUploadState({ buttonText: 'Saving...' });
-    await processAndUploadModel(examId, modelData.questions, zip);
+    await processAndUploadModel(examId, modelData.questions, zip, subQuestionLookup);
 
     setModelUploadState({ buttonText: 'Refreshing data...' });
     modelForm.reset();
     document.getElementById('model-file-display').textContent = 'No files chosen';
-    await loadExamDetails(examId);
+    if (typeof window.enqueueExamRefresh === 'function' && window.isEditSessionActive?.()) {
+      await window.enqueueExamRefresh(() => loadExamDetails(examId));
+    } else {
+      await loadExamDetails(examId);
+    }
   } catch (error) {
     setModelUploadState({ status: 'error', buttonText: 'Error!', spinner: false });
     console.error(error);
@@ -271,7 +301,7 @@ async function processAndUploadAppendices(examId, appendices, zip) {
  * @param {Array<any>} modelQuestions
  * @param {JSZip} zip
  */
-async function processAndUploadModel(examId, modelQuestions, zip) {
+async function processAndUploadModel(examId, modelQuestions, zip, precomputedLookup = null) {
   setModelUploadState({ buttonText: 'Processing rules...' });
   const rulesFile = zip.file('grading_rules.txt');
   if (rulesFile) {
@@ -290,18 +320,21 @@ async function processAndUploadModel(examId, modelQuestions, zip) {
     }
   }
 
-  const { data: dbQuestions, error: fetchError } = await sb
-    .from('questions')
-    .select('id, question_number, sub_questions(id, sub_q_text_content)')
-    .eq('exam_id', examId);
-  if (fetchError) throw new Error(`Could not fetch exam structure for matching: ${fetchError.message}`);
-  const subQuestionLookup = dbQuestions.reduce((qMap, q) => {
-    qMap[q.question_number] = q.sub_questions.reduce((sqMap, sq) => {
-      sqMap[sq.sub_q_text_content] = sq.id;
-      return sqMap;
+  let subQuestionLookup = precomputedLookup;
+  if (!subQuestionLookup) {
+    const { data: dbQuestions, error: fetchError } = await sb
+      .from('questions')
+      .select('id, question_number, sub_questions(id, sub_q_text_content)')
+      .eq('exam_id', examId);
+    if (fetchError) throw new Error(`Could not fetch exam structure for matching: ${fetchError.message}`);
+    subQuestionLookup = dbQuestions.reduce((qMap, q) => {
+      qMap[q.question_number] = q.sub_questions.reduce((sqMap, sq) => {
+        sqMap[sq.sub_q_text_content] = sq.id;
+        return sqMap;
+      }, {});
+      return qMap;
     }, {});
-    return qMap;
-  }, {});
+  }
 
   for (const q_model of modelQuestions) {
     for (const sq_model of q_model.sub_questions) {

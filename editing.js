@@ -5,6 +5,71 @@
 /** tiny helper */
 function _rand() { return Math.random().toString(36).slice(2) + Date.now().toString(36); }
 
+// -----------------------------------------------------------------
+// --- INLINE EDIT SESSION TRACKING / REFRESH COORDINATION HELPERS ---
+// -----------------------------------------------------------------
+
+const activeEditContainers = new Set();
+let activeInlineEditCount = 0;
+const editSessionEvents = new EventTarget();
+const pendingExamRefreshTasks = [];
+
+function dispatchEditSessionChange() {
+    const detail = { active: activeInlineEditCount > 0, activeCount: activeInlineEditCount };
+    editSessionEvents.dispatchEvent(new CustomEvent('edit-session-change', { detail }));
+
+    if (activeInlineEditCount === 0) {
+        flushPendingExamRefreshes();
+    }
+}
+
+function markContainerEditing(container, isEditing) {
+    if (!container) return;
+
+    const isTracked = activeEditContainers.has(container);
+
+    if (isEditing && !isTracked) {
+        activeEditContainers.add(container);
+        activeInlineEditCount += 1;
+        dispatchEditSessionChange();
+    } else if (!isEditing && isTracked) {
+        activeEditContainers.delete(container);
+        activeInlineEditCount = Math.max(0, activeInlineEditCount - 1);
+        dispatchEditSessionChange();
+    }
+}
+
+function flushPendingExamRefreshes() {
+    if (!pendingExamRefreshTasks.length) return;
+    const tasks = pendingExamRefreshTasks.splice(0);
+
+    tasks.reduce((chain, task) => chain.then(() => task().catch((error) => {
+        console.error('Queued exam refresh failed:', error);
+    })), Promise.resolve());
+}
+
+function enqueueExamRefresh(callback) {
+    if (typeof callback !== 'function') return Promise.resolve();
+
+    if (typeof window.isEditSessionActive === 'function' && window.isEditSessionActive()) {
+        return new Promise((resolve, reject) => {
+            pendingExamRefreshTasks.push(() => Promise.resolve()
+                .then(() => callback())
+                .then(resolve)
+                .catch((error) => {
+                    reject(error);
+                    return Promise.reject(error);
+                }));
+        });
+    }
+
+    return Promise.resolve().then(() => callback());
+}
+
+window.isEditSessionActive = () => activeInlineEditCount > 0;
+window.editSessionEvents = editSessionEvents;
+window.enqueueExamRefresh = enqueueExamRefresh;
+
 /**
  * Delegated click handler for inline edit buttons.
  * @param {MouseEvent} event
@@ -57,6 +122,24 @@ async function handleEditClick(event) {
 function toggleEditMode(container, isEditing, fields = null, editButtonParam = null) {
     const editButton = editButtonParam || container.querySelector('.edit-btn');
     let buttonParent = editButton?.closest('.cell-header') || editButton?.parentElement || container;
+
+    if (isEditing) {
+        markContainerEditing(container, true);
+        container.dataset.editingFields = fields ? JSON.stringify(fields) : '';
+    } else {
+        let resolvedFields = fields;
+        if ((!resolvedFields || resolvedFields.length === 0) && container.dataset.editingFields !== undefined) {
+            try {
+                const parsed = JSON.parse(container.dataset.editingFields || '[]');
+                resolvedFields = parsed.length ? parsed : null;
+            } catch {
+                resolvedFields = null;
+            }
+        }
+        if (container.dataset.editingFields !== undefined) delete container.dataset.editingFields;
+        fields = resolvedFields;
+        markContainerEditing(container, false);
+    }
 
     // Keep Save/Cancel OUT of icon stacks (delete-handlers puts Edit into these wrappers)
     if (
@@ -119,7 +202,7 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
         if (addBtn) addBtn.classList.toggle('hidden', isEditing);
     }
 
-    const selector = fields
+        const selector = fields
         ? fields.map((field) => `[data-editable="${field}"]`).join(', ')
         : '[data-editable]';
 
@@ -475,6 +558,20 @@ async function saveChanges(container, editButton) {
     const examId = urlParams.get('id');
 
     try {
+        const commitEditedValues = () => {
+            container.querySelectorAll('[data-editable]').forEach((el) => {
+                const input = el.querySelector('.editable-input');
+                if (!input) return;
+                const newValue = input.value ?? '';
+                try {
+                    el.dataset.originalText = JSON.stringify(newValue);
+                } catch {
+                    el.dataset.originalText = JSON.stringify(String(newValue));
+                }
+                el.removeAttribute('data-original-value');
+            });
+        };
+
         let results;
         switch (targetType) {
             case 'exam_name': {
@@ -822,8 +919,15 @@ async function saveChanges(container, editButton) {
                 throw new Error('Unknown edit target type.');
         }
 
-        // Reload
-        await loadExamDetails(examId);
+        commitEditedValues();
+        toggleEditMode(container, false, undefined, editButton);
+
+        // Reload (guard against other active edits)
+        if (typeof window.enqueueExamRefresh === 'function' && window.isEditSessionActive?.()) {
+            await window.enqueueExamRefresh(() => loadExamDetails(examId));
+        } else {
+            await loadExamDetails(examId);
+        }
 
         // Post-save modal refreshes you already had:
         if (targetType === 'grading_regulations') {
