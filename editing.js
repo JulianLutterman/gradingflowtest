@@ -5,6 +5,74 @@
 /** tiny helper */
 function _rand() { return Math.random().toString(36).slice(2) + Date.now().toString(36); }
 
+const QUESTION_EDIT_TARGETS = new Set(['question_context', 'sub_question', 'model_alternative']);
+const activeQuestionEditKeys = new Set();
+const queuedExamRefreshes = [];
+let isFlushingQueuedRefreshes = false;
+
+function isQuestionEditActive() {
+    return activeQuestionEditKeys.size > 0;
+}
+
+function markQuestionEdit(container, targetType, isEditing) {
+    if (!container || !QUESTION_EDIT_TARGETS.has(targetType)) return;
+
+    if (isEditing) {
+        if (!container.dataset.questionEditKey) {
+            container.dataset.questionEditKey = _rand();
+        }
+        activeQuestionEditKeys.add(container.dataset.questionEditKey);
+    } else {
+        const key = container.dataset.questionEditKey;
+        if (key) {
+            activeQuestionEditKeys.delete(key);
+            delete container.dataset.questionEditKey;
+        }
+        if (activeQuestionEditKeys.size === 0) {
+            flushQueuedExamRefreshes().catch((error) => {
+                console.error('Queued exam refresh failed:', error);
+            });
+        }
+    }
+}
+
+async function flushQueuedExamRefreshes() {
+    if (isFlushingQueuedRefreshes || queuedExamRefreshes.length === 0) return;
+
+    isFlushingQueuedRefreshes = true;
+    try {
+        while (queuedExamRefreshes.length > 0) {
+            const { callback, resolve, reject } = queuedExamRefreshes.shift();
+            try {
+                const result = await callback();
+                resolve(result);
+            } catch (error) {
+                console.error('Deferred exam refresh callback failed:', error);
+                reject(error);
+            }
+        }
+    } finally {
+        isFlushingQueuedRefreshes = false;
+    }
+}
+
+function queueRefreshAfterQuestionEdits(callback) {
+    if (typeof callback !== 'function') {
+        return Promise.resolve();
+    }
+
+    if (!isQuestionEditActive()) {
+        return Promise.resolve().then(() => callback());
+    }
+
+    return new Promise((resolve, reject) => {
+        queuedExamRefreshes.push({ callback, resolve, reject });
+    });
+}
+
+window.isQuestionEditActive = isQuestionEditActive;
+window.queueRefreshAfterQuestionEdits = queueRefreshAfterQuestionEdits;
+
 /**
  * Delegated click handler for inline edit buttons.
  * @param {MouseEvent} event
@@ -72,6 +140,8 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
 
     let editActions = buttonParent.querySelector('.edit-actions');
     const targetType = editButton?.dataset.editTarget;
+
+    markQuestionEdit(container, targetType, isEditing);
 
     // Take snapshot BEFORE applying edit-mode styles (keep inline styles so KaTeX stays intact)
     if (isEditing && targetType === 'model_alternative' && !container.dataset.compSnapshotTaken) {
@@ -822,8 +892,10 @@ async function saveChanges(container, editButton) {
                 throw new Error('Unknown edit target type.');
         }
 
-        // Reload
-        await loadExamDetails(examId);
+        // Reload (respect deferred refresh queue if active)
+        const refreshPromise = queueRefreshAfterQuestionEdits(() => loadExamDetails(examId));
+        markQuestionEdit(container, targetType, false);
+        await refreshPromise;
 
         // Post-save modal refreshes you already had:
         if (targetType === 'grading_regulations') {

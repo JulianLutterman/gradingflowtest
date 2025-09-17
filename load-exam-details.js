@@ -1,11 +1,17 @@
 let examUiInitialized = false;
+let latestLoadExamRequestId = 0;
 
 /**
  * Load exam details, wire modal and multi-upload events, and render.
  * @param {string} examId
  */
 async function loadExamDetails(examId) {
+  const requestId = ++latestLoadExamRequestId;
   const { data: examData, error } = await fetchFullExamDetails(examId);
+
+  if (requestId !== latestLoadExamRequestId) {
+    return;
+  }
 
   if (error) {
     examNameTitle.textContent = 'Error Loading Exam';

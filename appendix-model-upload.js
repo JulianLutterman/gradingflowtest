@@ -32,6 +32,46 @@ function scheduleAppendixReset(delayMs) {
 applyAppendixUploadState();
 window.applyAppendixUploadState = applyAppendixUploadState;
 
+function ensureSubQuestionHelpers() {
+  if (typeof window.buildSubQuestionLookup !== 'function') {
+    window.buildSubQuestionLookup = function (questions = []) {
+      return (questions || []).reduce((questionMap, question) => {
+        if (!question || typeof question.question_number === 'undefined') {
+          return questionMap;
+        }
+
+        const subQuestions = Array.isArray(question.sub_questions) ? question.sub_questions : [];
+        const subMap = subQuestions.reduce((acc, subQuestion) => {
+          if (!subQuestion) return acc;
+
+          const text = subQuestion.sub_q_text_content;
+          const subId = subQuestion.id;
+          if (text && subId) {
+            acc[text] = subId;
+          }
+          return acc;
+        }, {});
+
+        questionMap[question.question_number] = subMap;
+        return questionMap;
+      }, {});
+    };
+  }
+
+  if (typeof window.normalizeQuestionsForGcf !== 'function') {
+    window.normalizeQuestionsForGcf = function (questions = []) {
+      return (questions || []).map((question) => ({
+        question_number: question?.question_number,
+        sub_questions: (Array.isArray(question?.sub_questions) ? question.sub_questions : []).map((subQuestion) => ({
+          sub_q_text_content: subQuestion?.sub_q_text_content,
+        })),
+      }));
+    };
+  }
+}
+
+ensureSubQuestionHelpers();
+
 // --- APPENDIX UPLOAD LOGIC (MODIFIED LOGGING) ---
 appendixForm.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -45,6 +85,7 @@ appendixForm.addEventListener('submit', async (e) => {
   const examId = urlParams.get('id');
   const files = document.getElementById('appendix-files').files;
   let isError = false;
+  let successButtonText = 'Success!';
 
   if (!examId || files.length === 0) {
     alert('Cannot proceed without an Exam ID and at least one file.');
@@ -85,14 +126,27 @@ appendixForm.addEventListener('submit', async (e) => {
     setAppendixUploadState({ buttonText: 'Refreshing data...' });
     appendixForm.reset();
     document.getElementById('appendix-file-display').textContent = 'No files chosen';
-    await loadExamDetails(examId);
+    const requestRefresh = window.requestExamRefresh;
+    if (typeof requestRefresh === 'function') {
+      const queued = await requestRefresh(examId, {
+        onQueued: () =>
+          setAppendixUploadState({
+            buttonText: 'Success! Finish editing to refresh.',
+            spinner: false,
+          }),
+      });
+      successButtonText = queued ? 'Success! Refreshed after edits.' : 'Success!';
+    } else {
+      await loadExamDetails(examId);
+      successButtonText = 'Success!';
+    }
   } catch (error) {
     setAppendixUploadState({ status: 'error', buttonText: 'Error!', spinner: false });
     console.error(error);
     isError = true;
   } finally {
     if (!isError) {
-      setAppendixUploadState({ status: 'success', buttonText: 'Success!', spinner: false });
+      setAppendixUploadState({ status: 'success', buttonText: successButtonText, spinner: false });
     }
     if (isError) {
       setAppendixUploadState({ status: 'error', spinner: false });
@@ -147,6 +201,8 @@ modelForm.addEventListener('submit', async (e) => {
   const examId = urlParams.get('id');
   const files = document.getElementById('model-files').files;
   let isError = false;
+  let subQuestionLookup = null;
+  let successButtonText = 'Success!';
 
   if (!examId || files.length === 0) {
     alert('Cannot proceed without an Exam ID and at least one file.');
@@ -158,7 +214,9 @@ modelForm.addEventListener('submit', async (e) => {
     setModelUploadState({ buttonText: 'Fetching exam...' });
     const { data: examStructure, error: fetchError } = await fetchExamDataForModelJson(examId);
     if (fetchError) throw new Error(`Could not fetch exam data for model: ${fetchError.message}`);
-    const examStructureForGcf = { questions: examStructure };
+    const normalizedExamStructure = window.normalizeQuestionsForGcf(examStructure || []);
+    subQuestionLookup = window.buildSubQuestionLookup(examStructure || []);
+    const examStructureForGcf = { questions: normalizedExamStructure };
 
     setModelUploadState({ buttonText: 'Thinking... (~4 mins)' });
     const formData = new FormData();
@@ -182,19 +240,32 @@ modelForm.addEventListener('submit', async (e) => {
     const modelData = JSON.parse(jsonContent);
 
     setModelUploadState({ buttonText: 'Saving...' });
-    await processAndUploadModel(examId, modelData.questions, zip);
+    await processAndUploadModel(examId, modelData.questions, zip, subQuestionLookup);
 
     setModelUploadState({ buttonText: 'Refreshing data...' });
     modelForm.reset();
     document.getElementById('model-file-display').textContent = 'No files chosen';
-    await loadExamDetails(examId);
+    const requestRefresh = window.requestExamRefresh;
+    if (typeof requestRefresh === 'function') {
+      const queued = await requestRefresh(examId, {
+        onQueued: () =>
+          setModelUploadState({
+            buttonText: 'Success! Finish editing to refresh.',
+            spinner: false,
+          }),
+      });
+      successButtonText = queued ? 'Success! Refreshed after edits.' : 'Success!';
+    } else {
+      await loadExamDetails(examId);
+      successButtonText = 'Success!';
+    }
   } catch (error) {
     setModelUploadState({ status: 'error', buttonText: 'Error!', spinner: false });
     console.error(error);
     isError = true;
   } finally {
     if (!isError) {
-      setModelUploadState({ status: 'success', buttonText: 'Success!', spinner: false });
+      setModelUploadState({ status: 'success', buttonText: successButtonText, spinner: false });
     }
     if (isError) {
       setModelUploadState({ status: 'error', spinner: false });
@@ -271,7 +342,7 @@ async function processAndUploadAppendices(examId, appendices, zip) {
  * @param {Array<any>} modelQuestions
  * @param {JSZip} zip
  */
-async function processAndUploadModel(examId, modelQuestions, zip) {
+async function processAndUploadModel(examId, modelQuestions, zip, subQuestionLookup = null) {
   setModelUploadState({ buttonText: 'Processing rules...' });
   const rulesFile = zip.file('grading_rules.txt');
   if (rulesFile) {
@@ -290,22 +361,20 @@ async function processAndUploadModel(examId, modelQuestions, zip) {
     }
   }
 
-  const { data: dbQuestions, error: fetchError } = await sb
-    .from('questions')
-    .select('id, question_number, sub_questions(id, sub_q_text_content)')
-    .eq('exam_id', examId);
-  if (fetchError) throw new Error(`Could not fetch exam structure for matching: ${fetchError.message}`);
-  const subQuestionLookup = dbQuestions.reduce((qMap, q) => {
-    qMap[q.question_number] = q.sub_questions.reduce((sqMap, sq) => {
-      sqMap[sq.sub_q_text_content] = sq.id;
-      return sqMap;
-    }, {});
-    return qMap;
-  }, {});
+  let subQuestionLookupMap = subQuestionLookup;
+  if (!subQuestionLookupMap) {
+    const { data: dbQuestions, error: fetchError } = await sb
+      .from('questions')
+      .select('question_number, sub_questions(id, sub_q_text_content)')
+      .eq('exam_id', examId);
+    if (fetchError) throw new Error(`Could not fetch exam structure for matching: ${fetchError.message}`);
+
+    subQuestionLookupMap = window.buildSubQuestionLookup(dbQuestions || []);
+  }
 
   for (const q_model of modelQuestions) {
     for (const sq_model of q_model.sub_questions) {
-      const sub_question_id = subQuestionLookup[q_model.question_number]?.[sq_model.sub_q_text_content];
+      const sub_question_id = subQuestionLookupMap?.[q_model.question_number]?.[sq_model.sub_q_text_content];
       if (!sub_question_id) {
         console.warn(`Could not find matching sub-question for Q#${q_model.question_number}. Skipping.`);
         continue;

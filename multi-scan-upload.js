@@ -441,14 +441,59 @@ async function handleProcessAllSubmissions(type) {
         const processingPromises = submissions.map((sub) => processSingleSubmission(examId, sub, type));
         await Promise.all(processingPromises);
 
+        const processStateBase =
+          type === 'scan'
+            ? { disabled: true, visible: true, status: 'success' }
+            : { disabled: true, status: 'success' };
+
         if (type === 'scan') {
-            setMultiScanProcessState({ buttonText: 'All processed! Refreshing...', spinner: false, disabled: true, visible: true, status: 'success' });
-            currentMultiScanSession = null;
-            resetMultiScanSessionState();
+          setMultiScanProcessState({
+            ...processStateBase,
+            buttonText: 'All processed! Refreshing...',
+            spinner: true,
+          });
+          currentMultiScanSession = null;
+          resetMultiScanSessionState();
         } else {
-            setMultiDirectProcessState({ buttonText: 'All processed! Refreshing...', spinner: false, disabled: true, status: 'success' });
+          setMultiDirectProcessState({
+            ...processStateBase,
+            buttonText: 'All processed! Refreshing...',
+            spinner: true,
+          });
         }
-        await loadExamDetails(examId);
+
+        const requestRefresh = window.requestExamRefresh;
+        let refreshWasQueued = false;
+
+        if (typeof requestRefresh === 'function') {
+          const onQueued = () => {
+            const queuedState = {
+              ...processStateBase,
+              buttonText: 'All processed! Finish editing to refresh.',
+              spinner: false,
+            };
+            if (type === 'scan') {
+              setMultiScanProcessState(queuedState);
+            } else {
+              setMultiDirectProcessState(queuedState);
+            }
+          };
+          refreshWasQueued = await requestRefresh(examId, { onQueued });
+        } else {
+          await loadExamDetails(examId);
+        }
+
+        const finalState = {
+          ...processStateBase,
+          buttonText: refreshWasQueued ? 'All processed! Refreshed after edits.' : 'All processed!',
+          spinner: false,
+        };
+        if (type === 'scan') {
+          setMultiScanProcessState(finalState);
+        } else {
+          setMultiDirectProcessState(finalState);
+        }
+
         setTimeout(() => multiUploadModal.classList.add('hidden'), 2000);
     } catch (error) {
         console.error('Error during multi-submission processing:', error);

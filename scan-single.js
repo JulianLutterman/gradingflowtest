@@ -42,6 +42,50 @@ function setSingleScanState(patch) {
   applySingleScanState();
 }
 
+function buildSubQuestionLookup(questions = []) {
+  return (questions || []).reduce((questionMap, question) => {
+    if (!question || typeof question.question_number === 'undefined') {
+      return questionMap;
+    }
+
+    const subQuestions = Array.isArray(question.sub_questions) ? question.sub_questions : [];
+    const subMap = subQuestions.reduce((acc, subQuestion) => {
+      if (!subQuestion) return acc;
+
+      const text = subQuestion.sub_q_text_content;
+      const subId = subQuestion.id;
+      if (text && subId) {
+        acc[text] = subId;
+      }
+      return acc;
+    }, {});
+
+    questionMap[question.question_number] = subMap;
+    return questionMap;
+  }, {});
+}
+
+function normalizeQuestionsForGcf(questions = []) {
+  return (questions || []).map((question) => ({
+    question_number: question?.question_number,
+    sub_questions: (Array.isArray(question?.sub_questions) ? question.sub_questions : []).map((subQuestion) => ({
+      sub_q_text_content: subQuestion?.sub_q_text_content,
+    })),
+  }));
+}
+
+if (!window.buildSubQuestionLookup) {
+  window.buildSubQuestionLookup = buildSubQuestionLookup;
+}
+
+if (!window.normalizeQuestionsForGcf) {
+  window.normalizeQuestionsForGcf = normalizeQuestionsForGcf;
+}
+
+if (!window.requestExamRefresh) {
+  window.requestExamRefresh = requestExamRefresh;
+}
+
 function resetSingleScanState() {
   Object.assign(singleScanState, singleScanDefaultState);
   applySingleScanState();
@@ -358,12 +402,13 @@ async function processScannedAnswersBackground(scanSession, examId, progressCb =
     progressCb('Fetching exam...');
     const { data: examStructure, error: fetchExamError } = await sb
       .from('questions')
-      .select(`question_number, sub_questions(sub_q_text_content)`)
+      .select(`question_number, sub_questions(id, sub_q_text_content)`)
       .eq('exam_id', examId)
       .order('question_number', { ascending: true });
 
     if (fetchExamError) throw fetchExamError;
-    const examStructureForGcf = { questions: examStructure };
+    const subQuestionLookup = buildSubQuestionLookup(examStructure);
+    const examStructureForGcf = { questions: normalizeQuestionsForGcf(examStructure) };
 
     progressCb('Downloading images...');
     const formData = new FormData();
@@ -425,7 +470,10 @@ async function processScannedAnswersBackground(scanSession, examId, progressCb =
       const responseData = JSON.parse(jsonContent);
 
       progressCb('Saving answers...');
-      await saveStudentAnswersFromScan(scanSession, examId, responseData, zip, progressCb);
+      await saveStudentAnswersFromScan(scanSession, examId, responseData, zip, {
+        progressCb,
+        subQuestionLookup,
+      });
 
       await sb.from('scan_sessions').update({ status: 'completed' }).eq('id', scanSession.id);
       cleanupTempFiles(scanSession);
@@ -491,10 +539,23 @@ async function processScannedAnswers(examId, preloadedSession = null) {
     } else {
       const progressCb = (message) => setSingleScanState({ buttonText: message, spinner: true });
       await processScannedAnswersBackground(scanSession, examId, progressCb);
-      setSingleScanState({ status: 'success', buttonText: 'Processed!', spinner: false });
+      setSingleScanState({ status: 'success', buttonText: 'Processed! Refreshing...', spinner: true });
     }
 
-    await loadExamDetails(examId);
+    const refreshWasQueued = await requestExamRefresh(examId, {
+      onQueued: () =>
+        setSingleScanState({
+          status: 'success',
+          buttonText: 'Processed! Finish editing to refresh.',
+          spinner: false,
+        }),
+    });
+
+    setSingleScanState({
+      status: 'success',
+      buttonText: refreshWasQueued ? 'Processed! Refreshed after edits.' : 'Processed!',
+      spinner: false,
+    });
   } catch (error) {
     console.error('Error processing scanned session:', error.message);
     setSingleScanState({ status: 'error', buttonText: 'Error!', spinner: false });
@@ -507,6 +568,42 @@ async function processScannedAnswers(examId, preloadedSession = null) {
   }
 }
 
+async function requestExamRefresh(examId, { onQueued } = {}) {
+  if (!examId) return false;
+
+  let wasQueued = false;
+  const queueFn = window.queueRefreshAfterQuestionEdits;
+
+  if (typeof queueFn === 'function') {
+    const isEditActiveFn = window.isQuestionEditActive;
+    const isEditing = typeof isEditActiveFn === 'function' ? isEditActiveFn() : false;
+
+    if (isEditing) {
+      wasQueued = true;
+      if (typeof onQueued === 'function') {
+        try {
+          onQueued();
+        } catch (callbackError) {
+          console.error('Failed to run queued refresh callback:', callbackError);
+        }
+      }
+    }
+
+    try {
+      const result = queueFn(() => loadExamDetails(examId));
+      if (result && typeof result.then === 'function') {
+        await result;
+      }
+      return wasQueued;
+    } catch (error) {
+      console.error('Queued refresh failed, falling back to immediate reload:', error);
+    }
+  }
+
+  await loadExamDetails(examId);
+  return wasQueued;
+}
+
 /**
  * Persist answers extracted from scan into DB.
  * @param {any} scanSession
@@ -514,7 +611,16 @@ async function processScannedAnswers(examId, preloadedSession = null) {
  * @param {any} responseData
  * @param {JSZip} zip
  */
-async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip, progressCb = () => {}) {
+async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip, options = {}) {
+  let progressCb = () => {};
+  let subQuestionLookup = null;
+
+  if (typeof options === 'function') {
+    progressCb = options;
+  } else if (options && typeof options === 'object') {
+    ({ progressCb = () => {}, subQuestionLookup = null } = options);
+  }
+
   const studentExamId = scanSession.student_exam_id;
 
   if (!studentExamId) {
@@ -532,19 +638,15 @@ async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip
     processedData = responseData[0];
   }
 
-  const { data: dbQuestions, error: fetchQError } = await sb
-    .from('questions')
-    .select('id, question_number, sub_questions(id, sub_q_text_content)')
-    .eq('exam_id', examId);
-  if (fetchQError) throw new Error(`Could not fetch exam structure for matching: ${fetchQError.message}`);
+  if (!subQuestionLookup) {
+    const { data: dbQuestions, error: fetchQError } = await sb
+      .from('questions')
+      .select('question_number, sub_questions(id, sub_q_text_content)')
+      .eq('exam_id', examId);
+    if (fetchQError) throw new Error(`Could not fetch exam structure for matching: ${fetchQError.message}`);
 
-  const subQuestionLookup = dbQuestions.reduce((qMap, q) => {
-    qMap[q.question_number] = q.sub_questions.reduce((sqMap, sq) => {
-      sqMap[sq.sub_q_text_content] = sq.id;
-      return sqMap;
-    }, {});
-    return qMap;
-  }, {});
+    subQuestionLookup = buildSubQuestionLookup(dbQuestions);
+  }
 
   const answersToInsert = [];
   if (!processedData || !processedData.questions || !Array.isArray(processedData.questions)) {
