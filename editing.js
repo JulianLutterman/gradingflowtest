@@ -14,6 +14,61 @@ let activeInlineEditCount = 0;
 const editSessionEvents = new EventTarget();
 const pendingExamRefreshTasks = [];
 
+function hasOwnDatasetProp(el, key) {
+    return !!el && Object.prototype.hasOwnProperty.call(el.dataset || {}, key);
+}
+
+function normalizeEditableValue(raw) {
+    if (raw === null || raw === undefined) return '';
+    return String(raw).replace(/\r\n/g, '\n');
+}
+
+function stagePendingDisplay(el, fieldType, rawValue) {
+    if (!el) return;
+
+    const normalized = normalizeEditableValue(rawValue);
+    el.dataset.pendingDisplayValue = normalized;
+
+    switch (fieldType) {
+        case 'grading_regulations':
+            el.dataset.pendingDisplayFormat = 'markdown';
+            break;
+        case 'component_points':
+        case 'sub_points_awarded':
+            el.dataset.pendingDisplayFormat = 'number';
+            break;
+        default:
+            delete el.dataset.pendingDisplayFormat;
+            break;
+    }
+}
+
+function applyPendingDisplay(el) {
+    if (!hasOwnDatasetProp(el, 'pendingDisplayValue')) {
+        return false;
+    }
+
+    const value = el.dataset.pendingDisplayValue;
+    const format = el.dataset.pendingDisplayFormat || 'text';
+
+    if (format === 'markdown' && typeof marked === 'object' && typeof marked.parse === 'function') {
+        el.innerHTML = marked.parse(value);
+    } else if (format === 'number') {
+        el.textContent = value;
+    } else if (format === 'html') {
+        el.innerHTML = value;
+    } else {
+        el.textContent = value;
+    }
+
+    delete el.dataset.pendingDisplayValue;
+    delete el.dataset.pendingDisplayFormat;
+    if (el.hasAttribute('data-original-value')) {
+        el.removeAttribute('data-original-value');
+    }
+    return true;
+}
+
 function dispatchEditSessionChange() {
     const detail = { active: activeInlineEditCount > 0, activeCount: activeInlineEditCount };
     editSessionEvents.dispatchEvent(new CustomEvent('edit-session-change', { detail }));
@@ -414,6 +469,9 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
         const sel = fields ? fields.map(f => `[data-editable="${f}"]`).join(', ') : '[data-editable]';
         container.querySelectorAll(sel).forEach((el) => {
             if (targetType === 'question_context' && el.dataset.editable === 'extra_comment' && el.closest('.model-alternative')) return;
+            if (applyPendingDisplay(el)) {
+                return;
+            }
             if (el.hasAttribute('data-original-value')) {
                 el.innerHTML = el.dataset.originalValue || '';
                 el.removeAttribute('data-original-value');
@@ -562,13 +620,15 @@ async function saveChanges(container, editButton) {
             container.querySelectorAll('[data-editable]').forEach((el) => {
                 const input = el.querySelector('.editable-input');
                 if (!input) return;
-                const newValue = input.value ?? '';
+                const fieldType = el.dataset.editable || '';
+                const rawValue = input.value ?? '';
+                const normalizedValue = normalizeEditableValue(rawValue);
                 try {
-                    el.dataset.originalText = JSON.stringify(newValue);
+                    el.dataset.originalText = JSON.stringify(normalizedValue);
                 } catch {
-                    el.dataset.originalText = JSON.stringify(String(newValue));
+                    el.dataset.originalText = JSON.stringify(String(normalizedValue));
                 }
-                el.removeAttribute('data-original-value');
+                stagePendingDisplay(el, fieldType, normalizedValue);
             });
         };
 
