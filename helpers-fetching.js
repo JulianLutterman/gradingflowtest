@@ -61,7 +61,62 @@ async function fetchExamDataForAppendixJson(examId) {
 async function fetchExamDataForModelJson(examId) {
   return sb
     .from('questions')
-    .select(`question_number, sub_questions (sub_q_text_content)`)
+    .select(`question_number, sub_questions (id, sub_q_text_content)`)
     .eq('exam_id', examId)
     .order('question_number', { ascending: true });
 }
+
+/**
+ * Given a list of questions (each with sub_questions), build both a sanitized
+ * structure suitable for passing to background processors and a lookup map of
+ * sub-question text → sub_question_id keyed by question number.
+ *
+ * @param {Array<any>} rawQuestions
+ * @returns {{ sanitizedQuestions: Array<any>, subQuestionLookup: Record<string, Record<string, string>> }}
+ */
+function buildExamQuestionSnapshot(rawQuestions = []) {
+  const sanitizedQuestions = (rawQuestions || []).map((question) => ({
+    question_number: question.question_number,
+    sub_questions: (question.sub_questions || []).map((subQuestion) => ({
+      sub_q_text_content: subQuestion.sub_q_text_content,
+    })),
+  }));
+
+  const subQuestionLookup = (rawQuestions || []).reduce((questionMap, question) => {
+    const subMap = (question.sub_questions || []).reduce((subAcc, subQuestion) => {
+      if (subQuestion?.sub_q_text_content) {
+        subAcc[subQuestion.sub_q_text_content] = subQuestion.id;
+      }
+      return subAcc;
+    }, {});
+
+    questionMap[question.question_number] = subMap;
+    return questionMap;
+  }, {});
+
+  return { sanitizedQuestions, subQuestionLookup };
+}
+
+/**
+ * Fetch questions + sub-question IDs for an exam and return both the sanitized
+ * structure (question_number + sub_q_text_content) and the lookup map.
+ *
+ * @param {string} examId
+ * @returns {Promise<{ sanitizedQuestions: Array<any>, subQuestionLookup: Record<string, Record<string, string>> }>}
+ */
+async function fetchExamStructureSnapshot(examId) {
+  const { data, error } = await sb
+    .from('questions')
+    .select('question_number, sub_questions (id, sub_q_text_content)')
+    .eq('exam_id', examId)
+    .order('question_number', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return buildExamQuestionSnapshot(data);
+}
+
+window.buildExamQuestionSnapshot = buildExamQuestionSnapshot;
+window.fetchExamStructureSnapshot = fetchExamStructureSnapshot;

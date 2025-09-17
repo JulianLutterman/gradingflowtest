@@ -5,6 +5,47 @@
 /** tiny helper */
 function _rand() { return Math.random().toString(36).slice(2) + Date.now().toString(36); }
 
+const editSessionEvents = new EventTarget();
+let activeInlineEditCount = 0;
+
+function isEditSessionActive() {
+    return activeInlineEditCount > 0;
+}
+
+function emitEditSessionChange() {
+    const detail = { active: isEditSessionActive(), count: activeInlineEditCount };
+    editSessionEvents.dispatchEvent(new CustomEvent('change', { detail }));
+    window.dispatchEvent(new CustomEvent('edit-session-change', { detail }));
+
+    if (!detail.active && typeof window.flushQueuedExamRefresh === 'function') {
+        window.flushQueuedExamRefresh();
+    }
+}
+
+function updateInlineEditTracker(container, isEditing) {
+    if (!container) return;
+    const flag = container.dataset.inlineEditActive === '1';
+
+    if (isEditing && !flag) {
+        container.dataset.inlineEditActive = '1';
+        activeInlineEditCount += 1;
+        emitEditSessionChange();
+    } else if (!isEditing && flag) {
+        delete container.dataset.inlineEditActive;
+        activeInlineEditCount = Math.max(0, activeInlineEditCount - 1);
+        emitEditSessionChange();
+    }
+}
+
+window.isEditSessionActive = isEditSessionActive;
+window.onEditSessionChange = (handler) => {
+    if (typeof handler !== 'function') return () => {};
+    const listener = (event) => handler(event.detail);
+    editSessionEvents.addEventListener('change', listener);
+    return () => editSessionEvents.removeEventListener('change', listener);
+};
+window.editSessionEvents = editSessionEvents;
+
 /**
  * Delegated click handler for inline edit buttons.
  * @param {MouseEvent} event
@@ -56,6 +97,25 @@ async function handleEditClick(event) {
  */
 function toggleEditMode(container, isEditing, fields = null, editButtonParam = null) {
     const editButton = editButtonParam || container.querySelector('.edit-btn');
+    let effectiveFields = Array.isArray(fields) ? [...fields] : fields;
+
+    if (isEditing) {
+        if (Array.isArray(effectiveFields) && effectiveFields.length > 0) {
+            container.dataset.activeEditFields = JSON.stringify(effectiveFields);
+        } else {
+            delete container.dataset.activeEditFields;
+        }
+    } else if ((!effectiveFields || (Array.isArray(effectiveFields) && effectiveFields.length === 0)) && container.dataset.activeEditFields) {
+        try {
+            effectiveFields = JSON.parse(container.dataset.activeEditFields);
+        } catch {
+            effectiveFields = null;
+        }
+        delete container.dataset.activeEditFields;
+    }
+
+    updateInlineEditTracker(container, isEditing);
+
     let buttonParent = editButton?.closest('.cell-header') || editButton?.parentElement || container;
 
     // Keep Save/Cancel OUT of icon stacks (delete-handlers puts Edit into these wrappers)
@@ -119,8 +179,8 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
         if (addBtn) addBtn.classList.toggle('hidden', isEditing);
     }
 
-    const selector = fields
-        ? fields.map((field) => `[data-editable="${field}"]`).join(', ')
+    const selector = effectiveFields
+        ? effectiveFields.map((field) => `[data-editable="${field}"]`).join(', ')
         : '[data-editable]';
 
     if (isEditing) {
@@ -312,7 +372,7 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
         });
 
         editActions.querySelector('.save-btn').onclick = () => saveChanges(container, editButton);
-        editActions.querySelector('.cancel-btn').onclick = () => toggleEditMode(container, false, fields, editButton);
+        editActions.querySelector('.cancel-btn').onclick = () => toggleEditMode(container, false, effectiveFields, editButton);
 
         if (targetType === 'sub_question') {
             setupMcqEditingUI(container);
@@ -328,7 +388,7 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
             restoreMcqSnapshot(container);
         }
 
-        const sel = fields ? fields.map(f => `[data-editable="${f}"]`).join(', ') : '[data-editable]';
+        const sel = effectiveFields ? effectiveFields.map(f => `[data-editable="${f}"]`).join(', ') : '[data-editable]';
         container.querySelectorAll(sel).forEach((el) => {
             if (targetType === 'question_context' && el.dataset.editable === 'extra_comment' && el.closest('.model-alternative')) return;
             if (el.hasAttribute('data-original-value')) {
@@ -822,7 +882,8 @@ async function saveChanges(container, editButton) {
                 throw new Error('Unknown edit target type.');
         }
 
-        // Reload
+        // Exit edit mode immediately, then reload (refresh may be queued while edits are active elsewhere)
+        toggleEditMode(container, false, null, editButton);
         await loadExamDetails(examId);
 
         // Post-save modal refreshes you already had:

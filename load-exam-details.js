@@ -1,11 +1,55 @@
 let examUiInitialized = false;
+let loadExamDetailsRequestSeq = 0;
+let pendingExamRefresh = null;
+
+function queueExamRefresh(examId, options = {}) {
+  if (!examId) return;
+
+  pendingExamRefresh = {
+    examId,
+    options: { ...options, bypassEditCheck: true },
+  };
+
+  const editActive = typeof window.isEditSessionActive === 'function' && window.isEditSessionActive();
+  if (!editActive) {
+    flushQueuedExamRefresh();
+  }
+}
+
+function flushQueuedExamRefresh() {
+  if (!pendingExamRefresh) return;
+  const { examId, options } = pendingExamRefresh;
+  pendingExamRefresh = null;
+  loadExamDetails(examId, options);
+}
+
+window.queueExamRefresh = queueExamRefresh;
+window.flushQueuedExamRefresh = flushQueuedExamRefresh;
+
+window.addEventListener('edit-session-change', (event) => {
+  if (!event?.detail || event.detail.active) return;
+  flushQueuedExamRefresh();
+});
 
 /**
  * Load exam details, wire modal and multi-upload events, and render.
  * @param {string} examId
  */
-async function loadExamDetails(examId) {
+async function loadExamDetails(examId, options = {}) {
+  const { bypassEditCheck = false } = options;
+  const editActive = typeof window.isEditSessionActive === 'function' && window.isEditSessionActive();
+  if (!bypassEditCheck && editActive) {
+    queueExamRefresh(examId, options);
+    return null;
+  }
+
+  pendingExamRefresh = null;
+  const requestSeq = ++loadExamDetailsRequestSeq;
   const { data: examData, error } = await fetchFullExamDetails(examId);
+
+  if (requestSeq !== loadExamDetailsRequestSeq) {
+    return null;
+  }
 
   if (error) {
     examNameTitle.textContent = 'Error Loading Exam';

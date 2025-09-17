@@ -448,7 +448,18 @@ async function handleProcessAllSubmissions(type) {
         } else {
             setMultiDirectProcessState({ buttonText: 'All processed! Refreshing...', spinner: false, disabled: true, status: 'success' });
         }
-        await loadExamDetails(examId);
+        if (window.isEditSessionActive && window.isEditSessionActive()) {
+            if (typeof window.queueExamRefresh === 'function') {
+                window.queueExamRefresh(examId, { source: type === 'scan' ? 'multi-scan-session' : 'multi-direct-upload' });
+            }
+            if (type === 'scan') {
+                setMultiScanProcessState({ buttonText: 'All processed! Finish edits to refresh.', spinner: false, disabled: true, visible: true, status: 'success' });
+            } else {
+                setMultiDirectProcessState({ buttonText: 'All processed! Finish edits to refresh.', spinner: false, disabled: true, status: 'success' });
+            }
+        } else {
+            await loadExamDetails(examId);
+        }
         setTimeout(() => multiUploadModal.classList.add('hidden'), 2000);
     } catch (error) {
         console.error('Error during multi-submission processing:', error);
