@@ -98,14 +98,22 @@ function applyStudentDetailsUpdates({ studentId = null, token = null, answersDat
         const nameEl = details.querySelector('[data-editable="full_name"]');
         if (nameEl && normalizedName !== undefined) {
             setOriginalTextDataset(nameEl, normalizedName);
-            nameEl.textContent = normalizedName;
+            if (nameEl.querySelector('.editable-input')) {
+                stagePendingDisplay(nameEl, 'full_name', normalizedName);
+            } else {
+                nameEl.textContent = normalizedName;
+            }
         }
 
         const numberEl = details.querySelector('[data-editable="student_number"]');
         if (numberEl && normalizedNumber !== undefined) {
             setOriginalTextDataset(numberEl, normalizedNumber);
             const displayNumber = normalizedNumber || 'No number';
-            numberEl.textContent = displayNumber;
+            if (numberEl.querySelector('.editable-input')) {
+                stagePendingDisplay(numberEl, 'student_number', displayNumber);
+            } else {
+                numberEl.textContent = displayNumber;
+            }
         }
 
         const subId = findSubQuestionIdForStudentDetails(details);
@@ -134,6 +142,11 @@ function applyStudentDetailsUpdates({ studentId = null, token = null, answersDat
                 editBtn.dataset.answerId = String(answerRow.id);
             }
         }
+
+        // Remove any static placeholder text nodes we injected during staging
+        answerItem.querySelectorAll(':scope > p.formatted-text:not([data-editable])').forEach((placeholder) => {
+            placeholder.remove();
+        });
 
         let answerTextEl = answerItem.querySelector('[data-editable="answer_text"]');
         if (!answerTextEl) {
