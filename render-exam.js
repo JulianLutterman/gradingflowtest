@@ -165,7 +165,7 @@ function renderExam(questions) {
             const urlParams = new URLSearchParams(window.location.search);
             const examId = urlParams.get('id');
             const studentCell = `
-        <div id="student-answer-gridcell" class="grid-cell">
+        <div id="student-answer-gridcell" class="grid-cell" data-sub-question-id="${sq.id}">
           ${studentAnswersHtml}
           <button class="add-student-btn add-row-btn" data-exam-id="${examId}">Add New Student Submission</button>
         </div>`;
@@ -383,7 +383,10 @@ function stageNewStudent(examId, originButton) {
     const token = _randToken();
 
     // Hide ONLY the button in the grid-cell where user clicked
-    if (originButton) originButton.classList.add('hidden');
+    if (originButton) {
+        originButton.classList.add('hidden');
+        originButton.dataset.newStudentToken = token;
+    }
 
     // We target student cells by looking for cells that contain the .add-student-btn
     const studentCells = questionsContainer.querySelectorAll('.sub-question-grid .grid-cell');
@@ -395,6 +398,16 @@ function stageNewStudent(examId, originButton) {
         const wrapper = document.createElement('details');
         wrapper.className = 'student-answer-dropdown';
         wrapper.dataset.newStudentToken = token;
+
+        let subId = cell.dataset.subQuestionId || null;
+        if (!subId) {
+            const modelCell = cell.previousElementSibling || null;
+            const subCell = modelCell ? modelCell.previousElementSibling : null;
+            const candidate = subCell && subCell.dataset ? subCell.dataset.subQuestionId : null;
+            if (candidate) subId = candidate;
+        }
+        if (subId) wrapper.dataset.subQuestionId = subId;
+
         wrapper.open = true;
         wrapper.innerHTML = `
       <summary>
@@ -489,7 +502,7 @@ function stageNewModelAlternative(subQuestionId) {
 
 /** Stage a new empty question block and enter edit for its context */
 function stageNewQuestion(examId) {
-    // Compute “next” question number from current DOM
+    // Compute Â“nextÂ” question number from current DOM
     const existingNums = Array.from(
         questionsContainer.querySelectorAll('.question-header .question-title-wrapper span')
     )
