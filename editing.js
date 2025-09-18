@@ -174,9 +174,11 @@ async function handleEditClick(event) {
  * Toggle edit mode. Adds edit-only “add comment / add component” inside alternatives.
  * Also hides the Add Sub-Question button while a sub-q is being edited.
  */
-function toggleEditMode(container, isEditing, fields = null, editButtonParam = null) {
+function toggleEditMode(container, isEditing, fields = null, editButtonParam = null, options = {}) {
     const editButton = editButtonParam || container.querySelector('.edit-btn');
     let buttonParent = editButton?.closest('.cell-header') || editButton?.parentElement || container;
+
+    const exitReason = (!isEditing) ? (options?.reason || 'toggle') : null;
 
     if (isEditing) {
         markContainerEditing(container, true);
@@ -450,7 +452,7 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
         });
 
         editActions.querySelector('.save-btn').onclick = () => saveChanges(container, editButton);
-        editActions.querySelector('.cancel-btn').onclick = () => toggleEditMode(container, false, fields, editButton);
+        editActions.querySelector('.cancel-btn').onclick = () => toggleEditMode(container, false, fields, editButton, { reason: 'cancel' });
 
         if (targetType === 'sub_question') {
             setupMcqEditingUI(container);
@@ -463,7 +465,12 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
             container.style.display = 'flex';
             container.classList.remove('is-editing-mcq');
             teardownMcqEditingUI(container);
-            restoreMcqSnapshot(container);
+            if (exitReason === 'cancel') {
+                restoreMcqSnapshot(container);
+                cleanupMcqDomAfterCancel(container);
+            } else {
+                clearMcqSnapshotData(container);
+            }
         }
 
         const sel = fields ? fields.map(f => `[data-editable="${f}"]`).join(', ') : '[data-editable]';
@@ -485,10 +492,6 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
             }
         });
 
-        if (targetType === 'sub_question') {
-            cleanupMcqDomAfterCancel(container);
-        }
-
         if (targetType === 'model_alternative') {
             // Remove edit-only helpers
             const addComment = container.querySelector('.add-alt-comment-btn');
@@ -496,55 +499,56 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
             const addComp = container.querySelector('.add-model-component-btn');
             if (addComp) addComp.remove();
 
-            // Remove any newly created (unsaved) components
-            container.querySelectorAll('.model-component:not([data-component-id])').forEach((el) => el.remove());
+            if (exitReason === 'cancel') {
+                // Remove any newly created (unsaved) components
+                container.querySelectorAll('.model-component:not([data-component-id])').forEach((el) => el.remove());
 
-            // Restore original components if a snapshot exists
-            if (container.dataset.modelComponentsOriginalHtml) {
-                // Remove all current components
-                container.querySelectorAll('.model-component').forEach(el => el.remove());
+                // Restore original components if a snapshot exists
+                if (container.dataset.modelComponentsOriginalHtml) {
+                    // Remove all current components
+                    container.querySelectorAll('.model-component').forEach(el => el.remove());
 
-                const html = container.dataset.modelComponentsOriginalHtml;
-                const temp = document.createElement('div');
-                temp.innerHTML = html;
+                    const html = container.dataset.modelComponentsOriginalHtml;
+                    const temp = document.createElement('div');
+                    temp.innerHTML = html;
 
-                // Insert restored components before Save/Cancel (if present) or at the end
-                const ref = (container.querySelector('.edit-actions')?.parentElement === container)
-                    ? container.querySelector('.edit-actions')
-                    : null;
+                    // Insert restored components before Save/Cancel (if present) or at the end
+                    const ref = (container.querySelector('.edit-actions')?.parentElement === container)
+                        ? container.querySelector('.edit-actions')
+                        : null;
 
-                Array.from(temp.children).forEach(child => {
-                    if (ref) container.insertBefore(child, ref);
-                    else container.appendChild(child);
-                });
-
-                // After restoring snapshot DOM:
-                container.querySelectorAll('.model-component, .model-component p, .points-badge').forEach(el => {
-                    el.removeAttribute('style');
-                });
-
-
-                // Clear snapshot flags
-                delete container.dataset.modelComponentsOriginalHtml;
-                delete container.dataset.originalCompIds;
-                delete container.dataset.compSnapshotTaken;
+                    Array.from(temp.children).forEach(child => {
+                        if (ref) container.insertBefore(child, ref);
+                        else container.appendChild(child);
+                    });
+                }
             }
 
-            // If the alternative itself was brand-new and user cancelled, remove it
-            const isNew = container.dataset.isNew === '1';
-            const hasId = !!container.dataset.alternativeId;
-            if (isNew && !hasId) {
-                const section = container.closest('.model-answer-section');
-                container.remove();
-                const modelCell = section ? section.closest('.grid-cell') : container.closest('.grid-cell');
-                const addAltBtn = modelCell?.querySelector('.add-model-alt-btn');
-                if (addAltBtn) addAltBtn.classList.remove('hidden');
+            container.querySelectorAll('.model-component, .model-component p, .points-badge').forEach(el => {
+                el.removeAttribute('style');
+            });
 
-                // If this section now has no alternatives, re-show the placeholder
-                if (section && !section.querySelector('.model-alternative')) {
-                    let ph = section.querySelector('.no-model-placeholder');
-                    if (ph) {
-                        ph.classList.remove('hidden');
+            delete container.dataset.modelComponentsOriginalHtml;
+            delete container.dataset.originalCompIds;
+            delete container.dataset.compSnapshotTaken;
+
+            if (exitReason === 'cancel') {
+                // If the alternative itself was brand-new and user cancelled, remove it
+                const isNew = container.dataset.isNew === '1';
+                const hasId = !!container.dataset.alternativeId;
+                if (isNew && !hasId) {
+                    const section = container.closest('.model-answer-section');
+                    container.remove();
+                    const modelCell = section ? section.closest('.grid-cell') : container.closest('.grid-cell');
+                    const addAltBtn = modelCell?.querySelector('.add-model-alt-btn');
+                    if (addAltBtn) addAltBtn.classList.remove('hidden');
+
+                    // If this section now has no alternatives, re-show the placeholder
+                    if (section && !section.querySelector('.model-alternative')) {
+                        let ph = section.querySelector('.no-model-placeholder');
+                        if (ph) {
+                            ph.classList.remove('hidden');
+                        }
                     }
                 }
             }
@@ -553,7 +557,7 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
 
 
         // If this sub-question row was staged (no id) and cancelled, remove the 3 cells
-        if (targetType === 'sub_question') {
+        if (targetType === 'sub_question' && exitReason === 'cancel') {
             const hasId = !!editButton.dataset.subQuestionId;
             if (!hasId) {
                 // This container is the sub-q cell; remove its two sibling cells (model + student) immediately following it
@@ -566,7 +570,7 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
         }
 
         // If new student edit was cancelled, remove all staged copies across sub-qs
-        if (targetType === 'student_info') {
+        if (targetType === 'student_info' && exitReason === 'cancel') {
             const token = editButton.dataset.newStudentToken;
             const hasId = !!editButton.dataset.studentId;
             if (token && !hasId) {
@@ -588,7 +592,7 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
 
 
         // If new question context was cancelled, remove the staged question block
-        if (targetType === 'question_context') {
+        if (targetType === 'question_context' && exitReason === 'cancel') {
             const isNewQ = container?.dataset?.isNewQuestion === '1';
             const hasQid = !!editButton.dataset.questionId;
             if (isNewQ && !hasQid) {
@@ -605,6 +609,105 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
             if (addBtn) addBtn.classList.remove('hidden');
         }
     }
+}
+
+function syncNewMcqOptionIds(container, insertedRows = []) {
+    if (!container) return;
+    const mcqContainer = container.querySelector('.mcq-options');
+    if (!mcqContainer) return;
+
+    if (Array.isArray(insertedRows) && insertedRows.length) {
+        const newOptions = Array.from(mcqContainer.querySelectorAll('.mcq-option')).filter(opt => !opt.dataset.mcqOptionId);
+        insertedRows.forEach((row, idx) => {
+            const opt = newOptions[idx];
+            if (!opt || !row) return;
+            opt.dataset.mcqOptionId = row.id;
+            const letterEl = opt.querySelector('.mcq-letter');
+            if (letterEl && row.mcq_letter) {
+                letterEl.textContent = row.mcq_letter;
+            }
+        });
+    }
+
+    renumberLetters(mcqContainer);
+    setUniformMcqLetterWidth(mcqContainer);
+}
+
+function ensureSubQuestionRowHasIds(container, subQuestionId) {
+    if (!container || !subQuestionId) return;
+
+    container.dataset.subQuestionId = subQuestionId;
+    const editBtn = container.querySelector('.edit-btn[data-edit-target="sub_question"]');
+    if (editBtn) {
+        editBtn.dataset.subQuestionId = subQuestionId;
+    }
+
+    const modelCell = container.nextElementSibling;
+    if (modelCell) {
+        modelCell.dataset.subQuestionId = subQuestionId;
+        if (!modelCell.id) modelCell.id = 'alt-model-gridcell';
+        let addAltBtn = modelCell.querySelector('.add-model-alt-btn');
+        if (!addAltBtn) {
+            addAltBtn = document.createElement('button');
+            addAltBtn.type = 'button';
+            addAltBtn.className = 'add-model-alt-btn add-row-btn';
+            addAltBtn.textContent = 'Add New Answer Alternative';
+            modelCell.appendChild(addAltBtn);
+        }
+        addAltBtn.dataset.subQuestionId = subQuestionId;
+        addAltBtn.classList.remove('hidden');
+    }
+
+    const studentCell = modelCell?.nextElementSibling;
+    if (studentCell) {
+        studentCell.dataset.subQuestionId = subQuestionId;
+    }
+}
+
+function ensureModelAlternativeIdentifiers(container, alternativeId = null) {
+    if (!container) return;
+
+    if (alternativeId) {
+        container.dataset.alternativeId = alternativeId;
+    }
+
+    const editBtn = container.querySelector('.edit-btn[data-edit-target="model_alternative"]');
+    if (editBtn) {
+        if (alternativeId) editBtn.dataset.alternativeId = alternativeId;
+        if (!editBtn.dataset.subQuestionId) {
+            const parentCell = container.closest('#alt-model-gridcell, .grid-cell');
+            const subId = parentCell?.dataset?.subQuestionId;
+            if (subId) editBtn.dataset.subQuestionId = subId;
+        }
+    }
+
+    const parentCell = container.closest('#alt-model-gridcell, .grid-cell');
+    const addAltBtn = parentCell?.querySelector('.add-model-alt-btn');
+    if (addAltBtn) {
+        const subId = parentCell?.dataset?.subQuestionId;
+        if (subId) addAltBtn.dataset.subQuestionId = subId;
+        addAltBtn.classList.remove('hidden');
+    }
+
+    container.removeAttribute('data-is-new');
+}
+
+function syncNewModelComponentIds(container, insertedRows = []) {
+    if (!container || !Array.isArray(insertedRows) || insertedRows.length === 0) return;
+    const newComponents = Array.from(container.querySelectorAll('.model-component')).filter(comp => !comp.dataset.componentId);
+    insertedRows.forEach((row, idx) => {
+        const comp = newComponents[idx];
+        if (!comp || !row) return;
+        comp.dataset.componentId = row.id;
+        const pointsEl = comp.querySelector('[data-editable="component_points"]');
+        if (pointsEl) {
+            try {
+                pointsEl.dataset.originalText = JSON.stringify(String(row.component_points ?? pointsEl.textContent ?? '0'));
+            } catch {
+                pointsEl.dataset.originalText = JSON.stringify(String(row.component_points ?? '0'));
+            }
+        }
+    });
 }
 
 /**
@@ -676,7 +779,6 @@ async function saveChanges(container, editButton) {
                 const subQTextInput = container.querySelector('[data-editable="sub_q_text_content"] .editable-input');
                 const subQText = subQTextInput ? subQTextInput.value : null;
 
-                // Gather MCQs from DOM
                 const mcqContainer = container.querySelector('.mcq-options');
                 const optionEls = Array.from(mcqContainer ? mcqContainer.querySelectorAll('.mcq-option') : []);
                 const toLetter = (i) => { let s = ''; i += 1; while (i > 0) { const r = (i - 1) % 26; s = String.fromCharCode(65 + r) + s; i = Math.floor((i - 1) / 26); } return s; };
@@ -687,35 +789,47 @@ async function saveChanges(container, editButton) {
                     return { id, mcq_letter: toLetter(idx), mcq_content: content };
                 }).filter(x => x.mcq_content !== '');
 
+                let insertedMcqRows = [];
+                let resolvedSubQuestionId = subQId || null;
+
                 if (subQId) {
-                    // UPDATE existing
-                    const promises = [];
                     if (subQText !== null) {
-                        promises.push(sb.from('sub_questions').update({ sub_q_text_content: subQText }).eq('id', subQId));
+                        const { error: updateErr } = await sb.from('sub_questions').update({ sub_q_text_content: subQText }).eq('id', subQId);
+                        if (updateErr) throw updateErr;
                     }
+
                     const originalIds = JSON.parse(container.dataset.originalMcqIds || '[]');
                     const presentIds = finalList.filter(x => !!x.id).map(x => x.id);
                     const toDeleteIds = originalIds.filter(id => !presentIds.includes(id));
-                    if (toDeleteIds.length) promises.push(sb.from('mcq_options').delete().in('id', toDeleteIds));
-                    for (const upd of finalList.filter(x => !!x.id)) {
-                        promises.push(sb.from('mcq_options').update({ mcq_letter: upd.mcq_letter, mcq_content: upd.mcq_content }).eq('id', upd.id));
+                    if (toDeleteIds.length) {
+                        const { error: deleteErr } = await sb.from('mcq_options').delete().in('id', toDeleteIds);
+                        if (deleteErr) throw deleteErr;
                     }
+
+                    for (const existing of finalList.filter(x => !!x.id)) {
+                        const { error: optErr } = await sb.from('mcq_options')
+                            .update({ mcq_letter: existing.mcq_letter, mcq_content: existing.mcq_content })
+                            .eq('id', existing.id);
+                        if (optErr) throw optErr;
+                    }
+
                     const inserts = finalList.filter(x => !x.id).map(x => ({
                         sub_question_id: subQId,
                         mcq_letter: x.mcq_letter,
                         mcq_content: x.mcq_content
                     }));
-                    if (inserts.length) promises.push(sb.from('mcq_options').insert(inserts));
-
-                    const res = await Promise.all(promises);
-                    const err = res.find(r => r?.error)?.error;
-                    if (err) throw err;
+                    if (inserts.length) {
+                        const { data: insertedData, error: insertErr } = await sb.from('mcq_options')
+                            .insert(inserts)
+                            .select('id, mcq_letter')
+                            .order('id', { ascending: true });
+                        if (insertErr) throw insertErr;
+                        insertedMcqRows = insertedData || [];
+                    }
                 } else {
-                    // INSERT new sub-question
                     const questionId = editButton.dataset.questionId;
                     if (!questionId) throw new Error('Missing question_id for new sub-question');
 
-                    // Determine next sub_question_order for this question from the DB (robust even if currentExamData is stale)
                     let nextOrder = 1;
                     try {
                         const { data: latest, error: latestErr } = await sb
@@ -730,7 +844,7 @@ async function saveChanges(container, editButton) {
                         console.warn('Could not compute next sub_question_order; defaulting to 1', e);
                     }
 
-                    const ins = await sb.from('sub_questions')
+                    const { data: insertedSub, error: insErr } = await sb.from('sub_questions')
                         .insert({
                             question_id: questionId,
                             sub_q_text_content: subQText || '',
@@ -738,22 +852,24 @@ async function saveChanges(container, editButton) {
                         })
                         .select('id')
                         .single();
+                    if (insErr) throw insErr;
+                    const newSubId = insertedSub.id;
+                    resolvedSubQuestionId = newSubId;
 
-                    if (ins.error) throw ins.error;
-                    const newSubId = ins.data.id;
-
-                    // Insert MCQs, if any
                     if (finalList.length) {
                         const mcqPayload = finalList.map(x => ({
                             sub_question_id: newSubId,
                             mcq_letter: x.mcq_letter,
                             mcq_content: x.mcq_content
                         }));
-                        const mcqRes = await sb.from('mcq_options').insert(mcqPayload);
-                        if (mcqRes.error) throw mcqRes.error;
+                        const { data: mcqInserted, error: mcqErr } = await sb.from('mcq_options')
+                            .insert(mcqPayload)
+                            .select('id, mcq_letter')
+                            .order('id', { ascending: true });
+                        if (mcqErr) throw mcqErr;
+                        insertedMcqRows = mcqInserted || [];
                     }
 
-                    // Create student_answers placeholders for all student_exams in this exam
                     const { data: stuExams, error: seErr } = await sb.from('student_exams').select('id').eq('exam_id', examId);
                     if (seErr) throw seErr;
                     if (stuExams && stuExams.length) {
@@ -765,10 +881,13 @@ async function saveChanges(container, editButton) {
                             sub_points_awarded: null,
                             feedback_comment: null
                         }));
-                        const ansRes = await sb.from('student_answers').insert(ansPayload);
-                        if (ansRes.error) throw ansRes.error;
+                        const { error: ansErr } = await sb.from('student_answers').insert(ansPayload);
+                        if (ansErr) throw ansErr;
                     }
                 }
+
+                ensureSubQuestionRowHasIds(container, resolvedSubQuestionId || subQId);
+                syncNewMcqOptionIds(container, insertedMcqRows);
                 break;
             }
 
@@ -776,15 +895,27 @@ async function saveChanges(container, editButton) {
                 const altId = editButton.dataset.alternativeId;
                 const subQId = editButton.dataset.subQuestionId || editButton.closest('.grid-cell')?.dataset?.subQuestionId;
 
-                if (altId) {
-                    // UPDATE existing alternative + upsert components
-                    const promises = [];
-                    const extraComm = container.querySelector('[data-editable="extra_comment"] .editable-input');
-                    if (extraComm) promises.push(sb.from('model_alternatives').update({ extra_comment: extraComm.value }).eq('id', altId));
+                let resolvedAltId = altId || null;
+                let insertedComponentRows = [];
 
-                    // Components
+                if (altId) {
+                    const extraComm = container.querySelector('[data-editable="extra_comment"] .editable-input');
+                    if (extraComm) {
+                        const { error: altErr } = await sb.from('model_alternatives').update({ extra_comment: extraComm.value }).eq('id', altId);
+                        if (altErr) throw altErr;
+                    }
+
                     const compEls = Array.from(container.querySelectorAll('.model-component'));
+                    const originalIds = JSON.parse(container.dataset.originalCompIds || '[]');
+                    const presentIds = compEls.map(el => el.dataset.componentId).filter(Boolean);
+                    const toDeleteIds = originalIds.filter(id => !presentIds.includes(id));
+                    if (toDeleteIds.length) {
+                        const { error: deleteErr } = await sb.from('model_components').delete().in('id', toDeleteIds);
+                        if (deleteErr) throw deleteErr;
+                    }
+
                     let order = 1;
+                    const insertPayload = [];
                     for (const compEl of compEls) {
                         const id = compEl.dataset.componentId || null;
                         const compText = compEl.querySelector('[data-editable="component_text"] .editable-input')?.value ?? null;
@@ -792,36 +923,31 @@ async function saveChanges(container, editButton) {
                         const compPoints = Number(compPointsStr) || 0;
 
                         if (id) {
-                            promises.push(sb.from('model_components')
-                                .update({ component_text: compText, component_points: compPoints, component_order: order++ })
-                                .eq('id', id));
+                            const { error: updErr } = await sb.from('model_components')
+                                .update({ component_text: compText, component_points: compPoints, component_order: order })
+                                .eq('id', id);
+                            if (updErr) throw updErr;
                         } else {
-                            // new component insert
-                            promises.push(sb.from('model_components')
-                                .insert({ alternative_id: altId, component_text: compText, component_points: compPoints, component_order: order++ }));
+                            insertPayload.push({
+                                alternative_id: altId,
+                                component_text: compText,
+                                component_points: compPoints,
+                                component_order: order
+                            });
                         }
+                        order += 1;
                     }
 
-                    // DELETE components that were removed in the DOM during edit
-                    try {
-                        const originalIds = JSON.parse(container.dataset.originalCompIds || '[]');
-                        const presentIds = compEls
-                            .map(el => el.dataset.componentId)
-                            .filter(Boolean);
-                        const toDeleteIds = originalIds.filter(id => !presentIds.includes(id));
-                        if (toDeleteIds.length) {
-                            promises.push(sb.from('model_components').delete().in('id', toDeleteIds));
-                        }
-                    } catch { /* ignore */ }
-
-
-                    const res = await Promise.all(promises);
-                    const err = res.find(r => r?.error)?.error;
-                    if (err) throw err;
+                    if (insertPayload.length) {
+                        const { data: insertedData, error: insertErr } = await sb.from('model_components')
+                            .insert(insertPayload)
+                            .select('id, component_order, component_points')
+                            .order('component_order', { ascending: true });
+                        if (insertErr) throw insertErr;
+                        insertedComponentRows = insertedData || [];
+                    }
                 } else {
-                    // INSERT new alternative first
                     if (!subQId) throw new Error('Missing sub_question_id for new alternative');
-                    // Determine next alternative number
                     const { count, error: countErr } = await sb
                         .from('model_alternatives')
                         .select('*', { head: true, count: 'exact' })
@@ -833,14 +959,14 @@ async function saveChanges(container, editButton) {
                     const extraComm = container.querySelector('[data-editable="extra_comment"] .editable-input');
                     if (extraComm) extraCommentVal = extraComm.value;
 
-                    const ins = await sb.from('model_alternatives')
+                    const { data: insertedAlt, error: altInsertErr } = await sb.from('model_alternatives')
                         .insert({ sub_question_id: subQId, alternative_number: altNum, extra_comment: extraCommentVal })
                         .select('id')
                         .single();
-                    if (ins.error) throw ins.error;
-                    const newAltId = ins.data.id;
+                    if (altInsertErr) throw altInsertErr;
+                    const newAltId = insertedAlt.id;
+                    resolvedAltId = newAltId;
 
-                    // Insert any staged components
                     const compEls = Array.from(container.querySelectorAll('.model-component'));
                     if (compEls.length) {
                         let order = 1;
@@ -850,12 +976,21 @@ async function saveChanges(container, editButton) {
                             const compPoints = Number(compPointsStr) || 0;
                             return { alternative_id: newAltId, component_text: compText, component_points: compPoints, component_order: order++ };
                         });
-                        const compRes = await sb.from('model_components').insert(payload);
-                        if (compRes.error) throw compRes.error;
+                        const { data: insertedComponents, error: compErr } = await sb.from('model_components')
+                            .insert(payload)
+                            .select('id, component_order, component_points')
+                            .order('component_order', { ascending: true });
+                        if (compErr) throw compErr;
+                        insertedComponentRows = insertedComponents || [];
                     }
+
+                    const heading = container.querySelector('h5');
+                    if (heading) heading.textContent = `Alternative ${altNum}`;
                 }
 
-                // Recalc question/exam totals from this sub-question
+                ensureModelAlternativeIdentifiers(container, resolvedAltId || altId);
+                syncNewModelComponentIds(container, insertedComponentRows);
+
                 if (subQId) {
                     const { error: rpcError } = await sb.rpc('recalculate_exam_points_from_sub_question', { p_sub_question_id: subQId });
                     if (rpcError) {
@@ -864,10 +999,6 @@ async function saveChanges(container, editButton) {
                     }
                 }
                 break;
-
-                delete container.dataset.modelComponentsOriginalHtml;
-                delete container.dataset.originalCompIds;
-                delete container.dataset.compSnapshotTaken;
             }
 
             case 'student_answer': {
@@ -980,7 +1111,7 @@ async function saveChanges(container, editButton) {
         }
 
         commitEditedValues();
-        toggleEditMode(container, false, undefined, editButton);
+        toggleEditMode(container, false, undefined, editButton, { reason: 'commit' });
 
         // Reload (guard against other active edits)
         if (typeof window.enqueueExamRefresh === 'function' && window.isEditSessionActive?.()) {
@@ -1159,6 +1290,15 @@ function setupMcqEditingUI(container) {
 
 }
 
+function clearMcqSnapshotData(container) {
+    if (!container) return;
+    delete container.dataset.mcqHadContainer;
+    delete container.dataset.mcqOriginalHtml;
+    delete container.dataset.originalMcqIds;
+    delete container.dataset.mcqSnapshotTaken;
+    delete container.dataset.mcqOriginalCount;
+}
+
 function restoreMcqSnapshot(container) {
     const subContent = container.querySelector('.sub-question-content');
     if (!subContent) return;
@@ -1180,11 +1320,7 @@ function restoreMcqSnapshot(container) {
         if (mcqContainer) mcqContainer.remove();
     }
 
-    // Clear snapshot flags
-    delete container.dataset.mcqHadContainer;
-    delete container.dataset.mcqOriginalHtml;
-    delete container.dataset.originalMcqIds;
-    delete container.dataset.mcqSnapshotTaken;
+    clearMcqSnapshotData(container);
 }
 
 
