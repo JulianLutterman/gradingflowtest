@@ -23,6 +23,146 @@ function normalizeEditableValue(raw) {
     return String(raw).replace(/\r\n/g, '\n');
 }
 
+const STUDENT_PLACEHOLDER_TEXT = 'Student has not attempted to answer this sub question';
+
+function setOriginalTextDataset(el, value) {
+    if (!el) return;
+    const normalized = value === undefined || value === null ? '' : String(value);
+    try {
+        el.dataset.originalText = JSON.stringify(normalized);
+    } catch {
+        el.dataset.originalText = JSON.stringify(String(normalized));
+    }
+}
+
+function findSubQuestionIdForStudentDetails(details) {
+    if (!details) return null;
+    if (details.dataset?.subQuestionId) return details.dataset.subQuestionId;
+    const studentCell = details.closest('.grid-cell');
+    if (studentCell?.dataset?.subQuestionId) return studentCell.dataset.subQuestionId;
+    let walker = studentCell?.previousElementSibling || null;
+    while (walker) {
+        if (walker.dataset?.subQuestionId) return walker.dataset.subQuestionId;
+        walker = walker.previousElementSibling;
+    }
+    return null;
+}
+
+function applyStudentDetailsUpdates({ studentId = null, token = null, answersData = [], fullName, studentNumber } = {}) {
+    if (!questionsContainer) return;
+    const selector = token
+        ? `.student-answer-dropdown[data-new-student-token="${token}"]`
+        : (studentId ? `.student-answer-dropdown[data-student-id="${studentId}"]` : '.student-answer-dropdown');
+    const detailsList = questionsContainer.querySelectorAll(selector);
+    if (!detailsList.length) {
+        if (token) {
+            const originBtn = questionsContainer.querySelector(`.add-student-btn[data-new-student-token="${token}"]`);
+            if (originBtn) {
+                originBtn.classList.remove('hidden');
+                delete originBtn.dataset.newStudentToken;
+            }
+        }
+        return;
+    }
+
+    const answersBySub = new Map();
+    if (Array.isArray(answersData)) {
+        answersData.forEach((row) => {
+            if (row && row.sub_question_id) {
+                answersBySub.set(String(row.sub_question_id), row);
+            }
+        });
+    }
+
+    const normalizedName = fullName !== undefined ? normalizeEditableValue(fullName ?? '') : undefined;
+    const normalizedNumber = studentNumber !== undefined ? normalizeEditableValue(studentNumber ?? '') : undefined;
+
+    detailsList.forEach((details) => {
+        if (studentId !== null && studentId !== undefined) {
+            details.dataset.studentId = String(studentId);
+        }
+        if (token) {
+            delete details.dataset.newStudentToken;
+        }
+
+        const summaryBtn = details.querySelector('.edit-btn[data-edit-target="student_info"]');
+        if (summaryBtn) {
+            if (studentId !== null && studentId !== undefined) {
+                summaryBtn.dataset.studentId = String(studentId);
+            }
+            if (token) {
+                delete summaryBtn.dataset.newStudentToken;
+            }
+        }
+
+        const nameEl = details.querySelector('[data-editable="full_name"]');
+        if (nameEl && normalizedName !== undefined) {
+            setOriginalTextDataset(nameEl, normalizedName);
+            nameEl.textContent = normalizedName;
+        }
+
+        const numberEl = details.querySelector('[data-editable="student_number"]');
+        if (numberEl && normalizedNumber !== undefined) {
+            setOriginalTextDataset(numberEl, normalizedNumber);
+            const displayNumber = normalizedNumber || 'No number';
+            numberEl.textContent = displayNumber;
+        }
+
+        const subId = findSubQuestionIdForStudentDetails(details);
+        if (subId) {
+            details.dataset.subQuestionId = String(subId);
+        }
+        const answerRow = subId ? answersBySub.get(String(subId)) : null;
+        const answerItem = details.querySelector('.student-answer-item');
+        if (!answerItem) return;
+
+        if (answerRow?.id) {
+            answerItem.dataset.answerId = String(answerRow.id);
+        }
+
+        let editBtn = answerItem.querySelector('.edit-btn[data-edit-target="student_answer"]');
+        if (answerRow?.id) {
+            if (!editBtn) {
+                editBtn = document.createElement('button');
+                editBtn.id = 'student-answer-edit-btn';
+                editBtn.className = 'edit-btn';
+                editBtn.dataset.editTarget = 'student_answer';
+                editBtn.dataset.answerId = String(answerRow.id);
+                editBtn.innerHTML = EDIT_ICON_SVG;
+                answerItem.insertBefore(editBtn, answerItem.firstChild);
+            } else {
+                editBtn.dataset.answerId = String(answerRow.id);
+            }
+        }
+
+        let answerTextEl = answerItem.querySelector('[data-editable="answer_text"]');
+        if (!answerTextEl) {
+            answerTextEl = document.createElement('p');
+            answerTextEl.className = 'formatted-text';
+            answerTextEl.dataset.editable = 'answer_text';
+            answerItem.appendChild(answerTextEl);
+        } else {
+            answerTextEl.dataset.editable = 'answer_text';
+        }
+
+        const rawAnswer = answerRow?.answer_text ?? '';
+        const normalizedAnswer = normalizeEditableValue(rawAnswer);
+        const displayAnswer = normalizedAnswer || STUDENT_PLACEHOLDER_TEXT;
+        answerTextEl.textContent = displayAnswer;
+        setOriginalTextDataset(answerTextEl, normalizedAnswer);
+    });
+
+    if (token) {
+        const originBtn = questionsContainer.querySelector(`.add-student-btn[data-new-student-token="${token}"]`);
+        if (originBtn) {
+            originBtn.classList.remove('hidden');
+            delete originBtn.dataset.newStudentToken;
+        }
+    }
+}
+
+
+
 function stagePendingDisplay(el, fieldType, rawValue) {
     if (!el) return;
 
@@ -873,7 +1013,7 @@ async function saveChanges(container, editButton) {
                     const { data: stuExams, error: seErr } = await sb.from('student_exams').select('id').eq('exam_id', examId);
                     if (seErr) throw seErr;
                     if (stuExams && stuExams.length) {
-                        const placeholder = 'Student has not attempted to answer this sub question';
+                        const placeholder = STUDENT_PLACEHOLDER_TEXT;
                         const ansPayload = stuExams.map(se => ({
                             student_exam_id: se.id,
                             sub_question_id: newSubId,
@@ -1042,6 +1182,7 @@ async function saveChanges(container, editButton) {
 
             case 'student_info': {
                 const studentId = editButton.dataset.studentId;
+                const stagedToken = editButton.dataset.newStudentToken || null;
                 const nameEl = container.querySelector('[data-editable="full_name"] .editable-input');
                 const numEl = container.querySelector('[data-editable="student_number"] .editable-input');
                 const full_name = nameEl ? nameEl.value : null;
@@ -1051,6 +1192,12 @@ async function saveChanges(container, editButton) {
                     // UPDATE existing student
                     const res = await sb.from('students').update({ full_name, student_number }).eq('id', studentId);
                     if (res.error) throw res.error;
+
+                    applyStudentDetailsUpdates({
+                        studentId,
+                        fullName: full_name ?? '',
+                        studentNumber: student_number ?? '',
+                    });
                 } else {
                     // INSERT new student + linkage + placeholders
                     const sIns = await sb.from('students').insert({ full_name, student_number }).select('id').single();
@@ -1072,18 +1219,33 @@ async function saveChanges(container, editButton) {
                         .eq('questions.exam_id', examId);
                     if (sqErr) throw sqErr;
 
+                    let insertedAnswers = [];
                     if (subQs && subQs.length) {
-                        const placeholder = 'Student has not attempted to answer this sub question';
                         const payload = subQs.map(sq => ({
                             student_exam_id: studentExamId,
                             sub_question_id: sq.id,
-                            answer_text: placeholder,
+                            answer_text: STUDENT_PLACEHOLDER_TEXT,
                             sub_points_awarded: null,
                             feedback_comment: null
                         }));
-                        const insAns = await sb.from('student_answers').insert(payload);
+                        const insAns = await sb
+                            .from('student_answers')
+                            .insert(payload)
+                            .select('id, sub_question_id, answer_text');
                         if (insAns.error) throw insAns.error;
+                        insertedAnswers = insAns.data || [];
                     }
+
+                    applyStudentDetailsUpdates({
+                        studentId: newStudentId,
+                        token: stagedToken,
+                        answersData: insertedAnswers,
+                        fullName: full_name ?? '',
+                        studentNumber: student_number ?? '',
+                    });
+
+                    editButton.dataset.studentId = newStudentId;
+                    if (stagedToken) delete editButton.dataset.newStudentToken;
 
                     // Tell the UI to auto-select this newly added student after reload
                     window.__selectStudentAfterReload = newStudentId;
