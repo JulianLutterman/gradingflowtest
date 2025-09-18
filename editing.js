@@ -845,6 +845,60 @@ function ensureModelAlternativeIdentifiers(container, alternativeId = null) {
     container.removeAttribute('data-is-new');
 }
 
+function ensureQuestionHasAddSubButton(questionBlock) {
+    if (!questionBlock) return null;
+
+    const subGrid = questionBlock.querySelector('.sub-question-grid');
+    if (!subGrid) return null;
+
+    let addFooterCell = subGrid.querySelector('.grid-cell.grid-footer');
+    if (!addFooterCell) {
+        addFooterCell = document.createElement('div');
+        addFooterCell.className = 'grid-cell grid-footer';
+        subGrid.appendChild(addFooterCell);
+    }
+
+    let addBtn = addFooterCell.querySelector('.add-subq-btn');
+    if (!addBtn) {
+        addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'add-subq-btn add-row-btn';
+        addBtn.textContent = 'Add New Sub-Question';
+        addFooterCell.appendChild(addBtn);
+    }
+
+    return addBtn;
+}
+
+function applyQuestionMetadataAfterInsert(questionBlock, editButton, questionId) {
+    if (!questionBlock || !questionId) return;
+
+    questionBlock.dataset.questionId = String(questionId);
+    if ('isNewQuestion' in questionBlock.dataset) {
+        delete questionBlock.dataset.isNewQuestion;
+    }
+
+    if (editButton) {
+        editButton.dataset.questionId = String(questionId);
+        if (editButton.dataset.questionNumber) {
+            delete editButton.dataset.questionNumber;
+        }
+    }
+
+    const addBtn = ensureQuestionHasAddSubButton(questionBlock);
+    if (addBtn) {
+        addBtn.dataset.questionId = String(questionId);
+        addBtn.classList.remove('hidden');
+    }
+
+    if (questionsContainer) {
+        const globalAddBtn = questionsContainer.querySelector('.add-question-btn');
+        if (globalAddBtn) {
+            globalAddBtn.classList.remove('hidden');
+        }
+    }
+}
+
 function syncNewModelComponentIds(container, insertedRows = []) {
     if (!container || !Array.isArray(insertedRows) || insertedRows.length === 0) return;
     const newComponents = Array.from(container.querySelectorAll('.model-component')).filter(comp => !comp.dataset.componentId);
@@ -888,6 +942,7 @@ async function saveChanges(container, editButton) {
             });
         };
 
+        let createdQuestionId = null;
         let results;
         switch (targetType) {
             case 'exam_name': {
@@ -917,12 +972,18 @@ async function saveChanges(container, editButton) {
                 if (existingQid) {
                     const res = await sb.from('questions').update(contextUpdates).eq('id', existingQid);
                     if (res.error) throw res.error;
+                    createdQuestionId = existingQid;
                 } else {
                     // INSERT new question
                     const qNum = editButton.dataset.questionNumber || '1';
                     const payload = { exam_id: examId, question_number: qNum, ...contextUpdates };
-                    const res = await sb.from('questions').insert(payload).select('id').single();
-                    if (res.error) throw res.error;
+                    const { data: insertedQuestion, error: insertErr } = await sb
+                        .from('questions')
+                        .insert(payload)
+                        .select('id')
+                        .single();
+                    if (insertErr) throw insertErr;
+                    createdQuestionId = insertedQuestion?.id || null;
                 }
                 break;
             }
@@ -1283,6 +1344,10 @@ async function saveChanges(container, editButton) {
 
             default:
                 throw new Error('Unknown edit target type.');
+        }
+
+        if (targetType === 'question_context' && createdQuestionId) {
+            applyQuestionMetadataAfterInsert(container, editButton, createdQuestionId);
         }
 
         commitEditedValues();
