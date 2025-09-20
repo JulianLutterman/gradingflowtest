@@ -37,28 +37,12 @@ serve(async (req) => {
         }
         const supabaseClient = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
         // --- This logic is already correct for finding/creating student and student_exam ---
-        let studentId;
-        let existingStudent = null;
-        if (studentNumber && studentNumber.trim() !== '') {
-            const { data, error } = await supabaseClient.from('students').select('id').eq('student_number', studentNumber).maybeSingle();
-            if (error) throw new Error(`Error finding student by number: ${error.message}`);
-            existingStudent = data;
-        }
-        if (!existingStudent && studentName && studentName.trim() !== '') {
-            const { data, error } = await supabaseClient.from('students').select('id').eq('full_name', studentName).maybeSingle();
-            if (error) throw new Error(`Error finding student by name: ${error.message}`);
-            existingStudent = data;
-        }
-        if (existingStudent) {
-            studentId = existingStudent.id;
-        } else {
-            const { data: newStudent, error: createError } = await supabaseClient.from('students').insert({
-                full_name: studentName || null,
-                student_number: studentNumber || null
-            }).select('id').single();
-            if (createError) throw new Error(`Error creating new student: ${createError.message}`);
-            studentId = newStudent.id;
-        }
+        const { data: newStudent, error: createError } = await supabaseClient.from('students').insert({
+            full_name: studentName || null,
+            student_number: studentNumber || null
+        }).select('id').single();
+        if (createError) throw new Error(`Error creating new student: ${createError.message}`);
+        const studentId = newStudent.id;
         let studentExamId;
         const { data: existingStudentExam, error: findError } = await supabaseClient.from('student_exams').select('id').eq('student_id', studentId).eq('exam_id', examId).maybeSingle();
         if (findError) throw findError;
