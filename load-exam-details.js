@@ -171,3 +171,19 @@ async function loadExamDetails(examId) {
     applyMultiDirectProcessState();
 
 }
+
+
+async function refreshExamDataCache(examId) {
+  if (!examId) {
+    return { data: null, error: new Error('Missing exam ID') };
+  }
+
+  const { data, error } = await fetchFullExamDetails(examId);
+  if (!error && data) {
+    currentExamData = data;
+  }
+
+  return { data: data ?? null, error: error ?? null };
+}
+
+window.refreshExamDataCache = refreshExamDataCache;
