@@ -3,9 +3,6 @@
 // --- AUTOMATIC GRADING LOGIC (REFACTORED) ---
 gradeAllButton.addEventListener('click', async (e) => {
   e.preventDefault();
-  if (typeof window.requireEditsUnlocked === 'function' && !window.requireEditsUnlocked()) {
-    return;
-  }
   gradeAllButton.disabled = true;
   showSpinner(true, spinnerGrading);
   updateGradingButtonText('Starting...');

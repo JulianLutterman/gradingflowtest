@@ -35,9 +35,6 @@ window.applyAppendixUploadState = applyAppendixUploadState;
 // --- APPENDIX UPLOAD LOGIC (MODIFIED LOGGING) ---
 appendixForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  if (typeof window.requireEditsUnlocked === 'function' && !window.requireEditsUnlocked()) {
-    return;
-  }
   if (appendixResetTimeout) {
     clearTimeout(appendixResetTimeout);
     appendixResetTimeout = null;
@@ -168,9 +165,6 @@ function prepareModelExamSnapshot(questions = []) {
 // --- ANSWER MODEL UPLOAD LOGIC (MODIFIED LOGGING) ---
 modelForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  if (typeof window.requireEditsUnlocked === 'function' && !window.requireEditsUnlocked()) {
-    return;
-  }
   if (modelResetTimeout) {
     clearTimeout(modelResetTimeout);
     modelResetTimeout = null;

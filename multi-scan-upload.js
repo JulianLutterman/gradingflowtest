@@ -393,10 +393,6 @@ async function handleProcessAllDirectUploads() {
  * @param {'scan'|'direct'} type
  */
 async function handleProcessAllSubmissions(type) {
-  if (typeof window.requireEditsUnlocked === 'function' && !window.requireEditsUnlocked()) {
-    return;
-  }
-
   let isError = false;
   let lockKey = null;
 
