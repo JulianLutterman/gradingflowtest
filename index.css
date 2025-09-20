@@ -236,7 +236,7 @@ button {
     position: relative;
     padding: 1.5rem;
     border-radius: 15px;
-    border: solid 3px var(--color-light-blue-two);
+    border: solid 5px var(--color-light-blue-two);
     transition-duration: 0.3s;
 }
 
@@ -321,6 +321,10 @@ button {
     text-align: center;
 }
 
+.confirm-modal-content {
+    padding: 2rem;
+}
+
 .modal-close {
     position: absolute;
     top: 10px;
@@ -393,5 +397,6 @@ button {
     .save-btn.danger:hover {
         filter: brightness(110%);
     }
+
 
 
