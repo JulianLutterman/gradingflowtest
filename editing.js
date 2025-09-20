@@ -1410,7 +1410,21 @@ async function saveChanges(container, editButton) {
         commitEditedValues();
         toggleEditMode(container, false, undefined, editButton, { reason: 'commit' });
 
-        await loadExamDetails(examId);
+        let refreshError = null;
+        if (typeof window.refreshExamDataCache === 'function') {
+            try {
+                const result = await window.refreshExamDataCache(examId);
+                refreshError = result?.error || null;
+            } catch (refreshErr) {
+                refreshError = refreshErr;
+            }
+        } else if (typeof loadExamDetails === 'function') {
+            await loadExamDetails(examId);
+        }
+
+        if (refreshError) {
+            console.warn('Failed to refresh exam data cache after save:', refreshError);
+        }
 
         // Post-save modal refreshes you already had:
         if (targetType === 'grading_regulations') {
