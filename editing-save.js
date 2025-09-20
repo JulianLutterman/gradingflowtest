@@ -601,8 +601,6 @@ function syncNewModelComponentIds(container, insertedRows = []) {
     });
 }
 
-}
-
 /**
  * Persist edits / inserts to the database and refresh the UI.
  */
