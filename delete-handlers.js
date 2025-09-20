@@ -112,9 +112,24 @@
         return wrap;
     }
 
-    function requestExamRefresh(examId) {
-        if (!examId) return Promise.resolve();
-        return loadExamDetails(examId);
+    async function requestExamRefresh(examId) {
+        if (!examId) return;
+
+        if (typeof window.refreshExamDataCache === 'function') {
+            try {
+                const { error } = await window.refreshExamDataCache(examId);
+                if (error) {
+                    console.warn('Failed to refresh exam data cache after delete:', error);
+                }
+                return;
+            } catch (refreshError) {
+                console.warn('Error refreshing exam data cache after delete:', refreshError);
+            }
+        }
+
+        if (typeof loadExamDetails === 'function') {
+            await loadExamDetails(examId);
+        }
     }
 
     function removeQuestionDom(questionId) {
