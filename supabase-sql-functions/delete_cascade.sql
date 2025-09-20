@@ -189,3 +189,59 @@ begin
   end if;
 end;
 $$;
+
+-- EXAM (deletes: scan + multi-scan sessions, student answers/exams, questions via helper; then exam)
+create or replace function delete_exam_cascade(p_exam_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_question_id uuid;
+  v_student_exam_ids uuid[];
+  v_session_ids uuid[];
+begin
+  if p_exam_id is null then
+    return;
+  end if;
+
+  -- Detach scan sessions from student exams before removal
+  update public.scan_sessions
+     set student_exam_id = null
+   where exam_id = p_exam_id;
+
+  -- Remove multi-scan data tied to this exam
+  select array_agg(id) into v_session_ids
+    from public.multi_scan_sessions
+   where exam_id = p_exam_id;
+
+  if v_session_ids is not null and array_length(v_session_ids, 1) is not null then
+    delete from public.multi_scan_students
+     where multi_scan_session_id = any(v_session_ids);
+  end if;
+
+  delete from public.multi_scan_sessions where exam_id = p_exam_id;
+
+  -- Remove student answers/exams for this exam
+  select array_agg(id) into v_student_exam_ids
+    from public.student_exams
+   where exam_id = p_exam_id;
+
+  if v_student_exam_ids is not null and array_length(v_student_exam_ids, 1) is not null then
+    delete from public.student_answers where student_exam_id = any(v_student_exam_ids);
+    delete from public.student_exams where id = any(v_student_exam_ids);
+  end if;
+
+  -- Delete questions (and their children) via existing helper
+  for v_question_id in select id from public.questions where exam_id = p_exam_id loop
+    perform delete_question_cascade(v_question_id);
+  end loop;
+
+  -- Remove remaining scan sessions for the exam
+  delete from public.scan_sessions where exam_id = p_exam_id;
+
+  -- Finally remove the exam itself
+  delete from public.exams where id = p_exam_id;
+end;
+$$;

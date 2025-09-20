@@ -16,6 +16,12 @@ const submitExamButton = document.getElementById('submit-exam-button');
 const submitExamButtonText = document.getElementById('submit-exam-button-text');
 const spinnerExam = document.getElementById('spinner-exam');
 const examCardsContainer = document.getElementById('exam-cards-container');
+const confirmModal = document.getElementById('confirm-modal');
+const confirmModalTitle = document.getElementById('confirm-modal-title');
+const confirmModalText = document.getElementById('confirm-modal-text');
+const confirmModalConfirmBtn = document.getElementById('confirm-modal-confirm-btn');
+const confirmModalCancelBtn = document.getElementById('confirm-modal-cancel-btn');
+const confirmModalCloseBtn = document.getElementById('confirm-modal-close');
 
 // --- CONSTANTS ---
 const DEFAULT_EXAM_BUTTON_TEXT = 'Process and Upload Exam';
@@ -53,6 +59,74 @@ function setupFileInputFeedback(inputId, displayId) {
             else fileDisplay.textContent = 'No files chosen';
         });
     }
+}
+
+function makeTrashButton(className = 'exam-delete-btn', title = 'Delete exam') {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = className;
+    button.title = title;
+    button.setAttribute('aria-label', title);
+    button.innerHTML = `
+        <!--
+        category: System
+        tags: [bin, litter, recycle, remove, delete, throw, away, waste]
+        version: "1.46"
+        unicode: "ef88"
+        -->
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="48"
+          height="48"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#14110f"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path d="M4 7h16" />
+          <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" />
+          <path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
+          <path d="M10 12l4 4m0 -4l-4 4" />
+        </svg>
+    `;
+    return button;
+}
+
+function showConfirmModal(message, title = 'Confirm Action') {
+    return new Promise((resolve) => {
+        if (!confirmModal || !confirmModalTitle || !confirmModalText || !confirmModalConfirmBtn || !confirmModalCancelBtn || !confirmModalCloseBtn) {
+            console.error('Confirmation modal elements missing. Falling back to native confirm dialog.');
+            resolve(window.confirm(message));
+            return;
+        }
+
+        confirmModalTitle.textContent = title;
+        confirmModalText.textContent = message;
+        confirmModal.classList.remove('hidden');
+
+        const controller = new AbortController();
+        const { signal } = controller;
+
+        const close = (result) => {
+            confirmModal.classList.add('hidden');
+            controller.abort();
+            resolve(result);
+        };
+
+        confirmModalConfirmBtn.addEventListener('click', () => close(true), { signal });
+        confirmModalCancelBtn.addEventListener('click', () => close(false), { signal });
+        confirmModalCloseBtn.addEventListener('click', () => close(false), { signal });
+        confirmModal.addEventListener('click', (event) => {
+            if (event.target === confirmModal) close(false);
+        }, { signal });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') close(false);
+        }, { signal });
+    });
 }
 
 // --- AUTH STATE & DATA LOADING ---
@@ -107,13 +181,27 @@ async function loadExams() {
 
     examCardsContainer.innerHTML = ''; // Clear loading message
     exams.forEach(exam => {
-        const card = document.createElement('a');
-        card.href = `exam.html?id=${exam.id}`; // Assuming an exam detail page exists
+        const card = document.createElement('article');
         card.className = 'exam-card';
-        card.innerHTML = `
-            <h3>${exam.exam_name}</h3>
-            <p>Uploaded on: ${new Date(exam.created_at).toLocaleDateString()}</p>
-        `;
+
+        const deleteBtn = makeTrashButton();
+        deleteBtn.dataset.examId = exam.id;
+        deleteBtn.dataset.examName = exam.exam_name;
+        card.appendChild(deleteBtn);
+
+        const link = document.createElement('a');
+        link.href = `exam.html?id=${exam.id}`;
+        link.className = 'exam-card-link';
+
+        const title = document.createElement('h3');
+        title.textContent = exam.exam_name;
+        const uploaded = document.createElement('p');
+        uploaded.textContent = `Uploaded on: ${new Date(exam.created_at).toLocaleDateString()}`;
+
+        link.appendChild(title);
+        link.appendChild(uploaded);
+
+        card.appendChild(link);
         examCardsContainer.appendChild(card);
     });
 }
@@ -189,6 +277,36 @@ examForm.addEventListener('submit', async (e) => {
             submitExamButton.disabled = false;
             setButtonText(DEFAULT_EXAM_BUTTON_TEXT);
         }, isError ? 5000 : 3000);
+    }
+});
+
+examCardsContainer.addEventListener('click', async (event) => {
+    const deleteBtn = event.target.closest('.exam-delete-btn');
+    if (!deleteBtn) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const examId = deleteBtn.dataset.examId;
+    if (!examId) return;
+
+    const examName = (deleteBtn.dataset.examName || '').trim();
+    const confirmed = await showConfirmModal(
+        `Delete the exam${examName ? ` "${examName}"` : ''} and all associated questions, student submissions, and scans? This cannot be undone.`,
+        'Delete Exam',
+    );
+    if (!confirmed) return;
+
+    deleteBtn.disabled = true;
+    try {
+        const { error } = await sb.rpc('delete_exam_cascade', { p_exam_id: examId });
+        if (error) throw error;
+        await loadExams();
+    } catch (rpcError) {
+        console.error('Failed to delete exam:', rpcError);
+        alert('Failed to delete the exam. Please try again.');
+    } finally {
+        deleteBtn.disabled = false;
     }
 });
 

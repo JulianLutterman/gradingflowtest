@@ -23,6 +23,23 @@
     align-items: center; /* This ensures buttons align with the title */
 }
 
+#delete-exam-button {
+    background: var(--color-danger-between);
+    color: var(--color-text-light);
+    border: 3px solid var(--color-danger-light);
+    box-shadow: -4px 8px 0 var(--color-danger);
+    transform: translateY(-3px) translateX(0);
+    padding: 0.6rem 1.1rem;
+    width: fit-content;
+    margin-left: 20px;
+    font-weight: 800;
+}
+
+    #delete-exam-button:hover {
+        transform: translateY(0) translateX(-2px);
+        box-shadow: -2px 4px 0 var(--color-danger);
+    }
+
 #title-wrapper-left,
 #title-wrapper-right {
     display: flex;

@@ -329,6 +329,7 @@
         const examId = examIdFromUrl();
         if (!examId) return;
 
+        const examDel = e.target.closest('#delete-exam-button');
         const qDel = e.target.closest('.question-delete-btn');
         const sqDel = e.target.closest('.sub-q-delete-btn');
         const altDel = e.target.closest('.model-alt-delete-btn');
@@ -337,6 +338,28 @@
         const ptsDel = e.target.closest('.points-delete-btn');
 
         try {
+            if (examDel) {
+                const titleEl = document.getElementById('exam-name-title');
+                const examName = titleEl?.textContent?.trim();
+                const confirmed = await showConfirmModal(
+                    `Delete the entire exam${examName ? ` "${examName}"` : ''} and all of its questions, student submissions, and scans? This cannot be undone.`,
+                    'Delete Exam',
+                );
+                if (!confirmed) return;
+
+                examDel.disabled = true;
+                try {
+                    const { error } = await sb.rpc('delete_exam_cascade', { p_exam_id: examId });
+                    if (error) throw error;
+                    window.location.href = 'index.html';
+                } catch (deleteError) {
+                    console.error('Failed to delete exam:', deleteError);
+                    alert('Failed to delete the exam. Please try again.');
+                    examDel.disabled = false;
+                }
+                return;
+            }
+
             const attemptedDelete = qDel || sqDel || altDel || compDel || stuDel || ptsDel;
             if (attemptedDelete && typeof window.requireEditsUnlocked === 'function' && !window.requireEditsUnlocked()) {
                 return;
