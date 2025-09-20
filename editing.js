@@ -25,7 +25,6 @@ function getEditLockModalElements() {
     cachedEditLockModal = {
         modal,
         closeIcon: modal.querySelector('#editing-locked-modal-close'),
-        closeButton: modal.querySelector('#editing-locked-modal-close-btn'),
         confirmButton: modal.querySelector('#editing-locked-modal-understood-btn'),
         messageEl: modal.querySelector('#editing-locked-modal-text'),
     };
@@ -40,7 +39,7 @@ function showEditingLockedModal(message = 'Uploads or score generation are curre
         return;
     }
 
-    const { modal, closeIcon, closeButton, confirmButton, messageEl } = elements;
+    const { modal, closeIcon, confirmButton, messageEl } = elements;
     if (messageEl) {
         messageEl.textContent = message;
     }
@@ -55,7 +54,6 @@ function showEditingLockedModal(message = 'Uploads or score generation are curre
     };
 
     if (closeIcon) closeIcon.addEventListener('click', hide, { signal });
-    if (closeButton) closeButton.addEventListener('click', hide, { signal });
     if (confirmButton) confirmButton.addEventListener('click', hide, { signal });
     modal.addEventListener('click', (event) => {
         if (event.target === modal) hide();
