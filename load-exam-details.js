@@ -1,11 +1,17 @@
 let examUiInitialized = false;
+let loadExamDetailsRequestToken = 0;
 
 /**
  * Load exam details, wire modal and multi-upload events, and render.
  * @param {string} examId
  */
 async function loadExamDetails(examId) {
+  const requestToken = ++loadExamDetailsRequestToken;
   const { data: examData, error } = await fetchFullExamDetails(examId);
+
+  if (requestToken < loadExamDetailsRequestToken) {
+    return;
+  }
 
   if (error) {
     examNameTitle.textContent = 'Error Loading Exam';

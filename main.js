@@ -59,11 +59,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!btn) return;
 
         if (btn.classList.contains('add-subq-btn')) {
+            if (typeof window.requireEditsUnlocked === 'function' && !window.requireEditsUnlocked()) {
+                return;
+            }
             const qId = btn.dataset.questionId || btn.closest('.question-block')?.dataset?.questionId;
             if (qId) stageNewSubQuestion(qId);
         }
 
         if (btn.classList.contains('add-model-alt-btn')) {
+            if (typeof window.requireEditsUnlocked === 'function' && !window.requireEditsUnlocked()) {
+                return;
+            }
             const subQId = btn.dataset.subQuestionId
                 || btn.closest('.grid-cell')?.dataset?.subQuestionId
                 || '';
@@ -71,11 +77,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (btn.classList.contains('add-student-btn')) {
+            if (typeof window.requireEditsUnlocked === 'function' && !window.requireEditsUnlocked()) {
+                return;
+            }
             const examId = btn.dataset.examId;
             if (examId) stageNewStudent(examId, btn);
         }
 
         if (btn.classList.contains('add-question-btn')) {
+            if (typeof window.requireEditsUnlocked === 'function' && !window.requireEditsUnlocked()) {
+                return;
+            }
             const examId = btn.dataset.examId;
             if (examId) stageNewQuestion(examId);
         }

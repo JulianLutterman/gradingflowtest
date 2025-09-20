@@ -61,7 +61,7 @@ async function fetchExamDataForAppendixJson(examId) {
 async function fetchExamDataForModelJson(examId) {
   return sb
     .from('questions')
-    .select(`question_number, sub_questions (sub_q_text_content)`)
+    .select(`question_number, sub_questions (id, sub_q_text_content)`)
     .eq('exam_id', examId)
     .order('question_number', { ascending: true });
 }

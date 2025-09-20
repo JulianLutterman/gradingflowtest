@@ -393,7 +393,8 @@ async function handleProcessAllDirectUploads() {
  * @param {'scan'|'direct'} type
  */
 async function handleProcessAllSubmissions(type) {
-  let isError = false; // Add a flag to track success/failure
+  let isError = false;
+  let lockKey = null;
 
   if (type === 'scan') {
     setMultiScanProcessState({ status: 'processing', visible: true, disabled: true, spinner: true, buttonText: 'Processing...' });
@@ -432,40 +433,51 @@ async function handleProcessAllSubmissions(type) {
     return;
   }
 
-    try {
-        if (type === 'scan') {
-            setMultiScanProcessState({ buttonText: `Processing ${submissions.length} submissions (~4 mins)...`, spinner: true });
-        } else {
-            setMultiDirectProcessState({ buttonText: `Processing ${submissions.length} submissions (~4 mins)...`, spinner: true });
-        }
-        const processingPromises = submissions.map((sub) => processSingleSubmission(examId, sub, type));
-        await Promise.all(processingPromises);
-
-        if (type === 'scan') {
-            setMultiScanProcessState({ buttonText: 'All processed! Refreshing...', spinner: false, disabled: true, visible: true, status: 'success' });
-            currentMultiScanSession = null;
-            resetMultiScanSessionState();
-        } else {
-            setMultiDirectProcessState({ buttonText: 'All processed! Refreshing...', spinner: false, disabled: true, status: 'success' });
-        }
-        await loadExamDetails(examId);
-        setTimeout(() => multiUploadModal.classList.add('hidden'), 2000);
-    } catch (error) {
-        console.error('Error during multi-submission processing:', error);
-        if (type === 'scan') {
-            setMultiScanProcessState({ status: 'error', buttonText: 'Error! See console.', spinner: false, disabled: true, visible: true });
-        } else {
-            setMultiDirectProcessState({ status: 'error', buttonText: 'Error! See console.', spinner: false, disabled: true });
-        }
-        isError = true; // Set flag on error
-    } finally {
-        if (type === 'scan') {
-            scheduleMultiScanProcessReset(isError ? 10000 : 5000);
-        } else {
-            scheduleMultiDirectProcessReset(isError ? 10000 : 5000);
-        }
+  try {
+    if (typeof window.enterProcessingLock === 'function') {
+      lockKey = window.enterProcessingLock(type === 'scan' ? 'multi-scan-upload' : 'multi-direct-upload');
     }
+
+    if (type === 'scan') {
+      setMultiScanProcessState({ buttonText: `Processing ${submissions.length} submissions (~4 mins)...`, spinner: true });
+    } else {
+      setMultiDirectProcessState({ buttonText: `Processing ${submissions.length} submissions (~4 mins)...`, spinner: true });
+    }
+
+    const processingPromises = submissions.map((sub) => processSingleSubmission(examId, sub, type));
+    await Promise.all(processingPromises);
+
+    if (type === 'scan') {
+      setMultiScanProcessState({ buttonText: 'All processed! Refreshing...', spinner: false, disabled: true, visible: true, status: 'success' });
+      currentMultiScanSession = null;
+      resetMultiScanSessionState();
+    } else {
+      setMultiDirectProcessState({ buttonText: 'All processed! Refreshing...', spinner: false, disabled: true, status: 'success' });
+    }
+
+    await loadExamDetails(examId);
+    setTimeout(() => multiUploadModal.classList.add('hidden'), 2000);
+  } catch (error) {
+    console.error('Error during multi-submission processing:', error);
+    if (type === 'scan') {
+      setMultiScanProcessState({ status: 'error', buttonText: 'Error! See console.', spinner: false, disabled: true, visible: true });
+    } else {
+      setMultiDirectProcessState({ status: 'error', buttonText: 'Error! See console.', spinner: false, disabled: true });
+    }
+    isError = true; // Set flag on error
+  } finally {
+    if (typeof window.exitProcessingLock === 'function') {
+      window.exitProcessingLock(lockKey);
+    }
+
+    if (type === 'scan') {
+      scheduleMultiScanProcessReset(isError ? 10000 : 5000);
+    } else {
+      scheduleMultiDirectProcessReset(isError ? 10000 : 5000);
+    }
+  }
 }
+
 
 /**
  * Process a single submission for multi-upload (scan/direct).

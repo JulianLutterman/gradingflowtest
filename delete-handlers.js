@@ -112,6 +112,57 @@
         return wrap;
     }
 
+    function requestExamRefresh(examId) {
+        if (!examId) return Promise.resolve();
+        return loadExamDetails(examId);
+    }
+
+    function removeQuestionDom(questionId) {
+        if (!Q_CONTAINER || !questionId) return;
+        const block = Q_CONTAINER.querySelector(`.question-block[data-question-id="${questionId}"]`);
+        if (block) {
+            block.remove();
+        }
+    }
+
+    function removeSubQuestionDom(subQuestionId) {
+        if (!Q_CONTAINER || !subQuestionId) return;
+        const subCell = Q_CONTAINER.querySelector(`#sub-q-gridcell.grid-cell[data-sub-question-id="${subQuestionId}"]`);
+        if (!subCell) return;
+        const modelCell = subCell.nextElementSibling;
+        const studentCell = modelCell?.nextElementSibling;
+        const questionBlock = subCell.closest('.question-block');
+        subCell.remove();
+        if (modelCell) modelCell.remove();
+        if (studentCell) studentCell.remove();
+        const addBtn = questionBlock?.querySelector('.add-subq-btn');
+        if (addBtn) addBtn.classList.remove('hidden');
+    }
+
+    function removeModelAlternativeDom(alternativeId) {
+        if (!Q_CONTAINER || !alternativeId) return;
+        const alt = Q_CONTAINER.querySelector(`.model-alternative[data-alternative-id="${alternativeId}"]`);
+        if (!alt) return;
+        const section = alt.closest('.model-answer-section');
+        const parentCell = alt.closest('.grid-cell');
+        alt.remove();
+        if (section && !section.querySelector('.model-alternative')) {
+            const placeholder = section.querySelector('.no-model-placeholder');
+            if (placeholder) placeholder.classList.remove('hidden');
+        }
+        if (parentCell) {
+            const addAltBtn = parentCell.querySelector('.add-model-alt-btn');
+            if (addAltBtn) addAltBtn.classList.remove('hidden');
+        }
+    }
+
+    function removeStudentSubmissionDom(studentId) {
+        if (!Q_CONTAINER || !studentId) return;
+        Q_CONTAINER.querySelectorAll(`.student-answer-dropdown[data-student-id="${studentId}"]`).forEach((details) => {
+            details.remove();
+        });
+    }
+
     // Inject delete buttons where needed (idempotent)
     function injectDeleteButtons() {
         if (!Q_CONTAINER) return;
@@ -271,6 +322,11 @@
         const ptsDel = e.target.closest('.points-delete-btn');
 
         try {
+            const attemptedDelete = qDel || sqDel || altDel || compDel || stuDel || ptsDel;
+            if (attemptedDelete && typeof window.requireEditsUnlocked === 'function' && !window.requireEditsUnlocked()) {
+                return;
+            }
+
             if (qDel) {
                 const id = qDel.dataset.questionId;
                 if (!id) return;
@@ -281,7 +337,8 @@
                 if (!confirmed) return;
                 const { error } = await sb.rpc('delete_question_cascade', { p_question_id: id });
                 if (error) throw error;
-                await loadExamDetails(examId);
+                removeQuestionDom(id);
+                await requestExamRefresh(examId);
                 return;
             }
 
@@ -295,7 +352,8 @@
                 if (!confirmed) return;
                 const { error } = await sb.rpc('delete_sub_question_cascade', { p_sub_question_id: id });
                 if (error) throw error;
-                await loadExamDetails(examId);
+                removeSubQuestionDom(id);
+                await requestExamRefresh(examId);
                 return;
             }
 
@@ -309,7 +367,8 @@
                 if (!confirmed) return;
                 const { error } = await sb.rpc('delete_model_alternative_cascade', { p_alternative_id: id });
                 if (error) throw error;
-                await loadExamDetails(examId);
+                removeModelAlternativeDom(id);
+                await requestExamRefresh(examId);
                 return;
             }
 
@@ -344,7 +403,8 @@
                     p_student_id: studentId,
                 });
                 if (error) throw error;
-                await loadExamDetails(examId);
+                removeStudentSubmissionDom(studentId);
+                await requestExamRefresh(examId);
                 return;
             }
 
