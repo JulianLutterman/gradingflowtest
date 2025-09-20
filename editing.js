@@ -11,8 +11,98 @@ function _rand() { return Math.random().toString(36).slice(2) + Date.now().toStr
 
 const activeEditContainers = new Set();
 let activeInlineEditCount = 0;
-const editSessionEvents = new EventTarget();
-const pendingExamRefreshTasks = [];
+const activeProcessLocks = new Set();
+let cachedEditLockModal = null;
+
+function getEditLockModalElements() {
+    if (cachedEditLockModal) return cachedEditLockModal;
+    const modal = document.getElementById('editing-locked-modal');
+    if (!modal) {
+        cachedEditLockModal = null;
+        return null;
+    }
+
+    cachedEditLockModal = {
+        modal,
+        closeIcon: modal.querySelector('#editing-locked-modal-close'),
+        closeButton: modal.querySelector('#editing-locked-modal-close-btn'),
+        confirmButton: modal.querySelector('#editing-locked-modal-understood-btn'),
+        messageEl: modal.querySelector('#editing-locked-modal-text'),
+    };
+
+    return cachedEditLockModal;
+}
+
+function showEditingLockedModal(message = 'Uploads or score generation are currently in progress. Please wait until they finish before editing, deleting, or adding items.') {
+    const elements = getEditLockModalElements();
+    if (!elements) {
+        window.alert(message);
+        return;
+    }
+
+    const { modal, closeIcon, closeButton, confirmButton, messageEl } = elements;
+    if (messageEl) {
+        messageEl.textContent = message;
+    }
+
+    modal.classList.remove('hidden');
+
+    const controller = new AbortController();
+    const { signal } = controller;
+    const hide = () => {
+        modal.classList.add('hidden');
+        controller.abort();
+    };
+
+    if (closeIcon) closeIcon.addEventListener('click', hide, { signal });
+    if (closeButton) closeButton.addEventListener('click', hide, { signal });
+    if (confirmButton) confirmButton.addEventListener('click', hide, { signal });
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal) hide();
+    }, { signal });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') hide();
+    }, { signal });
+}
+
+function isUploadOrGradingInProgress() {
+    return activeProcessLocks.size > 0;
+}
+
+function requireEditsUnlocked() {
+    if (!isUploadOrGradingInProgress()) {
+        return true;
+    }
+    showEditingLockedModal();
+    return false;
+}
+
+function closeAllActiveEdits(reason = 'cancel') {
+    if (!activeEditContainers.size) return;
+    const containers = Array.from(activeEditContainers);
+    containers.forEach((container) => {
+        try {
+            toggleEditMode(container, false, undefined, null, { reason });
+        } catch (error) {
+            console.warn('Failed to close edit container:', error);
+        }
+    });
+}
+
+function enterProcessingLock(type) {
+    const key = type || `process-${Date.now()}`;
+    const wasInactive = activeProcessLocks.size === 0;
+    activeProcessLocks.add(key);
+    if (wasInactive) {
+        closeAllActiveEdits('cancel');
+    }
+    return key;
+}
+
+function exitProcessingLock(type) {
+    if (!type) return;
+    activeProcessLocks.delete(type);
+}
 
 function hasOwnDatasetProp(el, key) {
     return !!el && Object.prototype.hasOwnProperty.call(el.dataset || {}, key);
@@ -222,15 +312,6 @@ function applyPendingDisplay(el) {
     return true;
 }
 
-function dispatchEditSessionChange() {
-    const detail = { active: activeInlineEditCount > 0, activeCount: activeInlineEditCount };
-    editSessionEvents.dispatchEvent(new CustomEvent('edit-session-change', { detail }));
-
-    if (activeInlineEditCount === 0) {
-        flushPendingExamRefreshes();
-    }
-}
-
 function markContainerEditing(container, isEditing) {
     if (!container) return;
 
@@ -239,44 +320,18 @@ function markContainerEditing(container, isEditing) {
     if (isEditing && !isTracked) {
         activeEditContainers.add(container);
         activeInlineEditCount += 1;
-        dispatchEditSessionChange();
     } else if (!isEditing && isTracked) {
         activeEditContainers.delete(container);
         activeInlineEditCount = Math.max(0, activeInlineEditCount - 1);
-        dispatchEditSessionChange();
     }
 }
-
-function flushPendingExamRefreshes() {
-    if (!pendingExamRefreshTasks.length) return;
-    const tasks = pendingExamRefreshTasks.splice(0);
-
-    tasks.reduce((chain, task) => chain.then(() => task().catch((error) => {
-        console.error('Queued exam refresh failed:', error);
-    })), Promise.resolve());
-}
-
-function enqueueExamRefresh(callback) {
-    if (typeof callback !== 'function') return Promise.resolve();
-
-    if (typeof window.isEditSessionActive === 'function' && window.isEditSessionActive()) {
-        return new Promise((resolve, reject) => {
-            pendingExamRefreshTasks.push(() => Promise.resolve()
-                .then(() => callback())
-                .then(resolve)
-                .catch((error) => {
-                    reject(error);
-                    return Promise.reject(error);
-                }));
-        });
-    }
-
-    return Promise.resolve().then(() => callback());
-}
-
 window.isEditSessionActive = () => activeInlineEditCount > 0;
-window.editSessionEvents = editSessionEvents;
-window.enqueueExamRefresh = enqueueExamRefresh;
+window.requireEditsUnlocked = requireEditsUnlocked;
+window.showEditingLockedModal = showEditingLockedModal;
+window.enterProcessingLock = enterProcessingLock;
+window.exitProcessingLock = exitProcessingLock;
+window.isUploadOrGradingInProgress = isUploadOrGradingInProgress;
+window.closeAllActiveEdits = closeAllActiveEdits;
 
 /**
  * Delegated click handler for inline edit buttons.
@@ -285,6 +340,8 @@ window.enqueueExamRefresh = enqueueExamRefresh;
 async function handleEditClick(event) {
     const editButton = event.target.closest('.edit-btn');
     if (!editButton) return;
+
+    if (!requireEditsUnlocked()) return;
 
     const targetType = editButton.dataset.editTarget;
     let container;
@@ -1353,12 +1410,7 @@ async function saveChanges(container, editButton) {
         commitEditedValues();
         toggleEditMode(container, false, undefined, editButton, { reason: 'commit' });
 
-        // Reload (guard against other active edits)
-        if (typeof window.enqueueExamRefresh === 'function' && window.isEditSessionActive?.()) {
-            await window.enqueueExamRefresh(() => loadExamDetails(examId));
-        } else {
-            await loadExamDetails(examId);
-        }
+        await loadExamDetails(examId);
 
         // Post-save modal refreshes you already had:
         if (targetType === 'grading_regulations') {

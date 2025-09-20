@@ -233,6 +233,18 @@
         </div>
     </div>
 
+    <div id="editing-locked-modal" class="modal-overlay hidden">
+        <div class="modal-content confirm-modal-content">
+            <span class="modal-close" id="editing-locked-modal-close">×</span>
+            <h3>Action Unavailable</h3>
+            <p id="editing-locked-modal-text">Uploads or score generation are currently in progress. Please wait until they finish before editing, deleting, or adding items.</p>
+            <div class="confirm-modal-actions">
+                <button id="editing-locked-modal-close-btn" class="cancel-btn">Close</button>
+                <button id="editing-locked-modal-understood-btn" class="save-btn">Understood</button>
+            </div>
+        </div>
+    </div>
+
     <div id="confirm-modal" class="modal-overlay hidden">
         <div class="modal-content confirm-modal-content">
             <span class="modal-close" id="confirm-modal-close">×</span>

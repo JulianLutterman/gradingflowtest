@@ -3,6 +3,9 @@
 // --- AUTOMATIC GRADING LOGIC (REFACTORED) ---
 gradeAllButton.addEventListener('click', async (e) => {
   e.preventDefault();
+  if (typeof window.requireEditsUnlocked === 'function' && !window.requireEditsUnlocked()) {
+    return;
+  }
   gradeAllButton.disabled = true;
   showSpinner(true, spinnerGrading);
   updateGradingButtonText('Starting...');
@@ -11,8 +14,12 @@ gradeAllButton.addEventListener('click', async (e) => {
   const examId = urlParams.get('id');
   let finalMessage = '';
   let isError = false;
+  let lockKey = null;
 
   try {
+    if (typeof window.enterProcessingLock === 'function') {
+      lockKey = window.enterProcessingLock('grading');
+    }
     updateGradingButtonText('Finding submissions...');
     
     // START OF CHANGE: Switched from checking points to checking status
@@ -55,6 +62,9 @@ gradeAllButton.addEventListener('click', async (e) => {
     finalMessage = `Critical Error. See console.`;
     isError = true;
   } finally {
+    if (typeof window.exitProcessingLock === 'function') {
+      window.exitProcessingLock(lockKey);
+    }
     updateGradingButtonText(finalMessage);
     showSpinner(false, spinnerGrading);
 

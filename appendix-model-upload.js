@@ -35,6 +35,9 @@ window.applyAppendixUploadState = applyAppendixUploadState;
 // --- APPENDIX UPLOAD LOGIC (MODIFIED LOGGING) ---
 appendixForm.addEventListener('submit', async (e) => {
   e.preventDefault();
+  if (typeof window.requireEditsUnlocked === 'function' && !window.requireEditsUnlocked()) {
+    return;
+  }
   if (appendixResetTimeout) {
     clearTimeout(appendixResetTimeout);
     appendixResetTimeout = null;
@@ -45,6 +48,7 @@ appendixForm.addEventListener('submit', async (e) => {
   const examId = urlParams.get('id');
   const files = document.getElementById('appendix-files').files;
   let isError = false;
+  let lockKey = null;
 
   if (!examId || files.length === 0) {
     alert('Cannot proceed without an Exam ID and at least one file.');
@@ -53,6 +57,9 @@ appendixForm.addEventListener('submit', async (e) => {
   }
 
   try {
+    if (typeof window.enterProcessingLock === 'function') {
+      lockKey = window.enterProcessingLock('appendix-upload');
+    }
     setAppendixUploadState({ buttonText: 'Fetching exam...' });
     const { data: examData, error: fetchError } = await fetchExamDataForAppendixJson(examId);
     if (fetchError) throw new Error(`Could not fetch exam data: ${fetchError.message}`);
@@ -85,16 +92,15 @@ appendixForm.addEventListener('submit', async (e) => {
     setAppendixUploadState({ buttonText: 'Refreshing data...' });
     appendixForm.reset();
     document.getElementById('appendix-file-display').textContent = 'No files chosen';
-    if (typeof window.enqueueExamRefresh === 'function' && window.isEditSessionActive?.()) {
-      await window.enqueueExamRefresh(() => loadExamDetails(examId));
-    } else {
-      await loadExamDetails(examId);
-    }
+    await loadExamDetails(examId);
   } catch (error) {
     setAppendixUploadState({ status: 'error', buttonText: 'Error!', spinner: false });
     console.error(error);
     isError = true;
   } finally {
+    if (typeof window.exitProcessingLock === 'function') {
+      window.exitProcessingLock(lockKey);
+    }
     if (!isError) {
       setAppendixUploadState({ status: 'success', buttonText: 'Success!', spinner: false });
     }
@@ -162,6 +168,9 @@ function prepareModelExamSnapshot(questions = []) {
 // --- ANSWER MODEL UPLOAD LOGIC (MODIFIED LOGGING) ---
 modelForm.addEventListener('submit', async (e) => {
   e.preventDefault();
+  if (typeof window.requireEditsUnlocked === 'function' && !window.requireEditsUnlocked()) {
+    return;
+  }
   if (modelResetTimeout) {
     clearTimeout(modelResetTimeout);
     modelResetTimeout = null;
@@ -172,6 +181,7 @@ modelForm.addEventListener('submit', async (e) => {
   const examId = urlParams.get('id');
   const files = document.getElementById('model-files').files;
   let isError = false;
+  let lockKey = null;
 
   if (!examId || files.length === 0) {
     alert('Cannot proceed without an Exam ID and at least one file.');
@@ -180,6 +190,9 @@ modelForm.addEventListener('submit', async (e) => {
   }
 
   try {
+    if (typeof window.enterProcessingLock === 'function') {
+      lockKey = window.enterProcessingLock('model-upload');
+    }
     setModelUploadState({ buttonText: 'Fetching exam...' });
     const { data: examStructure, error: fetchError } = await fetchExamDataForModelJson(examId);
     if (fetchError) throw new Error(`Could not fetch exam data for model: ${fetchError.message}`);
@@ -213,16 +226,15 @@ modelForm.addEventListener('submit', async (e) => {
     setModelUploadState({ buttonText: 'Refreshing data...' });
     modelForm.reset();
     document.getElementById('model-file-display').textContent = 'No files chosen';
-    if (typeof window.enqueueExamRefresh === 'function' && window.isEditSessionActive?.()) {
-      await window.enqueueExamRefresh(() => loadExamDetails(examId));
-    } else {
-      await loadExamDetails(examId);
-    }
+    await loadExamDetails(examId);
   } catch (error) {
     setModelUploadState({ status: 'error', buttonText: 'Error!', spinner: false });
     console.error(error);
     isError = true;
   } finally {
+    if (typeof window.exitProcessingLock === 'function') {
+      window.exitProcessingLock(lockKey);
+    }
     if (!isError) {
       setModelUploadState({ status: 'success', buttonText: 'Success!', spinner: false });
     }

@@ -114,10 +114,6 @@
 
     function requestExamRefresh(examId) {
         if (!examId) return Promise.resolve();
-        const editingActive = typeof window.isEditSessionActive === 'function' && window.isEditSessionActive();
-        if (editingActive && typeof window.enqueueExamRefresh === 'function') {
-            return window.enqueueExamRefresh(() => loadExamDetails(examId));
-        }
         return loadExamDetails(examId);
     }
 
@@ -326,6 +322,11 @@
         const ptsDel = e.target.closest('.points-delete-btn');
 
         try {
+            const attemptedDelete = qDel || sqDel || altDel || compDel || stuDel || ptsDel;
+            if (attemptedDelete && typeof window.requireEditsUnlocked === 'function' && !window.requireEditsUnlocked()) {
+                return;
+            }
+
             if (qDel) {
                 const id = qDel.dataset.questionId;
                 if (!id) return;

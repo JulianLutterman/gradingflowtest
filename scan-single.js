@@ -482,8 +482,12 @@ async function processScannedAnswers(examId, preloadedSession = null) {
 
   let isError = false;
   let scanSession;
+  let lockKey = null;
 
   try {
+    if (typeof window.enterProcessingLock === 'function') {
+      lockKey = window.enterProcessingLock('student-upload');
+    }
     if (preloadedSession) {
       scanSession = preloadedSession;
       if (scanSession?.session_token) {
@@ -516,11 +520,7 @@ async function processScannedAnswers(examId, preloadedSession = null) {
       setSingleScanState({ status: 'success', buttonText: 'Processed!', spinner: false });
     }
 
-    if (typeof window.enqueueExamRefresh === 'function' && window.isEditSessionActive?.()) {
-      await window.enqueueExamRefresh(() => loadExamDetails(examId));
-    } else {
-      await loadExamDetails(examId);
-    }
+    await loadExamDetails(examId);
   } catch (error) {
     console.error('Error processing scanned session:', error.message);
     setSingleScanState({ status: 'error', buttonText: 'Error!', spinner: false });
@@ -529,6 +529,9 @@ async function processScannedAnswers(examId, preloadedSession = null) {
       await sb.from('scan_sessions').update({ status: 'failed', error_message: error.message }).eq('id', scanSession.id);
     }
   } finally {
+    if (typeof window.exitProcessingLock === 'function') {
+      window.exitProcessingLock(lockKey);
+    }
     scheduleSingleScanReset(isError ? 5000 : 3000);
   }
 }
