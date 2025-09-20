@@ -481,7 +481,6 @@ function toggleEditMode(container, isEditing, fields = null, editButtonParam = n
             editActions.className = 'edit-actions';
             editActions.innerHTML = `
         <button class="save-btn">Save</button>
-        <button class="cancel-btn">Cancel</button>
       `;
             buttonParent.appendChild(editActions);
         }
