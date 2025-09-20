@@ -258,12 +258,12 @@ button {
     .exam-card p {
         margin: 0;
         font-size: 0.9rem;
-        color: #666;
+        color: var(--color-text-dark);
     }
 
 .exam-delete-btn {
     position: absolute;
-    top: 12px;
+    top: calc(50% - 17px);
     right: 12px;
     border: none;
     background: transparent;
@@ -397,6 +397,7 @@ button {
     .save-btn.danger:hover {
         filter: brightness(110%);
     }
+
 
 
 
