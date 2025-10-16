@@ -17,7 +17,7 @@ GEMINI_MODEL = "gemini-2.5-pro"
 # System prompt for Gemini (remains the same)
 SYSTEM_PROMPT = """###INPUT EXPLANATION:
 The user will give you two types of input:
-1. Transcriptions of an exam answer model with correct answers, and their awarded points, per correct answer component.
+1. Transcriptions of a student's exam submission, together with question numbers and their answers to the question.
 2. A JSON with question numbers, and their respective subquestions. The main object contains a single property named "questions". The value associated with "questions" is an array, which functions as a list of individual question entries. Each item within this "questions" array is itself an object, designed to hold the details for one main question. Within each of these question objects, there are two distinct properties: "question_number" and "sub_questions". The "question_number" is paired with a simple numerical value that identifies the question. The "sub_questions" property, in turn, holds another array. This nested array is a collection of objects, where each object represents a single sub-question belonging to the main question. Finally, each sub-question object has one property, "sub_q_text_content", which contains the actual text of the sub-question as a string value. This creates a hierarchical relationship where a primary list of questions can each contain their own list of more specific sub-questions.
 
 
