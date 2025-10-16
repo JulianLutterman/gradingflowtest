@@ -18,13 +18,15 @@ from google.genai import types
 PARASAIL_API_KEY = os.environ.get("PARASAIL_API_KEY")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+DASHSCOPE_API_KEY = os.environ.get("DASHSCOPE_API_KEY")  # <-- add this
 
-# Model for Element Extraction (via Parasail)
+# Model for Element Extraction (via Parasail/Gemini)
 EXTRACTION_MODEL_NAME = "gemini-2.5-flash"
-# Model for Transcription (via Google AI)
-TRANSCRIPTION_MODEL_NAME = "gemini-2.5-pro"
+# Model for Transcription (via Qwen)
+TRANSCRIPTION_MODEL_NAME = "qwen3-vl-235b-a22b-instruct"
 
 TEMPERATURE_FOR_JSON = 0
+
 
 # --- System Prompts ---
 
@@ -192,42 +194,90 @@ def call_gemini_elements_api(pil_image, system_prompt, task_name=""):
         print(f"An unexpected error occurred during {task_name} Gemini API call: {e}")
         return None
 
+def _ensure_qwen_client(task_name=""):
+    if not DASHSCOPE_API_KEY:
+        print(f"Error ({task_name}): DASHSCOPE_API_KEY not set.")
+        return None
+    try:
+        return OpenAI(
+            api_key=DASHSCOPE_API_KEY,
+            base_url="https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+        )
+    except Exception as e:
+        print(f"Failed to init Qwen client for {task_name}: {e}")
+        return None
 
-def call_gemini_transcription_api(pil_image, system_prompt, task_name=""):
+
+def call_qwen_transcription_api(pil_image, system_prompt, task_name=""):
     """
-    Calls the Gemini model for transcription and returns the JSON response.
+    Calls the Qwen model (OpenAI-compatible DashScope endpoint) for transcription
+    and returns a JSON object: {"full_transcription": "..."}.
+    The system prompt is passed as a true system message.
     """
-    client = _ensure_gemini_client(task_name)
+    client = _ensure_qwen_client(task_name)
     if not client:
         return None
 
+    # Ensure we can encode the image as a data URL for the image_url content
     try:
-        generation_config = types.GenerateContentConfig(
-            system_instruction=types.Content(parts=[types.Part(text=system_prompt)]),
-            temperature=TEMPERATURE_FOR_JSON,
-            max_output_tokens=65536,
-            thinking_config=types.ThinkingConfig(thinking_budget=128),
-            response_mime_type="application/json",
-        )
+        b64 = encode_image_to_base64(pil_image)
+        if not b64:
+            print(f"Error ({task_name}): Failed to base64-encode image for Qwen.")
+            return None
+        mime = get_image_mime_type(pil_image) or "image/png"
+        data_url = f"data:{mime};base64,{b64}"
+    except Exception as e:
+        print(f"Error ({task_name}): Preparing image for Qwen: {e}")
+        return None
 
-        contents = [pil_image, "Analyze the image and provide a transcription following the system instructions."]
-
-        print(f"Sending '{task_name}' request to Gemini API (Model: {TRANSCRIPTION_MODEL_NAME})...")
-        response = client.models.generate_content(
+    try:
+        # System prompt is **system** role (not injected into user)
+        completion = client.chat.completions.create(
             model=TRANSCRIPTION_MODEL_NAME,
-            contents=contents,
-            config=generation_config,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image_url", "image_url": {"url": data_url}},
+                        {"type": "text", "text": "Analyze the image and provide a transcription following the system instructions."}
+                    ],
+                },
+            ],
+            temperature=0,
+            top_p=0.8,
         )
 
-        return json.loads(response.text)
+        content = completion.choices[0].message.content or ""
+        content = content.strip()
 
-    except json.JSONDecodeError as jde:
-        print(f"Error decoding JSON from Gemini response for {task_name}: {jde}")
-        print(f"Received text: {response.text if 'response' in locals() else 'N/A'}")
+        # Try to parse JSON; if not valid, wrap as "full_transcription"
+        try:
+            parsed = json.loads(content)
+            if isinstance(parsed, dict) and "full_transcription" in parsed:
+                return parsed
+            # If it's JSON but doesn't match shape, wrap it
+            return {"full_transcription": content}
+        except json.JSONDecodeError:
+            # Try extracting JSON between backticks if present
+            m = re.search(r"\{[\s\S]*\}", content)
+            if m:
+                try:
+                    parsed = json.loads(m.group(0))
+                    if isinstance(parsed, dict) and "full_transcription" in parsed:
+                        return parsed
+                except Exception:
+                    pass
+            # Fallback: return raw text wrapped in the expected shape
+            return {"full_transcription": content}
+
+    except APIError as e:
+        print(f"Qwen APIError during {task_name}: {e}")
         return None
     except Exception as e:
-        print(f"An unexpected error occurred during {task_name} Gemini API call: {e}")
+        print(f"An unexpected error occurred during {task_name} Qwen API call: {e}")
         return None
+
 
 
 # --- Core Processing Function ---
@@ -267,7 +317,7 @@ def process_single_image(original_image_pil, output_prefix=""):
             "Element Extraction",
         )
         future_transcription = executor.submit(
-            call_gemini_transcription_api,
+            call_qwen_transcription_api,
             original_image_pil,
             TRANSCRIPTION_PROMPT,
             "Transcription",
