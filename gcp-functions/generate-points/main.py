@@ -17,11 +17,11 @@ SYSTEM_PROMPT_TEMPLATE = """{rules}
 You will be given a JSON that contains a specific exam question, the
 correct answer model for that question, and the student's attempt.
 TASK:
-· For every sub question, add “sub_points_awarded” (integer) and
-  “feedback_comment” (concise, same language).
+Â· For every sub question, add â€œsub_points_awardedâ€ (integer) and
+  â€œfeedback_commentâ€ (concise, same language).
 
 **IMPORTANT RULES FOR FEEDBACK:**
-- The “feedback_comment” field MUST NOT be empty.
+- The â€œfeedback_commentâ€ field MUST NOT be empty.
 - If the answer is fully correct and no other feedback is needed, provide a short, positive confirmation like "Pefect"
 - If the answer is partially or fully incorrect, the feedback must explain why, referencing the answer model.
 
@@ -29,6 +29,7 @@ TASK:
 - If the student has submitted a visual answer to his answer, you should ALWAYS start your comment with a detailed description of what you see in the image provided by the student. You should then look super closely at the image to check if the student draw correctly according to the question and answermodel. Only in these cases, you may be slightly less brief and concise in your comment. Do this only with answer_visuals, not with context_visuals or component_visuals.
 - It is very important that you use the given answer model as instructions for grading. You should not do too much thinking yourself, and in fact you should ideally not even pay attention to the actual questions asked. You should pretty much only look at the answer model and the student's attempt, and only base your scoring on that.
 - There is one slight exception to the above rule. In quantitative questions (when the final outcome is a number), occasionally the student will arrive at a final numeric answer, which is correct, according to the answer model, but the way in which he arrived to that number is not stated on any of the alternatives. If this is the case for this specific answer, and if the way he arrived at the number seems logical to you, given the question and the student's answer, then you are allowed to give full points for that specific question.
+- If the student's answer is numeric, do not subtract points if the student's answer has too many decimals/is not rounded exactly like in the answer key. Unless instructed otherwise in the grading rules above.
 - The extra_comment with further grading instructions are also super important if present. Read them carefully.
 
 OUTPUT:
@@ -68,14 +69,14 @@ def _download_image(url:str, timeout:int=10) -> bytes|None:
 def call_gemini(json_for_one_question, image_bytes_list, grading_rules):
     """
     Single synchronous Gemini request.
-    image_bytes_list  – list[bytes], each entry already fetched from URL.
+    image_bytes_list  â€“ list[bytes], each entry already fetched from URL.
     """
 
     client = genai.Client(api_key=GEMINI_API_KEY)
 
     parts = [types.Part.from_text(text=json.dumps(json_for_one_question, ensure_ascii=False))]
 
-    # Attach every downloaded image – no filenames/captions
+    # Attach every downloaded image â€“ no filenames/captions
     for img_bytes in image_bytes_list:
         parts.append(
             types.Part.from_bytes(
@@ -163,7 +164,7 @@ def generate_points(request):
                 if isinstance(sq.get('image_url'), str):
                     image_urls.append(sq['image_url'])
 
-            # Download them right here (synchronously – still cheap, few per Q)
+            # Download them right here (synchronously â€“ still cheap, few per Q)
             img_bytes_list = []
             for url in image_urls:
                 img = _download_image(url)
