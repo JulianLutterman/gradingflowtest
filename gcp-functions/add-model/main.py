@@ -187,6 +187,21 @@ The source transcription may contain extra comments or grading remarks, typicall
         *   Inside `"alternative_number": 2`:
             `"extra_comment": "If the candidate uses a different formula in the second answer component, do not deduct any points for this."`
 
+### POINTS ALLOCATION WHEN ONLY A TOTAL IS PROVIDED
+If the transcription gives a **single total point value** for a sub-question but **no per-component points**:
+
+* You **must** still populate `"component_points"` for every component by **inferring a fair distribution** of the total based on the relative importance and difficulty of each component.
+* **Do not change** any provided totals and **do not invent** a new total.
+* For **mutually exclusive alternatives** within the same sub-question, **each** alternative’s components must sum to the **same total** for that sub-question.
+* The sum of `"component_points"` within each `"model_alternatives"` **must equal exactly** the sub-question’s total.
+* Use **integers by default**. Only use half-points or other fractions if the transcription **explicitly uses fractional scoring** elsewhere.
+* **Heuristics (apply judgment; adjust to reflect the model text):**
+  • 1 component → 100% of the total.
+  • 2 components → default **60/40** (or **50/50** if clearly equal weight).
+  • 3+ components → default to equal distribution of points, or IF certain components are more important than others, assign slightly more points if possible.
+* Keep **consistent relative weights across alternatives** that express the same logical steps.
+* Do **not** assign **0** to any required component (component points represent the **maximum available** for that component).
+* If an alternative has only **one component** (text, formula, or visual), assign the **full total** to that component.
 
 ### FURTHER INSTRUCTIONS:
 - The input transcription will very likely provide you with the overall question numbers before the contents of each respective correct model answer, but it might not tell you which correct answer fits to which specific sub question. This is for you to figure out.
