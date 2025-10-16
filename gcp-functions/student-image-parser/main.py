@@ -12,14 +12,19 @@ from PIL import Image, UnidentifiedImageError
 import fitz
 from google import genai
 from google.genai import types
+from openai import OpenAI
+
 
 # --- Configuration ---
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+# --- Qwen Transcription Configuration ---
+DASHSCOPE_API_KEY = os.environ.get("DASHSCOPE_API_KEY")
+
 
 # Model for Element Extraction (now via Google AI - Gemini 2.5 Flash)
 EXTRACTION_MODEL_NAME = "gemini-2.5-flash"
 # Model for Transcription (via Google AI)
-TRANSCRIPTION_MODEL_NAME = "gemini-2.5-pro"
+QWEN_TRANSCRIPTION_MODEL_NAME = "qwen3-vl-235b-a22b-instruct"
 
 TEMPERATURE_FOR_JSON = 0
 
@@ -196,77 +201,118 @@ def call_gemini_elements_api(pil_image, system_prompt, task_name=""):
 
 # --- START: (unchanged) Transcription API helper ---
 # NOTE: Transcription logic is intentionally left untouched.
-
-def call_gemini_api_for_transcription(pil_images, system_prompt, task_name=""):
-    """
-    Calls the Gemini model with a list of images for a single, combined transcription.
-    Includes a fallback mechanism to repair malformed JSON responses.
-    """
-    if not GEMINI_API_KEY:
-        print(f"Error ({task_name}): GEMINI_API_KEY not set.")
+def _ensure_qwen_client(task_name=""):
+    if not DASHSCOPE_API_KEY:
+        print(f"Error ({task_name}): DASHSCOPE_API_KEY not set.")
         return None
+    try:
+        return OpenAI(
+            api_key=DASHSCOPE_API_KEY,
+            base_url="https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+        )
+    except Exception as e:
+        print(f"Failed to init Qwen client for {task_name}: {e}")
+        return None
+
+
+def call_qwen_api_for_transcription(pil_images, system_prompt, task_name=""):
+    """
+    Uses Qwen (OpenAI-compatible) with the system prompt in a system message.
+    Streams the response, accumulates text, then extracts/parses the single JSON.
+    """
     if not pil_images:
-        print(f"Warning ({task_name}): No images provided to Gemini API.")
+        print(f"Warning ({task_name}): No images provided to Qwen API.")
+        return None
+
+    client = _ensure_qwen_client(task_name)
+    if not client:
         return None
 
     try:
-        client = genai.Client(api_key=GEMINI_API_KEY)
+        # Build user content with images in order
+        content_parts = [
+            {
+                "type": "text",
+                "text": "These are the pages of one exam, in order. Follow the system instructions.",
+            }
+        ]
 
-        generation_config = types.GenerateContentConfig(
-            system_instruction=types.Content(parts=[types.Part(text=system_prompt)]),
-            temperature=TEMPERATURE_FOR_JSON,
-            max_output_tokens=65536,
-            thinking_config = types.ThinkingConfig(
-                thinking_budget=128,
-            ),
-            response_mime_type="application/json",
+        for im in pil_images:
+            try:
+                if im.mode not in ("RGB", "RGBA"):
+                    im = im.convert("RGB")
+                b64 = encode_image_to_base64(im)
+                if not b64:
+                    print("Warning: Failed to base64-encode an image; skipping.")
+                    continue
+                mime = get_image_mime_type(im)
+                data_url = f"data:{mime};base64,{b64}"
+                content_parts.append({
+                    "type": "image_url",
+                    "image_url": {"url": data_url},
+                })
+            except Exception as e:
+                print(f"Warning: Failed to prepare an image for Qwen: {e}")
+
+        # System message holds your full rules + strict JSON requirement
+        system_content = (
+            system_prompt.strip()
+            + "\n\nSTRICT OUTPUT: Return ONLY one valid JSON object with key "
+              "\"full_transcription\" and nothing else. "
+              "Inside that JSON string, escape every backslash (\\) as \\\\."
         )
 
-        contents = ["Analyze the following images in order and provide a single, combined transcription following the system instructions."]
-        contents.extend(pil_images)
+        messages = [
+            {"role": "system", "content": system_content},
+            {"role": "user", "content": content_parts},
+        ]
 
-        print(f"Sending '{task_name}' request to Gemini API with {len(pil_images)} images (Model: {TRANSCRIPTION_MODEL_NAME})...")
+        print(f"Sending '{task_name}' request to Qwen API with {len(pil_images)} images (Model: {QWEN_TRANSCRIPTION_MODEL_NAME})...")
 
-        response = client.models.generate_content(
-            model=TRANSCRIPTION_MODEL_NAME,
-            contents=contents,
-            config=generation_config,
+        completion = client.chat.completions.create(
+            model=QWEN_TRANSCRIPTION_MODEL_NAME,
+            messages=messages,
+            stream=True,
+            top_p=0.8,
+            temperature=0,
+            # If DashScope supports it, you can try enforcing JSON:
+            # response_format={"type": "json_object"},
         )
 
-        raw_text = response.text
+        full_text = ""
+        for chunk in completion:
+            delta = getattr(chunk.choices[0].delta, "content", None)
+            if delta:
+                full_text += delta
 
-        # --- FIX START: Clean the raw text before parsing ---
-        start_index = raw_text.find('{')
-        end_index = raw_text.rfind('}')
-
-        if start_index == -1 or end_index == -1:
-            print(f"Could not find JSON object markers '{{' and '}}' in the response.")
-            print(f"Raw text: {raw_text}")
+        # Extract and parse the single JSON object
+        start = full_text.find('{')
+        end = full_text.rfind('}')
+        if start == -1 or end == -1:
+            print("Could not find JSON object markers '{' and '}' in the Qwen response.")
+            print(f"Raw text: {full_text}")
             return None
 
-        json_string = raw_text[start_index : end_index + 1]
+        json_string = full_text[start:end+1]
 
         try:
             return json.loads(json_string)
         except json.JSONDecodeError as jde:
-            print(f"Initial parse of cleaned JSON failed: {jde}. Attempting to repair backslashes.")
-
-            repaired_json_string = re.sub(r'\\([^"\\/bfnrtu])', r'\\\\\\\1', json_string)
-
+            print(f"Initial parse failed: {jde}. Attempting to repair backslashes.")
+            repaired_json_string = re.sub(r'\\([^\"\\/bfnrtu])', r'\\\\\\\1', json_string)
             try:
                 return json.loads(repaired_json_string)
             except json.JSONDecodeError as jde2:
-                print(f"Failed to parse even the repaired JSON string: {jde2}")
-                print(f"Original Raw Text: {raw_text}")
+                print(f"Failed to parse repaired JSON: {jde2}")
+                print(f"Original Raw Text: {full_text}")
                 print(f"Cleaned String: {json_string}")
                 print(f"Repaired String: {repaired_json_string}")
                 return None
-        # --- FIX END ---
 
     except Exception as e:
-        print(f"An unexpected error occurred during {task_name} Gemini API call: {e}")
+        print(f"An unexpected error occurred during {task_name} Qwen API call: {e}")
         return None
-# --- END: Transcription helper ---
+
 
 
 # --- Core Processing Functions ---
@@ -462,7 +508,7 @@ def student_image_parser(request):
     # --- Phase 2: Batched Transcription (all images at once)
     print("\n--- PHASE 2: Starting Batched Transcription ---")
     if all_pil_images_for_transcription:
-        transcription_response = call_gemini_api_for_transcription(
+        transcription_response = call_qwen_api_for_transcription(
             all_pil_images_for_transcription,
             TRANSCRIPTION_PROMPT,
             "Batched Document Transcription"
