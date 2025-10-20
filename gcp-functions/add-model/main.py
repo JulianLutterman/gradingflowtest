@@ -203,6 +203,62 @@ If the transcription gives a **single total point value** for a sub-question but
 * Do **not** assign **0** to any required component (component points represent the **maximum available** for that component).
 * If an alternative has only **one component** (text, formula, or visual), assign the **full total** to that component.
 
+### LIST-TYPE ANSWERS (“K OF THE FOLLOWING”)
+
+When a sub-question awards points for **any K correct items from a longer list** (e.g., “drie van de volgende”, “three of the following”, “per juist antwoord 1”, “maximumpunten 3”), represent it as **one model alternative** (unless the transcription explicitly gives multiple mutually exclusive alternatives). Follow these rules:
+
+1. **Components = Slots (Not Items)**
+
+   * Create exactly **K components** (the number of items the candidate may earn credit for), where each component represents a **slot** for “one correct item from the list,” **not** one component per listed item.
+   * Use a **generic component text** in the original language, e.g.:
+
+     * Dutch: `"Eén juist element uit de onderstaande lijst."`
+     * English: `"One correct item from the list."`
+   * Order them 1…K with `"component_order"`.
+
+2. **Points per Component**
+
+   * If the transcription states a per-item value (e.g., “per juist antwoord 1”), set `"component_points"` to that value and ensure **K × per-item = sub-question total**.
+   * If **no per-item value** is given but **K** and a **total** are given, split the total **as evenly as possible** across the K components using **integers by default** (if a remainder exists, assign +1 to the earliest components until the sum matches the total). Only use fractional points if the transcription **explicitly** uses fractional scoring elsewhere.
+   * The **sum of component_points within the alternative must equal exactly the sub-question total**.
+
+3. **extra_comment = Full Acceptable List**
+
+   * Put the **entire list of acceptable items** (verbatim, preserve line breaks, bullets, and original language) into the alternative’s `"extra_comment"`.
+   * Prepend a brief instruction in the original language, e.g.:
+
+     * Dutch: `"Accepteer elk van de volgende punten (maximaal K punten totaal, één punt per juist item):\n• ..."`
+     * English: `"Accept any of the following (maximum K points total, one point per correct item):\n• ..."`
+   * If there are additional general or specific grading remarks, **append** them to the same `"extra_comment"` following the existing comment-placement rules.
+
+4. **Mixed Alternatives**
+
+   * If the transcription offers a **different, mutually exclusive path** (e.g., “Define X **or** list three of the following”), create a **separate `model_alternatives` entry** for that path. Ensure each alternative’s component points **sum to the same sub-question total**.
+
+**Mini Example (based on “drie van de volgende”, maximumscore 3, per juist antwoord 1):**
+
+```json
+{
+  "sub_q_text_content": "Leg uit aan de hand van kenmerken van The Globe Theatre. (drie van de volgende)",
+  "model_alternatives": [
+    {
+      "alternative_number": 1,
+      "model_components": [
+        { "component_text": "Eén juist element uit de onderstaande lijst.", "component_points": 1, "component_order": 1 },
+        { "component_text": "Eén juist element uit de onderstaande lijst.", "component_points": 1, "component_order": 2 },
+        { "component_text": "Eén juist element uit de onderstaande lijst.", "component_points": 1, "component_order": 3 }
+      ],
+      "extra_comment": "Accepteer elk van de volgende punten (maximaal 3 punten totaal, één punt per juist item):\n• is rond (zoals een klassiek theater), waardoor er een beter zicht op het podium is vanuit het publiek.\n• is rond (zoals een klassiek theater), waardoor er sprake is van een betere akoestiek.\n• heeft een variatie in zit- en staanplaatsen (voor verschillende rangen) als onderdeel van de architectuur, waardoor gevarieerd kan worden in toegangsprijzen.\n• heeft oplopende plaatsen / een variatie in (zit)plaatsen als onderdeel van de architectuur, waardoor het zicht ook goed is voor het publiek achteraan.\n• heeft een (deels) overdekt podium, waardoor de acteurs beschermd tegen het weer spelen.\n• biedt meer ruimte voor theatertechniek (vanuit de ruimtes die boven het podium gesitueerd zijn).\n• biedt in de architectuur opgenomen gelegenheid voor de acteurs om op te komen en af te gaan (bijvoorbeeld voor de wisseling van rol).\n• biedt ruimte voor voorbereiding en uitrusting van de acteurs, zoals kleedkamers en/of een plek voor attributen.\n• bevat decoraties met verwijzingen naar de klassieken, zoals de zuilen op het podium. Hiermee wordt getoond dat er kennis is van de geschiedenis / oorsprong van het theater (in de oudheid) / legt men een relatie met de klassieke oudheid.\n• per juist antwoord 1"
+    }
+  ]
+}
+```
+
+**Notes**
+* Do **not** create one component per bullet item (that would break the total-points constraint).
+* Keep the list exactly as written (language, line breaks, examples).
+* If the source specifies limits like “maximaal K antwoorden tellen mee,” include that phrasing in `extra_comment`.
+
 ### FURTHER INSTRUCTIONS:
 - The input transcription will very likely provide you with the overall question numbers before the contents of each respective correct model answer, but it might not tell you which correct answer fits to which specific sub question. This is for you to figure out.
 - Some examples of when to provide multiple model alternatives is when the input text answer for that specific subquestion says something similar to "Either of the following", or it has multiple answer alternatives with "or" between them, or when it provides different alternatives already in writing (this was a non-exhaustive list of examples).
