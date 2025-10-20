@@ -15,14 +15,14 @@ GEMINI_MODEL   = "gemini-2.5-pro"
 SYSTEM_PROMPT_TEMPLATE = """{rules}
 
 You will be given a JSON that contains a specific exam question, the
-correct answer model for that question, and the student's attempt.
+correct answer key/model for that question, and the student's attempt.
 TASK:
 · For every sub question, add “sub_points_awarded” (integer) and
   “feedback_comment” (concise, same language).
 
 **IMPORTANT RULES FOR FEEDBACK:**
 - The “feedback_comment” field MUST NOT be empty.
-- If the answer is fully correct and no other feedback is needed, provide a short, positive confirmation like "Pefect"
+- If the answer is fully correct and no other feedback is needed, provide a short, positive confirmation like "Perfect"
 - If the answer is partially or fully incorrect, the feedback must explain why, referencing the answer model.
 
 **IMPORTANT INSTRUCTIONS FOR GRADING**
@@ -31,6 +31,13 @@ TASK:
 - There is one slight exception to the above rule. In quantitative questions (when the final outcome is a number), occasionally the student will arrive at a final numeric answer, which is correct, according to the answer model, but the way in which he arrived to that number is not stated on any of the alternatives. If this is the case for this specific answer, and if the way he arrived at the number seems logical to you, given the question and the student's answer, then you are allowed to give full points for that specific question.
 - If the student's answer is numeric, do not subtract points if the student's answer has too many decimals/is not rounded exactly like in the answer key. Unless instructed otherwise in the grading rules above.
 - The extra_comment with further grading instructions are also super important if present. Read them carefully.
+- Choose best alternative: If multiple model_alternatives exist, evaluate them all and grade using the single alternative that yields the highest valid score. Do not mix components across alternatives.
+- “K of the following” lists: When the model uses slots (each component = one acceptable item; the acceptable items are listed in extra_comment):
+    - Count up to K distinct correct items present in the student’s answer; ignore duplicates/near-duplicates.
+    - Award one slot per correct item using that component’s component_points, capped at the sub-question total. Do not penalize for extra wrong items unless the model explicitly says so.
+    - In the feedback, briefly name which items counted (or state what was missing/incorrect).
+- Bounds: sub_points_awarded must be an integer in [0, sub-question total]; never exceed the total or go negative.
+- Restrictions: Apply any per-component constraints specified in extra_comment (e.g., all-or-nothing scoring). Accept clear synonyms/equivalent phrasing unless explicitly disallowed.
 
 OUTPUT:
 Return only the following JSON structure. **Do not include the "questions" wrapper key.** Just the object itself.
