@@ -1,5 +1,5 @@
-const GEMINI_STREAM_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:streamGenerateContent?alt=sse';
+const GEMINI_STREAM_BASE_URL =
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:streamGenerateContent';
 
 (function () {
   const conversations = new Map();
@@ -187,6 +187,13 @@ const GEMINI_STREAM_URL =
     }
   }
 
+  function buildGeminiStreamUrl(apiKey) {
+    const url = new URL(GEMINI_STREAM_BASE_URL);
+    url.searchParams.set('alt', 'sse');
+    url.searchParams.set('key', apiKey);
+    return url.toString();
+  }
+
   async function streamGeminiResponse(conversation, apiKey, onStream) {
     const requestBody = {
       contents: conversation.messages.map((message) => ({
@@ -201,11 +208,10 @@ const GEMINI_STREAM_URL =
       };
     }
 
-    const response = await fetch(GEMINI_STREAM_URL, {
+    const response = await fetch(buildGeminiStreamUrl(apiKey), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
       },
       body: JSON.stringify(requestBody),
     });
