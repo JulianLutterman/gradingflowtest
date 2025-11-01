@@ -242,13 +242,18 @@ body.single-student-view .add-student-btn {
 .followup-input {
     flex: 1 1 auto;
     border-radius: 10px;
-    border: 1px solid var(--color-background-border-between);
+    border: 2px solid var(--color-light-blue-two);
     padding: 0.6rem 0.75rem;
     font-family: inherit;
     font-size: 0.95rem;
     resize: vertical;
     min-height: 2.6rem;
-    transition: border 0.2s ease, box-shadow 0.2s ease;
+    transition-duration: 0.3s;
+}
+
+.followup-input:focus {
+    outline: none;
+    background-color: var(--color-light-blue-three);
 }
 
 .followup-send-btn {
