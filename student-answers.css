@@ -163,6 +163,7 @@ body.single-student-view .add-student-btn {
     gap: 0.5rem;
     padding-right: 0.25rem;
     margin-bottom: 0.75rem;
+    border-radius: 10px;
 }
 
 .followup-message {
