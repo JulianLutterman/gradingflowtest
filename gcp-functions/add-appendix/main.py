@@ -67,7 +67,7 @@ def call_image_parser(files):
         for file in files:
             files_data.append(('files', (file.filename, file.stream, file.content_type)))
         
-        response = requests.post(IMAGE_PARSER_URL, files=files_data, timeout=300)
+        response = requests.post(IMAGE_PARSER_URL, files=files_data, timeout=600)
         
         if response.status_code == 200:
             print("Image parser completed successfully")
