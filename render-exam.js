@@ -227,7 +227,7 @@ function renderExam(questions) {
                                   <label class="followup-label" for="followup-input-${ans.id}">Ask a follow-up question</label>
                                   <div class="followup-input-row">
                                     <textarea id="followup-input-${ans.id}" class="followup-input" rows="2" placeholder="Ask about the feedback or awarded points..."></textarea>
-                                    <button type="button" class="followup-send-btn" data-answer-id="${ans.id}">Ask Gemini</button>
+                                    <button type="button" class="followup-send-btn" data-answer-id="${ans.id}">Send</button>
                                   </div>
                                 </div>`
                             : '';
