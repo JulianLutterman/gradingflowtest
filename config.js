@@ -13,6 +13,7 @@ const STORAGE_BUCKET = 'exam-visuals';
 const GENERATE_SCAN_SESSION_URL = `${SUPABASE_URL}/functions/v1/generate-scan-session`;
 const PROCESS_SCANNED_SESSION_URL = `${SUPABASE_URL}/functions/v1/process-scanned-session`;
 const CREATE_SUBMISSION_SESSION_URL = `${SUPABASE_URL}/functions/v1/create-submission-session`;
+const FOLLOWUP_FEEDBACK_URL = `${SUPABASE_URL}/functions/v1/followup-feedback`;
 // Base URL for the mobile scanning page
 const SCAN_PAGE_BASE_URL = `${window.location.origin}/scan.html`;
 

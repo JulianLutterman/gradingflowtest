@@ -1,3 +1,65 @@
+function buildFollowUpContext(examData, question, subQuestion, answer, studentInfo) {
+    const normalizeText = (value) => {
+        if (value == null) return null;
+        return String(value).replace(/\\n/g, '\n');
+    };
+
+    const mapComponents = (components = []) => components.map((comp) => ({
+        id: comp?.id || null,
+        component_text: normalizeText(comp?.component_text || ''),
+        component_points: comp?.component_points ?? null,
+        component_visual: comp?.component_visual || null,
+        component_order: comp?.component_order ?? null,
+    }));
+
+    const modelAlternatives = (subQuestion?.model_alternatives || []).map((alt) => ({
+        id: alt?.id || null,
+        alternative_number: alt?.alternative_number ?? null,
+        extra_comment: normalizeText(alt?.extra_comment || ''),
+        model_components: mapComponents(alt?.model_components || []),
+    }));
+
+    return {
+        exam: {
+            id: examData?.id || null,
+            name: examData?.exam_name || null,
+            grading_regulations: normalizeText(examData?.grading_regulations || ''),
+        },
+        question: {
+            id: question?.id || null,
+            question_number: question?.question_number || null,
+            context_text: normalizeText(question?.context_text || ''),
+            context_visual: question?.context_visual || null,
+            extra_comment: normalizeText(question?.extra_comment || ''),
+            max_total_points: question?.max_total_points ?? null,
+        },
+        sub_question: {
+            id: subQuestion?.id || null,
+            text: normalizeText(subQuestion?.sub_q_text_content || ''),
+            max_points: subQuestion?.max_sub_points ?? null,
+            extra_comment: normalizeText(subQuestion?.extra_comment || ''),
+            model_alternatives: modelAlternatives,
+        },
+        student: {
+            id: studentInfo?.id || null,
+            full_name: studentInfo?.full_name || null,
+            student_number: studentInfo?.student_number || null,
+        },
+        student_answer: {
+            id: answer?.id || null,
+            answer_text: normalizeText(answer?.answer_text || ''),
+            answer_visual: answer?.answer_visual || null,
+            orig_llm_answer_text: normalizeText(answer?.orig_llm_answer_text || ''),
+        },
+        grading: {
+            sub_points_awarded: answer?.sub_points_awarded ?? null,
+            max_sub_points: subQuestion?.max_sub_points ?? null,
+            feedback_comment: normalizeText(answer?.feedback_comment || ''),
+            orig_llm_feedback_comment: normalizeText(answer?.orig_llm_feedback_comment || ''),
+        },
+    };
+}
+
 /**
  * Render the exam questions, appendices, models, and student answers.
  * Also renders add-buttons:
@@ -20,11 +82,19 @@ function renderExam(questions) {
       </div>
     `;
         questionsContainer.appendChild(addQWrap);
+        if (window.syncFeedbackFollowUpContexts) {
+            window.syncFeedbackFollowUpContexts([]);
+        }
+        if (window.initializeFeedbackFollowUpUI) {
+            window.initializeFeedbackFollowUpUI();
+        }
         return;
     }
 
     // Sort by human/numeric question number
     questions.sort((a, b) => a.question_number.localeCompare(b.question_number, undefined, { numeric: true }));
+
+    const activeFollowUpAnswerIds = [];
 
     questions.forEach((q, idx) => {
         const questionBlock = document.createElement('div');
@@ -136,9 +206,35 @@ function renderExam(questions) {
                                    <div class="points-awarded-badge">Points: <span data-editable="sub_points_awarded">${ans.sub_points_awarded}</span>/${sq.max_sub_points || '?'}</div>
                                  </div>`
                             : '';
-                        const feedbackHtml = ans.feedback_comment
-                            ? `<div class="feedback-comment formatted-text" data-editable="feedback_comment" data-original-text="${ans.feedback_comment || ''}">${ans.feedback_comment}</div>`
-                            : '';
+                        let feedbackHtml = '';
+                        if (ans.feedback_comment) {
+                            feedbackHtml = `<div class="feedback-comment formatted-text" data-editable="feedback_comment" data-original-text="${ans.feedback_comment || ''}">${ans.feedback_comment}</div>`;
+
+                            const followUpInputId = `followup-input-${ans.id}`;
+                            const contextPayload = buildFollowUpContext(currentExamData, q, sq, ans, studentData.info);
+                            if (window.registerFeedbackFollowUp) {
+                                window.registerFeedbackFollowUp(String(ans.id), contextPayload);
+                            }
+                            activeFollowUpAnswerIds.push(String(ans.id));
+
+                            feedbackHtml += `
+                <div class="feedback-followup" data-answer-id="${ans.id}">
+                  <div class="followup-header">
+                    <span class="followup-title">Need more detail?</span>
+                    <span class="followup-subtitle">Ask Gemini 2.5 Pro about this score and feedback.</span>
+                  </div>
+                  <div class="followup-input-row">
+                    <textarea id="${followUpInputId}" class="followup-input" data-answer-id="${ans.id}" rows="2" placeholder="Ask a follow-up question..."></textarea>
+                    <button type="button" class="followup-send-btn" data-answer-id="${ans.id}">
+                      <span class="followup-send-label">Ask</span>
+                      <span class="followup-spinner spinner spinner-light hidden"></span>
+                    </button>
+                  </div>
+                  <div class="followup-status hidden" data-status-type="info"></div>
+                  <div class="followup-thread" data-answer-id="${ans.id}"></div>
+                </div>
+              `;
+                        }
                         return `
               <div class="student-answer-item" data-answer-id="${ans.id}">
                 <button id="student-answer-edit-btn" class="edit-btn" data-edit-target="student_answer" data-answer-id="${ans.id}">${EDIT_ICON_SVG}</button>
@@ -219,6 +315,13 @@ function renderExam(questions) {
     </div>
   `;
     questionsContainer.appendChild(addQWrap);
+
+    if (window.syncFeedbackFollowUpContexts) {
+        window.syncFeedbackFollowUpContexts(activeFollowUpAnswerIds);
+    }
+    if (window.initializeFeedbackFollowUpUI) {
+        window.initializeFeedbackFollowUpUI();
+    }
 
     // Wire Appendix modal openers
     questions.forEach((q) => {
