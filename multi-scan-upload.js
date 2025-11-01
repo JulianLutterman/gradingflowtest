@@ -197,15 +197,27 @@ function generateStudentTable(type, rowCount = 10) {
       : multiBulkUploadTableContainer;
   if (!container) return;
   const tableId = `${type}-student-table`;
-  const actionHeader = type === 'scan' ? 'Status' : type === 'direct' ? 'Files' : 'Status';
+  const columnDefinitions =
+    type === 'bulk'
+      ? [
+          { header: '#', width: '3%' },
+          { header: 'Student Name', width: '47%' },
+          { header: 'Student Number', width: '45%' },
+          { header: '', width: '5%' },
+        ]
+      : [
+          { header: '#', width: '3%' },
+          { header: 'Student Name', width: '37%' },
+          { header: 'Student Number', width: '30%' },
+          { header: type === 'scan' ? 'Status' : 'Files', width: '25%' },
+          { header: '', width: '5%' },
+        ];
 
-  let tableHtml = `<table id="${tableId}"><thead><tr>
-        <th style="width: 3%;">#</th>
-        <th style="width: 37%;">Student Name</th>
-        <th style="width: 30%;">Student Number</th>
-        <th style="width: 25%;">${actionHeader}</th>
-        <th style="width: 5%;"></th>
-    </tr></thead><tbody>`;
+  let tableHtml = `<table id="${tableId}"><thead><tr>`;
+  tableHtml += columnDefinitions
+    .map((column) => `<th style="width: ${column.width};">${column.header}</th>`)
+    .join('');
+  tableHtml += `</tr></thead><tbody>`;
 
   for (let i = 0; i < rowCount; i++) {
     tableHtml += generateStudentTableRowHtml(i, type);
@@ -242,7 +254,7 @@ function generateStudentTableRowHtml(index, type) {
              <input type="file" id="${fileInputId}" class="file-input-hidden direct-upload-input" accept=".pdf,image/*" multiple>
              <label for="${fileInputId}" class="file-input-label">Choose Files</label>
            </td>`
-      : `<td class="status-cell">Pending</td>`;
+      : '';
 
   return `<tr ${rowAttributes}>
         <td>${index + 1}</td>

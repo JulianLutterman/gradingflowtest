@@ -4,12 +4,6 @@
     margin: 2rem 0 3rem 0;
 }
 
-    #multi-scan-area hr,
-    #multi-direct-upload-area hr,
-    #multi-bulk-upload-area hr {
-        margin: 2.8rem 0 2rem 0;
-    }
-
 #multi-upload-choice-area {
     width: 100%;
     display: flex;
@@ -101,6 +95,7 @@ td .file-input-label {
 #multi-scan-add-row-button,
 #multi-bulk-add-row-button {
     margin-top: 1rem;
+    margin-bottom: 2.5rem;
     width: 30%;
 }
 
