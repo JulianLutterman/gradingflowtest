@@ -5,14 +5,25 @@
  * @returns {Promise<{data: any, error: any}>}
  */
 async function fetchFullExamDetails(examId) {
-    return sb
+    const { data: userData, error: userError } = await sb.auth.getUser();
+    if (userError) {
+        return { data: null, error: userError };
+    }
+
+    const user = userData?.user;
+    if (!user) {
+        return { data: null, error: new Error('You must be signed in to view this exam.') };
+    }
+
+    const { data, error } = await sb
         .from('exams')
         .select(
             `
+        teacher_id,
         exam_name,
         grading_regulations,
         orig_llm_grading_regulations,
-        max_total_points, 
+        max_total_points,
         questions (
           id, question_number, max_total_points, context_text, orig_llm_context_text, context_visual, extra_comment, orig_llm_extra_comment,
           appendices ( id, app_title, orig_llm_app_title, app_text, orig_llm_app_text, app_visual ),
@@ -34,7 +45,19 @@ async function fetchFullExamDetails(examId) {
       `,
         )
         .eq('id', examId)
+        .eq('teacher_id', user.id)
         .single();
+
+    if (error) {
+        return { data: null, error };
+    }
+
+    if (!data) {
+        return { data: null, error: new Error('Exam not found or you do not have access to it.') };
+    }
+
+    const { teacher_id, ...examDetails } = data;
+    return { data: examDetails, error: null };
 }
 
 
