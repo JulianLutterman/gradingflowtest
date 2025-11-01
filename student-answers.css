@@ -248,8 +248,6 @@ body.single-student-view .add-student-btn {
     font-family: inherit;
     font-size: 0.95rem;
     resize: vertical;
-    min-height: 2.6rem;
-    transition-duration: 0.3s;
 }
 
 .followup-input:focus {
@@ -263,7 +261,6 @@ body.single-student-view .add-student-btn {
     border: solid 2px var(--color-light-blue-three);
     font-weight: 600;
     cursor: pointer;
-    transition-duration: 0.3s;
     display: flex;
     align-items: center;
     justify-content: center;
