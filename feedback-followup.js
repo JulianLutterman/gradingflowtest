@@ -116,9 +116,28 @@ const GEMINI_STREAM_URL =
     const question = textarea.value.trim();
     if (!question) return;
 
-    const apiKey = typeof GEMINI_API_KEY === 'string' ? GEMINI_API_KEY.trim() : '';
+    setStatus(statusEl, 'Preparing Gemini…');
+
+    let apiKey = '';
+    try {
+      const loader =
+        (typeof globalThis !== 'undefined' && typeof globalThis.ensureGeminiApiKey === 'function')
+          ? globalThis.ensureGeminiApiKey
+          : null;
+
+      if (loader) {
+        apiKey = await loader();
+      } else if (typeof GEMINI_API_KEY === 'string') {
+        apiKey = GEMINI_API_KEY.trim();
+      }
+    } catch (error) {
+      console.error('Failed to load the Gemini API key.', error);
+      setStatus(statusEl, 'Gemini follow-ups are temporarily unavailable.', { isError: true });
+      return;
+    }
+
     if (!apiKey) {
-      setStatus(statusEl, 'Set GEMINI_API_KEY in config.js to enable Gemini follow-ups.', { isError: true });
+      setStatus(statusEl, 'Gemini follow-ups are not configured yet.', { isError: true });
       return;
     }
 

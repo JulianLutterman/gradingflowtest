@@ -43,6 +43,83 @@ const GEMINI_API_KEY = (() => {
   return '';
 })();
 
+(function configureGeminiApiKeyAccess() {
+  const normalize = (value) => (typeof value === 'string' ? value.trim() : '');
+
+  const state = {
+    value: normalize(GEMINI_API_KEY),
+    pending: null,
+  };
+
+  const assign = (value) => {
+    state.value = normalize(value);
+
+    if (state.value) {
+      if (typeof window !== 'undefined') {
+        window.__GEMINI_API_KEY__ = state.value;
+        window.GEMINI_API_KEY = state.value;
+      }
+      if (typeof globalThis !== 'undefined') {
+        globalThis.__GEMINI_API_KEY__ = state.value;
+      }
+    }
+
+    return state.value;
+  };
+
+  assign(state.value);
+
+  const fetchFromServer = async () => {
+    if (typeof window === 'undefined' || typeof fetch !== 'function') {
+      return '';
+    }
+
+    try {
+      const response = await fetch('/api/gemini-key', {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+        },
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          return assign('');
+        }
+
+        throw new Error(
+          `Failed to retrieve Gemini API key (${response.status} ${response.statusText}).`
+        );
+      }
+
+      const payload = await response.json();
+      return assign(payload && payload.geminiApiKey);
+    } catch (error) {
+      console.error('Unable to load Gemini API key from /api/gemini-key.', error);
+      throw error;
+    }
+  };
+
+  globalThis.getGeminiApiKey = function getGeminiApiKey() {
+    return state.value;
+  };
+
+  globalThis.ensureGeminiApiKey = async function ensureGeminiApiKey() {
+    if (state.value) {
+      return state.value;
+    }
+
+    if (!state.pending) {
+      state.pending = fetchFromServer().finally(() => {
+        state.pending = null;
+      });
+    }
+
+    return state.pending;
+  };
+})();
+
 // --- NEW: Supabase Edge Function URLs ---
 const GENERATE_SCAN_SESSION_URL = `${SUPABASE_URL}/functions/v1/generate-scan-session`;
 const PROCESS_SCANNED_SESSION_URL = `${SUPABASE_URL}/functions/v1/process-scanned-session`;
