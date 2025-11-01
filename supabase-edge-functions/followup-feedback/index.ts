@@ -2,11 +2,12 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, accept',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const GEMINI_STREAM_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:streamGenerateContent?alt=sse';
+const GEMINI_STREAM_URL =
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:streamGenerateContent?alt=sse';
 
 interface FollowUpHistoryEntry {
   role: 'user' | 'model';
@@ -53,10 +54,25 @@ function buildGeminiContents(payload: FollowUpPayload) {
   return contents;
 }
 
+interface StreamReducer {
+  aggregated: string;
+  hasEmitted: boolean;
+}
+
+function enqueueEvent(
+  controller: ReadableStreamDefaultController<Uint8Array>,
+  encoder: TextEncoder,
+  event: { type: 'token' | 'final' | 'done' | 'error'; text?: string; message?: string },
+) {
+  const payload = { ...event };
+  controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
+}
+
 function processBuffer(
   segment: string,
   controller: ReadableStreamDefaultController<Uint8Array>,
   encoder: TextEncoder,
+  state: StreamReducer,
 ) {
   const lines = segment
     .split('\n')
@@ -80,7 +96,9 @@ function processBuffer(
         .join('');
 
       if (text) {
-        controller.enqueue(encoder.encode(text));
+        state.aggregated += text;
+        state.hasEmitted = true;
+        enqueueEvent(controller, encoder, { type: 'token', text });
       }
     } catch (error) {
       console.error('Failed to parse Gemini stream chunk', error);
@@ -92,6 +110,7 @@ function streamGeminiResponse(geminiResponse: Response): ReadableStream<Uint8Arr
   const reader = geminiResponse.body?.getReader();
   const textDecoder = new TextDecoder();
   const textEncoder = new TextEncoder();
+  const state: StreamReducer = { aggregated: '', hasEmitted: false };
 
   if (!reader) {
     throw new Error('Gemini response did not include a readable stream.');
@@ -104,9 +123,13 @@ function streamGeminiResponse(geminiResponse: Response): ReadableStream<Uint8Arr
       const { value, done } = await reader.read();
       if (done) {
         if (buffer.length > 0) {
-          processBuffer(buffer, controller, textEncoder);
+          processBuffer(buffer, controller, textEncoder, state);
           buffer = '';
         }
+        if (state.hasEmitted) {
+          enqueueEvent(controller, textEncoder, { type: 'final', text: state.aggregated });
+        }
+        enqueueEvent(controller, textEncoder, { type: 'done' });
         controller.close();
         return;
       }
@@ -116,7 +139,7 @@ function streamGeminiResponse(geminiResponse: Response): ReadableStream<Uint8Arr
       buffer = segments.pop() ?? '';
 
       for (const segment of segments) {
-        processBuffer(segment, controller, textEncoder);
+        processBuffer(segment, controller, textEncoder, state);
       }
     },
     cancel() {
@@ -244,7 +267,7 @@ serve(async (req: Request) => {
     status: 200,
     headers: {
       ...corsHeaders,
-      'Content-Type': 'text/plain; charset=utf-8',
+      'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
       'Transfer-Encoding': 'chunked',

@@ -68,9 +68,21 @@
     messageEl.textContent = text;
   }
 
+  function finalizeStreamingMessage(messageEl, text) {
+    if (!messageEl) return;
+    messageEl.classList.remove('is-streaming');
+    if (!messageEl.isConnected) {
+      return;
+    }
+    if (typeof text === 'string' && text.trim().length === 0) {
+      messageEl.remove();
+    }
+  }
+
   async function buildSupabaseHeaders() {
     const headers = {
       'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
     };
 
     if (typeof SUPABASE_ANON_KEY === 'string' && SUPABASE_ANON_KEY) {
@@ -118,6 +130,9 @@
     const controller = new AbortController();
     state.activeControllers.set(answerId, controller);
 
+    const streamMessage = appendMessage(answerId, 'model', '', { isStreaming: true });
+    let finalText = '';
+
     try {
       const headers = await buildSupabaseHeaders();
       const response = await fetch(FOLLOWUP_FEEDBACK_URL, {
@@ -136,27 +151,95 @@
       const decoder = new TextDecoder();
       let done = false;
       let aggregated = '';
+      let buffer = '';
+      let serverError = null;
 
-      const streamMessage = appendMessage(answerId, 'model', '', { isStreaming: true });
+      const flushAggregated = () => {
+        updateStreamingMessage(streamMessage, aggregated);
+      };
+
+      const handleDataLine = (dataLine) => {
+        try {
+          const parsed = JSON.parse(dataLine);
+          if (parsed?.type === 'token' && typeof parsed.text === 'string') {
+            aggregated += parsed.text;
+            flushAggregated();
+          } else if (parsed?.type === 'final' && typeof parsed.text === 'string') {
+            aggregated = parsed.text;
+            flushAggregated();
+          } else if (parsed?.type === 'error') {
+            serverError = new Error(parsed?.message || 'Gemini follow-up error');
+          }
+        } catch (error) {
+          aggregated += dataLine;
+          flushAggregated();
+        }
+      };
 
       while (!done) {
         const { value, done: readerDone } = await reader.read();
         done = readerDone;
-        if (value) {
-          const chunk = decoder.decode(value, { stream: !done });
-          aggregated += chunk;
-          updateStreamingMessage(streamMessage, aggregated);
+        if (!value) {
+          continue;
+        }
+
+        buffer += decoder.decode(value, { stream: !done });
+
+        let separatorIndex = buffer.indexOf('\n\n');
+        while (separatorIndex !== -1) {
+          const rawEvent = buffer.slice(0, separatorIndex);
+          buffer = buffer.slice(separatorIndex + 2);
+
+          const dataLines = rawEvent
+            .split('\n')
+            .map((line) => line.trim())
+            .filter((line) => line.startsWith('data:'))
+            .map((line) => line.slice(5).trim())
+            .filter((line) => line.length > 0);
+
+          for (const dataLine of dataLines) {
+            handleDataLine(dataLine);
+          }
+
+          separatorIndex = buffer.indexOf('\n\n');
         }
       }
 
-      if (aggregated.trim()) {
-        const historyArr = state.history.get(answerId) ?? [];
-        historyArr.push({ role: 'model', text: aggregated.trim() });
-        state.history.set(answerId, historyArr);
+      if (serverError) {
+        throw serverError;
       }
 
-      return aggregated.trim();
+      if (buffer.length > 0) {
+        const trailingDataLines = buffer
+          .split('\n')
+          .map((line) => line.trim())
+          .filter((line) => line.startsWith('data:'))
+          .map((line) => line.slice(5).trim())
+          .filter((line) => line.length > 0);
+
+        for (const dataLine of trailingDataLines) {
+          handleDataLine(dataLine);
+        }
+      }
+
+      finalText = aggregated.trim();
+
+      if (!finalText) {
+        throw new Error('Gemini returned an empty response.');
+      }
+
+      const historyArr = state.history.get(answerId) ?? [];
+      historyArr.push({ role: 'model', text: finalText });
+      state.history.set(answerId, historyArr);
+
+      return finalText;
+    } catch (error) {
+      if (streamMessage && streamMessage.parentElement) {
+        streamMessage.remove();
+      }
+      throw error;
     } finally {
+      finalizeStreamingMessage(streamMessage, finalText);
       state.activeControllers.delete(answerId);
     }
   }
