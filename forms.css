@@ -55,5 +55,4 @@ input[type="file"] {
 
     .file-input-label:hover {
         background-color: var(--color-background-border);
-        transform: translateY(-2px);
     }
