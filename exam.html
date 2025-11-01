@@ -178,6 +178,7 @@
             <div id="multi-upload-choice-area">
                 <button class="pushable-button" id="multi-scan-button">Scan with Phone</button>
                 <button class="pushable-button" id="multi-direct-upload-button">Direct File Upload</button>
+                <button class="pushable-button" id="multi-bulk-upload-button">Bulk PDF Upload</button>
             </div>
 
             <!-- Area for Phone Scanning Table -->
@@ -231,6 +232,30 @@
                     <span id="multi-direct-process-button-text">Process All Submissions</span>
                 </button>
             </div>
+
+            <!-- Area for Bulk PDF Upload -->
+            <div id="multi-bulk-upload-area" class="hidden">
+                <div class="modal-section-header">
+                    <button class="back-button-container modal-back-button back-to-multi-choice-btn">
+                        <svg viewBox="5 6 14 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M6 12H18M6 12L11 7M6 12L11 17" stroke="#14110F" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                        </svg>
+                    </button>
+                    <h3>Bulk PDF Upload</h3>
+                </div>
+                <div class="bulk-upload-file-picker">
+                    <input type="file" id="bulk-pdf-input" class="file-input-hidden" accept=".pdf">
+                    <label for="bulk-pdf-input" class="file-input-label" id="bulk-pdf-input-label">Choose Bulk PDF</label>
+                    <p class="file-input-helper-text">Upload a single PDF that contains all student submissions in order.</p>
+                </div>
+                <div id="multi-bulk-upload-table-container"></div>
+                <button class="add-row-btn" id="multi-bulk-add-row-button">Add Row</button>
+                <hr>
+                <button class="pushable-button" id="multi-bulk-process-button">
+                    <div id="spinner-multi-bulk-process" class="spinner spinner-light hidden"></div>
+                    <span id="multi-bulk-process-button-text">Process Bulk PDF</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -257,6 +282,7 @@
         </div>
     </div>
 </body>
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="config.js"></script>
 <script src="dom.js"></script>
 <script src="helpers-fetching.js"></script>
