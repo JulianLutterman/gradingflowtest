@@ -193,7 +193,8 @@ const GEMINI_STREAM_URL =
         role: message.role,
         parts: message.parts.map((part) => ({ text: part.text })),
       })),
-      system_instruction: {
+      systemInstruction: {
+        role: 'system',
         parts: [{ text: conversation.systemInstruction }],
       },
     };
