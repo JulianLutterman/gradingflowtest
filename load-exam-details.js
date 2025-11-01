@@ -25,12 +25,18 @@ async function loadExamDetails(examId) {
     const showMultiUploadChoice = () => {
       multiScanArea.classList.add('hidden');
       multiDirectUploadArea.classList.add('hidden');
+      if (multiBulkUploadArea) {
+        multiBulkUploadArea.classList.add('hidden');
+      }
       multiUploadChoiceArea.classList.remove('hidden');
     };
 
     const showMultiScanArea = ({ regenerate = false } = {}) => {
       multiUploadChoiceArea.classList.add('hidden');
       multiDirectUploadArea.classList.add('hidden');
+      if (multiBulkUploadArea) {
+        multiBulkUploadArea.classList.add('hidden');
+      }
       multiScanArea.classList.remove('hidden');
       if (regenerate || !multiScanTableContainer.querySelector('table')) {
         generateStudentTable('scan');
@@ -42,6 +48,9 @@ async function loadExamDetails(examId) {
     const showMultiDirectArea = ({ regenerate = false } = {}) => {
       multiUploadChoiceArea.classList.add('hidden');
       multiScanArea.classList.add('hidden');
+      if (multiBulkUploadArea) {
+        multiBulkUploadArea.classList.add('hidden');
+      }
       multiDirectUploadArea.classList.remove('hidden');
       if (regenerate || !multiDirectUploadTableContainer.querySelector('table')) {
         generateStudentTable('direct');
@@ -49,10 +58,24 @@ async function loadExamDetails(examId) {
       applyMultiDirectProcessState();
     };
 
+    const showMultiBulkArea = ({ regenerate = false } = {}) => {
+      multiUploadChoiceArea.classList.add('hidden');
+      multiScanArea.classList.add('hidden');
+      multiDirectUploadArea.classList.add('hidden');
+      if (multiBulkUploadArea) {
+        multiBulkUploadArea.classList.remove('hidden');
+      }
+      if (regenerate || !multiBulkUploadTableContainer.querySelector('table')) {
+        generateStudentTable('bulk');
+      }
+      applyMultiBulkProcessState();
+    };
+
     const restoreMultiUploadView = () => {
       const scanProcessState = window.getMultiScanProcessState ? window.getMultiScanProcessState() : null;
       const scanSessionState = window.getMultiScanSessionState ? window.getMultiScanSessionState() : null;
       const directProcessState = window.getMultiDirectProcessState ? window.getMultiDirectProcessState() : null;
+      const bulkProcessState = window.getMultiBulkProcessState ? window.getMultiBulkProcessState() : null;
 
       if (scanProcessState && (scanProcessState.status === 'processing' || scanProcessState.status === 'success' || scanProcessState.status === 'error' || scanProcessState.visible)) {
         showMultiScanArea();
@@ -64,6 +87,10 @@ async function loadExamDetails(examId) {
       }
       if (directProcessState && (directProcessState.status === 'processing' || directProcessState.status === 'error' || directProcessState.status === 'success')) {
         showMultiDirectArea();
+        return;
+      }
+      if (bulkProcessState && (bulkProcessState.status === 'processing' || bulkProcessState.status === 'error' || bulkProcessState.status === 'success')) {
+        showMultiBulkArea();
         return;
       }
       showMultiUploadChoice();
@@ -123,11 +150,22 @@ async function loadExamDetails(examId) {
     multiDirectUploadButton.addEventListener('click', () => {
       showMultiDirectArea({ regenerate: true });
     });
+    if (multiBulkUploadButton) {
+      multiBulkUploadButton.addEventListener('click', () => {
+        showMultiBulkArea({ regenerate: true });
+      });
+    }
 
     multiScanAddRowButton.addEventListener('click', () => addStudentTableRow('scan'));
     multiDirectAddRowButton.addEventListener('click', () => addStudentTableRow('direct'));
+    if (multiBulkAddRowButton) {
+      multiBulkAddRowButton.addEventListener('click', () => addStudentTableRow('bulk'));
+    }
     multiScanStartButton.addEventListener('click', handleStartMultiScan);
     multiDirectProcessButton.addEventListener('click', handleProcessAllDirectUploads);
+    if (multiBulkProcessButton) {
+      multiBulkProcessButton.addEventListener('click', () => handleProcessAllSubmissions('bulk'));
+    }
 
     multiDirectUploadArea.addEventListener('change', (event) => {
       if (event.target.matches('#direct-student-table input[type="file"]')) {
@@ -144,6 +182,16 @@ async function loadExamDetails(examId) {
         }
       }
     });
+    if (multiBulkUploadArea) {
+      multiBulkUploadArea.addEventListener('change', (event) => {
+        if (event.target.matches('#bulk-pdf-input')) {
+          const files = event.target.files;
+          if (bulkPdfInputLabel) {
+            bulkPdfInputLabel.textContent = files && files.length > 0 ? files[0].name : 'Choose Bulk PDF';
+          }
+        }
+      });
+    }
   }
 
   currentExamData = examData;
@@ -169,6 +217,7 @@ async function loadExamDetails(examId) {
     applyMultiScanSessionState();
     applyMultiScanProcessState();
     applyMultiDirectProcessState();
+    applyMultiBulkProcessState();
 
 }
 

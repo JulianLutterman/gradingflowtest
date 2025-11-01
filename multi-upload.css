@@ -1,12 +1,8 @@
 #multi-scan-area,
-#multi-direct-upload-area {
+#multi-direct-upload-area,
+#multi-bulk-upload-area {
     margin: 2rem 0 3rem 0;
 }
-
-    #multi-scan-area hr,
-    #multi-direct-upload-area hr {
-        margin: 2.8rem 0 2rem 0;
-    }
 
 #multi-upload-choice-area {
     width: 100%;
@@ -19,8 +15,12 @@
         width: 50%;
     }
 
-#multi-direct-upload-button {
+#multi-bulk-upload-button {
     margin: 1rem 0 3em 0;
+}
+
+#multi-direct-upload-button {
+    margin: 1rem 0 0 0;
 }
 
 #multi-scan-start-button {
@@ -28,7 +28,8 @@
 }
 
 #multi-direct-upload-table-container,
-#multi-scan-table-container {
+#multi-scan-table-container,
+#multi-bulk-upload-table-container {
     width: 100%;
     display: flex;
     align-items: center;
@@ -36,7 +37,8 @@
 }
 
 #scan-student-table,
-#direct-student-table {
+#direct-student-table,
+#bulk-student-table {
     width: 100%;
     padding: 1rem;
     border-radius: 15px;
@@ -44,7 +46,8 @@
 }
 
     #scan-student-table input,
-    #direct-student-table input {
+    #direct-student-table input,
+    #bulk-student-table input {
         background-color: var(--color-light-blue-two);
         padding: 0.6rem 0.8rem;
         margin: 0.2rem 1rem 0.2rem 0;
@@ -67,7 +70,8 @@ td .file-input-label {
     }
 
 #multi-scan-area th,
-#multi-direct-upload-area th {
+#multi-direct-upload-area th,
+#multi-bulk-upload-area th {
     text-align: left;
 }
 
@@ -87,8 +91,11 @@ td .file-input-label {
 }
 
 
-#multi-direct-add-row-button, #multi-scan-add-row-button {
+#multi-direct-add-row-button,
+#multi-scan-add-row-button,
+#multi-bulk-add-row-button {
     margin-top: 1rem;
+    margin-bottom: 2.5rem;
     width: 30%;
 }
 
@@ -107,7 +114,8 @@ td .file-input-label {
 }
 
 #multi-scan-process-button,
-#multi-direct-process-button {
+#multi-direct-process-button,
+#multi-bulk-process-button {
     width: 100%;
     background: var(--color-green-pastel-light-one);
     border-color: var(--color-green-pastel-light-two);
@@ -115,13 +123,46 @@ td .file-input-label {
 }
 
     #multi-scan-process-button:hover,
-    #multi-direct-process-button:hover {
+    #multi-direct-process-button:hover,
+    #multi-bulk-process-button:hover {
         transform: translateY(4px) translateX(-2px);
         box-shadow: -2px 4px 0 var(--color-green-pastel) !important;
     }
 
     #multi-scan-process-button:disabled,
-    #multi-direct-process-button:disabled {
+    #multi-direct-process-button:disabled,
+    #multi-bulk-process-button:disabled {
         transform: translateY(4px) translateX(-2px);
         box-shadow: -2px 4px 0 var(--color-green-pastel) !important;
+    }
+
+.bulk-upload-file-picker {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+    .bulk-upload-file-picker .file-input-label {
+        background-color: var(--color-light-blue-two);
+        padding: 0.75rem 1.25rem;
+        margin-bottom: 0.5rem;
+        border-radius: 15px;
+        font-size: 1rem;
+        cursor: pointer;
+        width: auto;
+    }
+
+        .bulk-upload-file-picker .file-input-label:hover {
+            background-color: var(--color-primary);
+            color: var(--color-text-light);
+            transform: translateY(0);
+        }
+
+    .bulk-upload-file-picker .file-input-helper-text {
+        margin: 0;
+        font-size: 0.9rem;
+        color: var(--color-text-muted);
+        text-align: center;
     }
