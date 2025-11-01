@@ -121,9 +121,7 @@ body.single-student-view .add-student-btn {
 /* === Feedback follow-up assistant === */
 .feedback-followup {
     margin-top: 1rem;
-    padding: 1rem;
     border-radius: 15px;
-    border: solid 2px var(--color-light-blue-three);
 }
 
 .feedback-followup .followup-status.is-error {
@@ -132,14 +130,17 @@ body.single-student-view .add-student-btn {
 }
 
 .feedback-followup .followup-history {
-    max-height: 220px;
+    max-height: 500px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    padding-right: 0.25rem;
     margin-bottom: 0.75rem;
     border-radius: 10px;
+}
+
+.feedback-followup .followup-history::-webkit-scrollbar {
+  display: none;           /* Chrome, Safari */
 }
 
 .followup-message {
