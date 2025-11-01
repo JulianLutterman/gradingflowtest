@@ -18,6 +18,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       }
     }
+
+    if (event.target.matches('#bulk-pdf-input')) {
+      const file = event.target.files && event.target.files[0];
+      if (bulkPdfInputLabel) {
+        bulkPdfInputLabel.textContent = file ? file.name : 'Choose Bulk PDF';
+      }
+    }
   });
 
   const urlParams = new URLSearchParams(window.location.search);

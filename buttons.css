@@ -163,7 +163,7 @@ button {
     .add-model-component-btn:hover {
     }
 
-.add-model-alt-btn, .add-student-btn, .add-subq-btn, #multi-direct-add-row-button, #multi-scan-add-row-button {
+.add-model-alt-btn, .add-student-btn, .add-subq-btn, #multi-direct-add-row-button, #multi-scan-add-row-button, #multi-bulk-add-row-button {
     padding: 10px 15px;
 }
 
@@ -214,12 +214,12 @@ button {
     background-color: var(--color-light-blue-three);
 }
 
-#multi-scan-add-row-button, #multi-direct-add-row-button {
+#multi-scan-add-row-button, #multi-direct-add-row-button, #multi-bulk-add-row-button {
     background-color: var(--color-background);
     --border-color: var(--color-lighter-blue);
 }
 
-    #multi-scan-add-row-button:hover, #multi-direct-add-row-button:hover {
+    #multi-scan-add-row-button:hover, #multi-direct-add-row-button:hover, #multi-bulk-add-row-button:hover {
         background-color: var(--color-lighter-blue);
     }
 

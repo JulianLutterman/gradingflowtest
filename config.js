@@ -6,6 +6,7 @@ const APPENDIX_GCF_URL = 'https://add-appendix-232485517114.europe-west1.run.app
 const MODEL_GCF_URL = 'https://add-model-232485517114.europe-west1.run.app';
 const STUDENT_ANSWERS_GCF_URL = 'https://add-student-answers-232485517114.europe-west1.run.app';
 const GRADING_GCF_URL = 'https://generate-points-232485517114.europe-west1.run.app';
+const BULK_BOUNDARY_GCF_URL = 'https://bulk-submission-boundaries-232485517114.europe-west1.run.app';
 const STORAGE_BUCKET = 'exam-visuals';
 
 // --- NEW: Supabase Edge Function URLs ---
