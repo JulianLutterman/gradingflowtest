@@ -232,43 +232,97 @@ const GEMINI_STREAM_BASE_URL =
     let buffer = '';
     let fullText = '';
 
+    const emitChunk = (chunk) => {
+      if (!chunk) return;
+      const normalizedChunk = String(chunk);
+      const addition = normalizedChunk.startsWith(fullText)
+        ? normalizedChunk.slice(fullText.length)
+        : normalizedChunk;
+      if (!addition) return;
+      fullText += addition;
+      onStream(fullText);
+    };
+
+    const parseEventPayload = (payload) => {
+      const trimmed = payload.trim();
+      if (!trimmed || trimmed === '[DONE]') {
+        return;
+      }
+
+      let parsed;
+      try {
+        parsed = JSON.parse(trimmed);
+      } catch (error) {
+        console.warn('Unable to parse Gemini stream chunk', error);
+        return;
+      }
+
+      const promptFeedback = parsed?.promptFeedback;
+      if (promptFeedback?.blockReason) {
+        const reason = promptFeedback.blockReason.replace(/_/g, ' ').toLowerCase();
+        throw new Error(`Gemini blocked the response (${reason}).`);
+      }
+
+      const candidates = parsed?.candidates || [];
+      for (const candidate of candidates) {
+        if (candidate?.finishReason === 'SAFETY') {
+          throw new Error('Gemini blocked the response for safety reasons.');
+        }
+
+        const partsSources = [
+          candidate?.content?.parts,
+          candidate?.delta?.parts,
+          candidate?.delta?.content?.parts,
+        ];
+
+        for (const parts of partsSources) {
+          if (!Array.isArray(parts) || parts.length === 0) continue;
+          const textChunk = parts
+            .map((part) => (part && typeof part.text === 'string' ? part.text : ''))
+            .join('');
+          if (textChunk) {
+            emitChunk(textChunk);
+          }
+        }
+      }
+    };
+
+    const flushBuffer = ({ force = false } = {}) => {
+      if (!buffer) return;
+      const events = buffer.split(/\r?\n\r?\n/);
+      buffer = events.pop() || '';
+      for (const event of events) {
+        const dataPayload = event
+          .split(/\r?\n/)
+          .filter((line) => line.startsWith('data:'))
+          .map((line) => line.slice(5).trimStart())
+          .join('');
+        if (!dataPayload) continue;
+        parseEventPayload(dataPayload);
+      }
+
+      if (force && buffer.trim()) {
+        const trailingPayload = buffer
+          .split(/\r?\n/)
+          .filter((line) => line.startsWith('data:'))
+          .map((line) => line.slice(5).trimStart())
+          .join('');
+        if (trailingPayload) {
+          parseEventPayload(trailingPayload);
+        }
+        buffer = '';
+      }
+    };
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
-
-      const events = buffer.split('\n\n');
-      buffer = events.pop() || '';
-
-      for (const event of events) {
-        const dataPayload = event
-          .split('\n')
-          .filter((line) => line.startsWith('data:'))
-          .map((line) => line.slice(5))
-          .join('');
-
-        if (!dataPayload) continue;
-        const trimmed = dataPayload.trim();
-        if (!trimmed || trimmed === '[DONE]') continue;
-
-        let parsed;
-        try {
-          parsed = JSON.parse(trimmed);
-        } catch (error) {
-          console.warn('Unable to parse Gemini stream chunk', error);
-          continue;
-        }
-
-        const textChunk = (parsed?.candidates?.[0]?.content?.parts || [])
-          .map((part) => part?.text || '')
-          .join('');
-
-        if (!textChunk) continue;
-
-        fullText += textChunk;
-        onStream(fullText);
-      }
+      flushBuffer();
     }
+
+    // Process any trailing data that wasn't followed by a blank line.
+    flushBuffer({ force: true });
 
     if (!fullText) {
       throw new Error('Gemini returned an empty response.');
