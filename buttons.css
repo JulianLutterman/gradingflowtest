@@ -219,7 +219,7 @@ button {
     --border-color: var(--color-lighter-blue);
 }
 
-    #multi-scan-add-row-button:hover, #multi-direct-add-row-button:hover {
+    #multi-scan-add-row-button:hover, #multi-direct-add-row-button:hover, #multi-bulk-add-row-button:hover {
         background-color: var(--color-lighter-blue);
     }
 
