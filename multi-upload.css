@@ -21,9 +21,12 @@
         width: 50%;
     }
 
-#multi-direct-upload-button,
 #multi-bulk-upload-button {
     margin: 1rem 0 3em 0;
+}
+
+#multi-direct-upload-button {
+    margin: 1rem 0 0 0;
 }
 
 #multi-scan-start-button {
