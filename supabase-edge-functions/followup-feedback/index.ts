@@ -68,6 +68,71 @@ function enqueueEvent(
   controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
 }
 
+function collectTextFromParts(parts: Array<{ text?: string | null }> | undefined | null) {
+  if (!Array.isArray(parts)) return '';
+  const fragments: string[] = [];
+  for (const part of parts) {
+    const text = typeof part?.text === 'string' ? part.text : '';
+    if (text) {
+      fragments.push(text);
+    }
+  }
+  return fragments.join('');
+}
+
+function extractTextFromGeminiChunk(payload: unknown) {
+  if (!payload || typeof payload !== 'object') return '';
+
+  const parsed = payload as { candidates?: unknown };
+  const candidates = Array.isArray(parsed.candidates) ? parsed.candidates : [];
+  if (candidates.length === 0) return '';
+
+  const fragments: string[] = [];
+
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== 'object') continue;
+    const candidateRecord = candidate as { content?: unknown; delta?: unknown };
+
+    const content = candidateRecord.content && typeof candidateRecord.content === 'object'
+      ? (candidateRecord.content as { parts?: unknown; partsDelta?: unknown })
+      : null;
+    const delta = candidateRecord.delta && typeof candidateRecord.delta === 'object'
+      ? (candidateRecord.delta as { parts?: unknown })
+      : null;
+
+    const contentParts = Array.isArray(content?.parts) ? (content?.parts as Array<{ text?: string | null }>) : undefined;
+    const deltaParts = Array.isArray(delta?.parts) ? (delta?.parts as Array<{ text?: string | null }>) : undefined;
+    const partsDelta = Array.isArray(content?.partsDelta)
+      ? (content?.partsDelta as Array<{ text?: string | null }>)
+      : undefined;
+
+    const textFromDelta = collectTextFromParts(deltaParts);
+    const textFromPartsDelta = collectTextFromParts(partsDelta);
+    const textFromContent = collectTextFromParts(contentParts);
+
+    if (textFromDelta) {
+      fragments.push(textFromDelta);
+      continue;
+    }
+
+    if (textFromPartsDelta) {
+      fragments.push(textFromPartsDelta);
+      continue;
+    }
+
+    if (textFromContent) {
+      fragments.push(textFromContent);
+    }
+  }
+
+  if (fragments.length > 0) {
+    return fragments.join('');
+  }
+
+  const fallbackText = (payload as { text?: unknown }).text;
+  return typeof fallbackText === 'string' ? fallbackText : '';
+}
+
 function processBuffer(
   segment: string,
   controller: ReadableStreamDefaultController<Uint8Array>,
@@ -88,12 +153,7 @@ function processBuffer(
 
     try {
       const parsed = JSON.parse(payload);
-      const parts = parsed?.candidates?.[0]?.content?.parts;
-      if (!Array.isArray(parts)) continue;
-
-      const text = parts
-        .map((part: { text?: string }) => part?.text ?? '')
-        .join('');
+      const text = extractTextFromGeminiChunk(parsed);
 
       if (text) {
         state.aggregated += text;
@@ -219,6 +279,7 @@ serve(async (req: Request) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
         'x-goog-api-key': apiKey,
       },
       body: JSON.stringify({ contents }),
