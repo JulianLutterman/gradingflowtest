@@ -193,11 +193,13 @@ const GEMINI_STREAM_URL =
         role: message.role,
         parts: message.parts.map((part) => ({ text: part.text })),
       })),
-      systemInstruction: {
-        role: 'system',
-        parts: [{ text: conversation.systemInstruction }],
-      },
     };
+
+    if (conversation.systemInstruction) {
+      requestBody.systemInstruction = {
+        parts: [{ text: conversation.systemInstruction }],
+      };
+    }
 
     const response = await fetch(GEMINI_STREAM_URL, {
       method: 'POST',
@@ -209,7 +211,14 @@ const GEMINI_STREAM_URL =
     });
 
     if (!response.ok || !response.body) {
-      throw new Error(`Gemini request failed (${response.status} ${response.statusText}).`);
+      let details = '';
+      try {
+        details = await response.text();
+      } catch (readError) {
+        console.warn('Unable to read Gemini error payload', readError);
+      }
+      const suffix = details ? ` – ${details}` : '';
+      throw new Error(`Gemini request failed (${response.status} ${response.statusText})${suffix}`);
     }
 
     const reader = response.body.getReader();
