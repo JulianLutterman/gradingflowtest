@@ -321,12 +321,3 @@ body.single-student-view .add-student-btn {
     opacity: 0.6;
     box-shadow: none;
 }
-
-.followup-footnote {
-    margin-top: 0.75rem;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: rgba(20, 17, 15, 0.5);
-    text-align: right;
-}
