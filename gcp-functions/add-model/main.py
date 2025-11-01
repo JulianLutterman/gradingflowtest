@@ -219,7 +219,7 @@ When a sub-question awards points for **any K correct items from a longer list**
 2. **Points per Component**
 
    * If the transcription states a per-item value (e.g., “per juist antwoord 1”), set `"component_points"` to that value and ensure **K × per-item = sub-question total**.
-   * If **no per-item value** is given but **K** and a **total** are given, split the total **as evenly as possible** across the K components using **integers by default** (if a remainder exists, assign +1 to the earliest components until the sum matches the total). Only use fractional points if the transcription **explicitly** uses fractional scoring elsewhere.
+   * If **no per-item value** is given but **K** and a **total** are given, split the total **as evenly as possible** across the K components using **integers by default** (if a remainder exists, assign +1 to the earliest components until the sum matches the total). NEVER use fractional points.
    * The **sum of component_points within the alternative must equal exactly the sub-question total**.
 
 3. **extra_comment = Full Acceptable List**
