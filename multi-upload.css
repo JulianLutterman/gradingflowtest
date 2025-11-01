@@ -145,7 +145,7 @@ td .file-input-label {
 }
 
     .bulk-upload-file-picker .file-input-label {
-        background-color: var(--color-light-blue-two);
+        background-color: var(--color-light-blue);
         padding: 0.75rem 1.25rem;
         margin-bottom: 0.5rem;
         border-radius: 15px;
@@ -155,9 +155,7 @@ td .file-input-label {
     }
 
         .bulk-upload-file-picker .file-input-label:hover {
-            background-color: var(--color-primary);
-            color: var(--color-text-light);
-            transform: translateY(0);
+            background-color: var(--color-light-blue-two);
         }
 
     .bulk-upload-file-picker .file-input-helper-text {
