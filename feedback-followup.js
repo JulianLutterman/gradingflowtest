@@ -16,25 +16,6 @@ const GEMINI_STREAM_BASE_URL =
     if (!answerId) return;
 
     const contextText = block.dataset.context ? decodeURIComponent(block.dataset.context) : '';
-    const questionLabel = block.dataset.questionLabel ? decodeURIComponent(block.dataset.questionLabel) : '';
-    const subLabel = block.dataset.subLabel ? decodeURIComponent(block.dataset.subLabel) : '';
-
-    const contextLabelEl = block.querySelector('.followup-context-label');
-    if (contextLabelEl) {
-      contextLabelEl.textContent = '';
-      if (questionLabel) {
-        const strong = document.createElement('strong');
-        strong.textContent = questionLabel;
-        contextLabelEl.appendChild(strong);
-      }
-      if (questionLabel && subLabel) {
-        contextLabelEl.append(' · ');
-      }
-      if (subLabel) {
-        contextLabelEl.append(subLabel);
-      }
-    }
-
     const textarea = block.querySelector('.followup-input');
     const sendBtn = block.querySelector('.followup-send-btn');
     const historyEl = block.querySelector('.followup-history');
@@ -221,9 +202,12 @@ const GEMINI_STREAM_BASE_URL =
     return bubble;
   }
 
-  function setStatus(statusEl, message, { isError = false } = {}) {
+  function setStatus(statusEl, message, { isError = false, historyEl = null } = {}) {
     statusEl.textContent = message || '';
     statusEl.classList.toggle('is-error', Boolean(isError));
+    if (isError && historyEl && message) {
+      appendHistoryMessage(historyEl, 'model', message);
+    }
   }
 
   async function submitFollowup(answerId, ui) {
@@ -231,7 +215,7 @@ const GEMINI_STREAM_BASE_URL =
     const question = textarea.value.trim();
     if (!question) return;
 
-    setStatus(statusEl, 'Preparing Gemini…');
+    setStatus(statusEl, 'Preparing Gemini…', { historyEl });
 
     let apiKey = '';
     try {
@@ -247,19 +231,19 @@ const GEMINI_STREAM_BASE_URL =
       }
     } catch (error) {
       console.error('Failed to load the Gemini API key.', error);
-      setStatus(statusEl, 'Gemini follow-ups are temporarily unavailable.', { isError: true });
+      setStatus(statusEl, 'Gemini follow-ups are temporarily unavailable.', { isError: true, historyEl });
       return;
     }
 
     if (!apiKey) {
-      setStatus(statusEl, 'Gemini follow-ups are not configured yet.', { isError: true });
+      setStatus(statusEl, 'Gemini follow-ups are not configured yet.', { isError: true, historyEl });
       return;
     }
 
     const conversation = conversations.get(answerId);
     if (!conversation) return;
 
-    setStatus(statusEl, 'Gemini is thinking…');
+    setStatus(statusEl, 'Gemini is thinking…', { historyEl });
     appendHistoryMessage(historyEl, 'user', question);
 
     textarea.value = '';
@@ -287,18 +271,18 @@ const GEMINI_STREAM_BASE_URL =
         role: 'model',
         parts: [{ text: fullText }],
       });
-      setStatus(statusEl, 'Response ready.');
+      setStatus(statusEl, 'Response ready.', { historyEl });
     } catch (error) {
       streamingBubble.parentElement.classList.add('is-error');
       streamingBubble.textContent = error.message || 'Unable to generate a response.';
       conversation.messages.pop();
-      setStatus(statusEl, 'Gemini could not reply.', { isError: true });
+      setStatus(statusEl, 'Gemini could not reply.', { isError: true, historyEl });
     } finally {
       sendBtn.disabled = false;
       textarea.disabled = false;
       block.classList.remove('is-streaming');
       textarea.focus();
-      setTimeout(() => setStatus(statusEl, ''), 4000);
+      setTimeout(() => setStatus(statusEl, '', { historyEl }), 4000);
     }
   }
 
