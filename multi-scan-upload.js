@@ -487,12 +487,18 @@ async function handleProcessAllSubmissions(type) {
       setMultiBulkProcessState({ buttonText: 'Splitting PDF into submissions...', spinner: true });
       const splitFiles = await splitBulkPdfIntoSubmissions(bulkPdfFile, startPages, students);
       if (splitFiles.length !== students.length) {
-        throw new Error(`Expected ${students.length} split PDF files but received ${splitFiles.length}.`);
+        throw new Error(`Expected ${students.length} split file sets but received ${splitFiles.length}.`);
+      }
+      const invalidSetIndex = splitFiles.findIndex((set) => !Array.isArray(set) || set.length === 0);
+      if (invalidSetIndex !== -1) {
+        const invalidStudent = students[invalidSetIndex];
+        const identifier = invalidStudent?.studentName || invalidStudent?.studentNumber || `#${invalidSetIndex + 1}`;
+        throw new Error(`No pages were generated for ${identifier}. Please verify the bulk PDF ordering.`);
       }
       submissions = students.map((student, index) => ({
         studentName: student.studentName,
         studentNumber: student.studentNumber,
-        files: [splitFiles[index]],
+        files: splitFiles[index],
       }));
     } catch (bulkError) {
       console.error('Bulk PDF processing failed:', bulkError);
@@ -706,15 +712,20 @@ async function requestBulkSubmissionBoundaries(pdfFile, students) {
 }
 
 async function splitBulkPdfIntoSubmissions(pdfFile, startPages, students) {
-  if (!window.PDFLib || !window.PDFLib.PDFDocument) {
-    throw new Error('Unable to split the bulk PDF because PDFLib is unavailable.');
+  if (!window.pdfjsLib || typeof window.pdfjsLib.getDocument !== 'function') {
+    throw new Error('Unable to split the bulk PDF because PDF.js is unavailable.');
   }
 
   const roster = Array.isArray(students) ? students : [];
-  const { PDFDocument } = window.PDFLib;
   const pdfBytes = await pdfFile.arrayBuffer();
-  const sourcePdf = await PDFDocument.load(pdfBytes);
-  const totalPages = sourcePdf.getPageCount();
+
+  const pdfjs = window.pdfjsLib;
+  if (pdfjs.GlobalWorkerOptions && !pdfjs.GlobalWorkerOptions.workerSrc) {
+    pdfjs.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.9.179/pdf.worker.min.js';
+  }
+  const pdfJsDocument = await pdfjs.getDocument({ data: pdfBytes }).promise;
+  const totalPages = typeof pdfJsDocument.numPages === 'number' ? pdfJsDocument.numPages : 0;
 
   const sanitizedPages = (Array.isArray(startPages) ? startPages : [])
     .map((page) => parseInt(page, 10))
@@ -757,31 +768,69 @@ async function splitBulkPdfIntoSubmissions(pdfFile, startPages, students) {
     Array.prototype.push.apply(segments, truncated);
   }
 
-  const generatedFiles = [];
+  const generatedFileSets = [];
 
   for (let index = 0; index < expectedCount; index++) {
     const segment = segments[index];
-    if (!segment) continue;
-
-    const pageIndices = [];
-    for (let page = segment.start; page <= segment.end; page++) {
-      pageIndices.push(page - 1);
+    if (!segment) {
+      generatedFileSets.push([]);
+      continue;
     }
 
-    const newPdf = await PDFDocument.create();
-    const copiedPages = await newPdf.copyPages(sourcePdf, pageIndices);
-    copiedPages.forEach((page) => newPdf.addPage(page));
-
-    const newPdfBytes = await newPdf.save();
     const student = roster[index] || {};
-    const filename = buildBulkSubmissionFileName(student, index);
-    generatedFiles.push(new File([newPdfBytes], filename, { type: 'application/pdf' }));
+    const baseName = buildBulkSubmissionBaseName(student, index);
+    const imageFiles = [];
+
+    for (let pageNumber = segment.start; pageNumber <= segment.end; pageNumber++) {
+      const page = await pdfJsDocument.getPage(pageNumber);
+      const viewport = page.getViewport({ scale: 2 });
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d', { willReadFrequently: true });
+
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+
+      await page.render({ canvasContext: context, viewport }).promise;
+
+      const blob = await new Promise((resolve, reject) => {
+        canvas.toBlob(
+          (createdBlob) => {
+            if (createdBlob) {
+              resolve(createdBlob);
+            } else {
+              reject(new Error('Failed to convert PDF page to image.'));
+            }
+          },
+          'image/png'
+        );
+      });
+
+      const pageIndex = pageNumber - segment.start + 1;
+      const filename = `${baseName}_page_${pageIndex}.png`;
+      imageFiles.push(new File([blob], filename, { type: 'image/png' }));
+
+      canvas.width = 0;
+      canvas.height = 0;
+      if (typeof page.cleanup === 'function') {
+        page.cleanup();
+      }
+    }
+
+    if (!imageFiles.length) {
+      throw new Error(`Failed to split the bulk PDF into individual pages for ${baseName}.`);
+    }
+
+    generatedFileSets.push(imageFiles);
   }
 
-  return generatedFiles;
+  if (typeof pdfJsDocument.destroy === 'function') {
+    pdfJsDocument.destroy();
+  }
+
+  return generatedFileSets;
 }
 
-function buildBulkSubmissionFileName(student, index) {
+function buildBulkSubmissionBaseName(student, index) {
   const parts = [];
   const name = (student?.studentName || '').trim();
   const number = (student?.studentNumber || '').trim();
@@ -813,8 +862,7 @@ function buildBulkSubmissionFileName(student, index) {
     sanitized = `bulk_submission_${index + 1}`;
   }
 
-  sanitized = sanitized.replace(/\.pdf$/i, '');
-  sanitized += '.pdf';
+  sanitized = sanitized.replace(/\.(png|jpg|jpeg|pdf)$/i, '');
 
   return sanitized;
 }
