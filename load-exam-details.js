@@ -25,12 +25,18 @@ async function loadExamDetails(examId) {
     const showMultiUploadChoice = () => {
       multiScanArea.classList.add('hidden');
       multiDirectUploadArea.classList.add('hidden');
+      if (multiBulkUploadArea) {
+        multiBulkUploadArea.classList.add('hidden');
+      }
       multiUploadChoiceArea.classList.remove('hidden');
     };
 
     const showMultiScanArea = ({ regenerate = false } = {}) => {
       multiUploadChoiceArea.classList.add('hidden');
       multiDirectUploadArea.classList.add('hidden');
+      if (multiBulkUploadArea) {
+        multiBulkUploadArea.classList.add('hidden');
+      }
       multiScanArea.classList.remove('hidden');
       if (regenerate || !multiScanTableContainer.querySelector('table')) {
         generateStudentTable('scan');
@@ -42,6 +48,9 @@ async function loadExamDetails(examId) {
     const showMultiDirectArea = ({ regenerate = false } = {}) => {
       multiUploadChoiceArea.classList.add('hidden');
       multiScanArea.classList.add('hidden');
+      if (multiBulkUploadArea) {
+        multiBulkUploadArea.classList.add('hidden');
+      }
       multiDirectUploadArea.classList.remove('hidden');
       if (regenerate || !multiDirectUploadTableContainer.querySelector('table')) {
         generateStudentTable('direct');
@@ -53,7 +62,9 @@ async function loadExamDetails(examId) {
       multiUploadChoiceArea.classList.add('hidden');
       multiScanArea.classList.add('hidden');
       multiDirectUploadArea.classList.add('hidden');
-      multiBulkUploadArea.classList.remove('hidden');
+      if (multiBulkUploadArea) {
+        multiBulkUploadArea.classList.remove('hidden');
+      }
       if (regenerate || !multiBulkUploadTableContainer.querySelector('table')) {
         generateStudentTable('bulk');
       }
