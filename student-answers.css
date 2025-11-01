@@ -122,16 +122,8 @@ body.single-student-view .add-student-btn {
 .feedback-followup {
     margin-top: 1rem;
     padding: 1rem;
-    border-radius: 12px;
-    background: linear-gradient(135deg, var(--color-lighter-blue), var(--color-light-blue-two));
-    border: 1px solid var(--color-background-border);
-    box-shadow: -3px 4px 0 rgba(51, 65, 149, 0.2);
-    transition: box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-.feedback-followup.is-streaming {
-    box-shadow: -4px 6px 0 rgba(2, 161, 71, 0.35);
-    transform: translate(-1px, -1px);
+    border-radius: 15px;
+    border: solid 2px var(--color-light-blue-three);
 }
 
 .feedback-followup .followup-header {
@@ -143,12 +135,10 @@ body.single-student-view .add-student-btn {
 
 .feedback-followup .followup-title {
     font-weight: 700;
-    color: var(--color-blue-pastel);
 }
 
 .feedback-followup .followup-status {
     font-size: 0.85rem;
-    color: var(--color-blue-pastel);
 }
 
 .feedback-followup .followup-status.is-error {
@@ -158,8 +148,7 @@ body.single-student-view .add-student-btn {
 
 .feedback-followup .followup-context-label {
     margin: 0.35rem 0 0.65rem;
-    font-size: 0.9rem;
-    color: var(--color-blue-pastel);
+    font-size: 0.85rem;
 }
 
 .feedback-followup .followup-context-label strong {
@@ -231,14 +220,13 @@ body.single-student-view .add-student-btn {
 }
 
 .followup-bubble a {
-    color: var(--color-blue-pastel);
+    color: var(--color-text-dark);
     text-decoration: underline;
     word-break: break-word;
 }
 
 .followup-message-user .followup-bubble {
-    background: var(--color-green-pastel-light-three);
-    border: 1px solid rgba(2, 161, 71, 0.35);
+    background: var(--color-light-blue-three);
     white-space: pre-wrap;
 }
 
@@ -256,7 +244,7 @@ body.single-student-view .add-student-btn {
     position: absolute;
     inset: -1px;
     border-radius: 12px;
-    border: 1px dashed rgba(51, 65, 149, 0.35);
+    border: 2px dashed rgba(51, 65, 149, 0.35);
     animation: followupPulse 1.4s ease-in-out infinite;
 }
 
@@ -267,10 +255,7 @@ body.single-student-view .add-student-btn {
 }
 
 .followup-label {
-    display: block;
-    font-weight: 600;
-    margin-bottom: 0.45rem;
-    color: var(--color-blue-pastel);
+    display: hidden;
 }
 
 .followup-input-row {
@@ -291,29 +276,21 @@ body.single-student-view .add-student-btn {
     transition: border 0.2s ease, box-shadow 0.2s ease;
 }
 
-.followup-input:focus {
-    outline: none;
-    border-color: var(--color-blue-pastel);
-    box-shadow: 0 0 0 3px rgba(51, 65, 149, 0.25);
-}
-
 .followup-send-btn {
-    background: var(--color-blue-pastel);
-    color: var(--color-text-light);
     border: none;
     border-radius: 10px;
-    padding: 0.6rem 1rem;
+    border: solid 2px var(--color-light-blue-three);
     font-weight: 600;
     cursor: pointer;
-    transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+    transition-duration: 0.3s;
     display: flex;
     align-items: center;
     justify-content: center;
+    width: auto;
 }
 
 .followup-send-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 10px rgba(51, 65, 149, 0.25);
+    background-color: var(--color-light-blue-three);
 }
 
 .followup-send-btn:disabled {
