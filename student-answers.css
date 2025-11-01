@@ -194,15 +194,52 @@ body.single-student-view .add-student-btn {
     background: var(--color-light-blue-three);
     color: var(--color-text-dark);
     font-size: 0.9rem;
-    line-height: 1.35;
+    line-height: 1.45;
     max-width: 100%;
-    white-space: pre-wrap;
+    white-space: normal;
+    word-break: break-word;
+}
+
+.followup-bubble p {
+    margin: 0 0 0.5rem;
+}
+
+.followup-bubble p:last-child {
+    margin-bottom: 0;
+}
+
+.followup-bubble ul,
+.followup-bubble ol {
+    margin: 0.35rem 0 0.5rem 1.15rem;
+    padding-left: 0.75rem;
+}
+
+.followup-bubble li {
+    margin-bottom: 0.35rem;
+}
+
+.followup-bubble li:last-child {
+    margin-bottom: 0;
+}
+
+.followup-bubble code {
+    font-family: var(--font-family-monospace, 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace);
+    background: rgba(51, 65, 149, 0.12);
+    padding: 0.05rem 0.3rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+}
+
+.followup-bubble a {
+    color: var(--color-blue-pastel);
+    text-decoration: underline;
     word-break: break-word;
 }
 
 .followup-message-user .followup-bubble {
     background: var(--color-green-pastel-light-three);
     border: 1px solid rgba(2, 161, 71, 0.35);
+    white-space: pre-wrap;
 }
 
 .followup-message-model.is-error .followup-bubble {

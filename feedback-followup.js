@@ -89,6 +89,117 @@ const GEMINI_STREAM_BASE_URL =
     return `${baseInstruction}\n\nGrading context:\n${contextText}`;
   }
 
+  function renderMarkdownInto(element, markdown) {
+    const escapeHtml = (value) =>
+      String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    const sanitizeLink = (href) => {
+      const trimmed = href.trim();
+      if (!trimmed) return '#';
+      try {
+        const parsed = new URL(trimmed, window.location.origin);
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+          return parsed.href;
+        }
+      } catch (error) {
+        // Fall back to the original URL if parsing fails but it looks safe enough.
+        if (/^https?:\/\//i.test(trimmed)) {
+          return trimmed;
+        }
+      }
+      return '#';
+    };
+
+    const formatInline = (text) => {
+      const escaped = escapeHtml(text);
+      const withStrong = escaped
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/__(.+?)__/g, '<strong>$1</strong>');
+
+      const withEmphasis = withStrong
+        .replace(/(^|[^*])\*(?!\*)([^*]+?)\*(?!\*)([^*]|$)/g, (match, prefix, value, suffix) => {
+          return `${prefix}<em>${value}</em>${suffix}`;
+        })
+        .replace(/(^|[^_])_(?!_)([^_]+?)_(?!_)([^_]|$)/g, (match, prefix, value, suffix) => {
+          return `${prefix}<em>${value}</em>${suffix}`;
+        });
+
+      const withCode = withEmphasis.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+      return withCode.replace(/\[(.+?)\]\((.+?)\)/g, (match, label, href) => {
+        const safeHref = sanitizeLink(href);
+        const safeLabel = escapeHtml(label);
+        return `<a href="${safeHref}" target="_blank" rel="noopener noreferrer">${safeLabel}</a>`;
+      });
+    };
+
+    const lines = String(markdown || '').split(/\r?\n/);
+    let html = '';
+    let openList = null;
+
+    const closeList = () => {
+      if (openList) {
+        html += `</${openList}>`;
+        openList = null;
+      }
+    };
+
+    lines.forEach((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        closeList();
+        return;
+      }
+
+      const headingMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
+      if (headingMatch) {
+        closeList();
+        const level = headingMatch[1].length;
+        html += `<h${level}>${formatInline(headingMatch[2])}</h${level}>`;
+        return;
+      }
+
+      if (/^>\s+/.test(trimmed)) {
+        closeList();
+        html += `<blockquote>${formatInline(trimmed.replace(/^>\s+/, ''))}</blockquote>`;
+        return;
+      }
+
+      if (/^(\*|-)\s+/.test(trimmed)) {
+        if (openList !== 'ul') {
+          closeList();
+          openList = 'ul';
+          html += '<ul>';
+        }
+        html += `<li>${formatInline(trimmed.replace(/^(\*|-)+\s+/, ''))}</li>`;
+        return;
+      }
+
+      if (/^\d+\.\s+/.test(trimmed)) {
+        if (openList !== 'ol') {
+          closeList();
+          openList = 'ol';
+          html += '<ol>';
+        }
+        html += `<li>${formatInline(trimmed.replace(/^\d+\.\s+/, ''))}</li>`;
+        return;
+      }
+
+      closeList();
+      html += `<p>${formatInline(trimmed)}</p>`;
+    });
+
+    closeList();
+
+    const fallback = escapeHtml(markdown || '');
+    element.innerHTML = html || (fallback ? `<p>${fallback}</p>` : '');
+  }
+
   function appendHistoryMessage(historyEl, role, text, { isStreaming = false } = {}) {
     const wrapper = document.createElement('div');
     wrapper.className = `followup-message followup-message-${role}`;
@@ -98,7 +209,11 @@ const GEMINI_STREAM_BASE_URL =
 
     const bubble = document.createElement('div');
     bubble.className = 'followup-bubble';
-    bubble.textContent = text;
+    if (role === 'model') {
+      renderMarkdownInto(bubble, text);
+    } else {
+      bubble.textContent = text;
+    }
     wrapper.appendChild(bubble);
 
     historyEl.appendChild(wrapper);
@@ -162,11 +277,11 @@ const GEMINI_STREAM_BASE_URL =
 
     try {
       const fullText = await streamGeminiResponse(conversation, apiKey, (partial) => {
-        streamingBubble.textContent = partial;
+        renderMarkdownInto(streamingBubble, partial);
         historyEl.scrollTop = historyEl.scrollHeight;
       });
 
-      streamingBubble.textContent = fullText;
+      renderMarkdownInto(streamingBubble, fullText);
       streamingBubble.parentElement.classList.remove('is-streaming');
       conversation.messages.push({
         role: 'model',
