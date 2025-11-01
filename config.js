@@ -9,6 +9,12 @@ const GRADING_GCF_URL = 'https://generate-points-232485517114.europe-west1.run.a
 const BULK_BOUNDARY_GCF_URL = 'https://bulk-submission-boundaries-232485517114.europe-west1.run.app';
 const STORAGE_BUCKET = 'exam-visuals';
 
+// Gemini API (set GEMINI_API_KEY before using streaming follow-ups)
+const GEMINI_API_KEY = (typeof window !== 'undefined'
+  && (window.__GEMINI_API_KEY__ || window.GEMINI_API_KEY))
+  ? String(window.__GEMINI_API_KEY__ || window.GEMINI_API_KEY)
+  : '';
+
 // --- NEW: Supabase Edge Function URLs ---
 const GENERATE_SCAN_SESSION_URL = `${SUPABASE_URL}/functions/v1/generate-scan-session`;
 const PROCESS_SCANNED_SESSION_URL = `${SUPABASE_URL}/functions/v1/process-scanned-session`;
