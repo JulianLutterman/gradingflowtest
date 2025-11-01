@@ -251,7 +251,7 @@ body.single-student-view .add-student-btn {
 }
 
 .followup-send-btn {
-    border: none;
+    background-color: var(--color-light-blue-two);
     border-radius: 10px;
     border: solid 2px var(--color-light-blue-three);
     font-weight: 600;
