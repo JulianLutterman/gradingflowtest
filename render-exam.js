@@ -229,7 +229,6 @@ function renderExam(questions) {
                                     <textarea id="followup-input-${ans.id}" class="followup-input" rows="2" placeholder="Ask about the feedback or awarded points..."></textarea>
                                     <button type="button" class="followup-send-btn" data-answer-id="${ans.id}">Ask Gemini</button>
                                   </div>
-                                  <p class="followup-footnote">Powered by Gemini 2.5 Pro</p>
                                 </div>`
                             : '';
                         return `
