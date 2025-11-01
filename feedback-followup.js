@@ -68,6 +68,35 @@
     messageEl.textContent = text;
   }
 
+  async function buildSupabaseHeaders() {
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+
+    if (typeof SUPABASE_ANON_KEY === 'string' && SUPABASE_ANON_KEY) {
+      headers.apikey = SUPABASE_ANON_KEY;
+    }
+
+    let accessToken = null;
+    try {
+      if (window.sb && typeof window.sb.auth?.getSession === 'function') {
+        const { data, error } = await window.sb.auth.getSession();
+        if (!error) {
+          accessToken = data?.session?.access_token || null;
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to load Supabase session for follow-up request', err);
+    }
+
+    const token = accessToken || (typeof SUPABASE_ANON_KEY === 'string' ? SUPABASE_ANON_KEY : '');
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    return headers;
+  }
+
   async function streamFollowUp(answerId, prompt, historyBeforePrompt) {
     if (typeof FOLLOWUP_FEEDBACK_URL === 'undefined' || !FOLLOWUP_FEEDBACK_URL) {
       throw new Error('Follow-up service URL is not configured.');
@@ -90,11 +119,10 @@
     state.activeControllers.set(answerId, controller);
 
     try {
+      const headers = await buildSupabaseHeaders();
       const response = await fetch(FOLLOWUP_FEEDBACK_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(payload),
         signal: controller.signal,
       });
