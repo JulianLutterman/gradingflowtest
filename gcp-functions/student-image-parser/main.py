@@ -24,7 +24,7 @@ DASHSCOPE_API_KEY = os.environ.get("DASHSCOPE_API_KEY")
 # Model for Element Extraction (now via Google AI - Gemini 2.5 Flash)
 EXTRACTION_MODEL_NAME = "gemini-2.5-flash"
 # Model for Transcription (via Google AI)
-QWEN_TRANSCRIPTION_MODEL_NAME = "qwen3-vl-235b-a22b-instruct"
+QWEN_TRANSCRIPTION_MODEL_NAME = "qwen3-vl-32b-instruct"
 
 TEMPERATURE_FOR_JSON = 0
 
@@ -69,7 +69,7 @@ You must adhere to the following rules:
 ```json
 {
   "full_transcription": "Q1. This is the answer to the first question. It includes a formula like $E=mc^2$. \n\nQ2. This is the answer to the second question, which was continued on the next page."
-}
+}```
 """
 
 
@@ -255,12 +255,7 @@ def call_qwen_api_for_transcription(pil_images, system_prompt, task_name=""):
                 print(f"Warning: Failed to prepare an image for Qwen: {e}")
 
         # System message holds your full rules + strict JSON requirement
-        system_content = (
-            system_prompt.strip()
-            + "\n\nSTRICT OUTPUT: Return ONLY one valid JSON object with key "
-              "\"full_transcription\" and nothing else. "
-              "Inside that JSON string, escape every backslash (\\) as \\\\."
-        )
+        system_content = system_prompt
 
         messages = [
             {"role": "system", "content": system_content},
@@ -273,10 +268,9 @@ def call_qwen_api_for_transcription(pil_images, system_prompt, task_name=""):
             model=QWEN_TRANSCRIPTION_MODEL_NAME,
             messages=messages,
             stream=True,
-            top_p=0.8,
             temperature=0,
             # If DashScope supports it, you can try enforcing JSON:
-            # response_format={"type": "json_object"},
+            response_format={"type": "json_object"},
         )
 
         full_text = ""
