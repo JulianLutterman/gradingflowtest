@@ -10,10 +10,38 @@ const BULK_BOUNDARY_GCF_URL = 'https://bulk-submission-boundaries-232485517114.e
 const STORAGE_BUCKET = 'exam-visuals';
 
 // Gemini API (set GEMINI_API_KEY before using streaming follow-ups)
-const GEMINI_API_KEY = (typeof window !== 'undefined'
-  && (window.__GEMINI_API_KEY__ || window.GEMINI_API_KEY))
-  ? String(window.__GEMINI_API_KEY__ || window.GEMINI_API_KEY)
-  : '';
+const GEMINI_API_KEY = (() => {
+  if (typeof window !== 'undefined') {
+    const fromWindow = window.__GEMINI_API_KEY__ || window.GEMINI_API_KEY;
+    if (fromWindow) {
+      return String(fromWindow);
+    }
+  }
+
+  if (typeof globalThis !== 'undefined') {
+    const fromGlobal = globalThis.__GEMINI_API_KEY__;
+    if (fromGlobal) {
+      return String(fromGlobal);
+    }
+  }
+
+  if (typeof process !== 'undefined' && process.env) {
+    const {
+      GEMINI_API_KEY: envKey,
+      NEXT_PUBLIC_GEMINI_API_KEY: nextPublicKey,
+      VERCEL_GEMINI_API_KEY: vercelKey,
+    } = process.env;
+    const resolved = envKey || nextPublicKey || vercelKey;
+    if (resolved) {
+      if (typeof window !== 'undefined') {
+        window.__GEMINI_API_KEY__ = resolved;
+      }
+      return String(resolved);
+    }
+  }
+
+  return '';
+})();
 
 // --- NEW: Supabase Edge Function URLs ---
 const GENERATE_SCAN_SESSION_URL = `${SUPABASE_URL}/functions/v1/generate-scan-session`;
