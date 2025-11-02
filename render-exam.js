@@ -1,3 +1,76 @@
+function createFollowupContext(examData, question, subQuestion, answer) {
+    if (!examData || !question || !subQuestion || !answer) return null;
+
+    const modelExpectationLines = [];
+    (subQuestion.model_alternatives || []).forEach((alt, altIndex) => {
+        const altLabel = `Alternative ${alt?.alternative_number ?? altIndex + 1}`;
+        const altNotes = alt?.extra_comment ? ` — ${alt.extra_comment}` : '';
+        modelExpectationLines.push(`${altLabel}${altNotes}`.trim());
+        (alt?.model_components || [])
+            .sort((a, b) => {
+                const ao = Number.isFinite(+a?.component_order) ? +a.component_order : Number.MAX_SAFE_INTEGER;
+                const bo = Number.isFinite(+b?.component_order) ? +b.component_order : Number.MAX_SAFE_INTEGER;
+                return ao - bo;
+            })
+            .forEach((comp, compIndex) => {
+                const points = (comp?.component_points ?? comp?.orig_llm_component_points);
+                const label = comp?.component_text || comp?.orig_llm_component_text || `Component ${compIndex + 1}`;
+                const pointLabel = Number.isFinite(Number(points)) ? ` (${points} pts)` : '';
+                modelExpectationLines.push(`  • ${label}${pointLabel}`.trim());
+            });
+    });
+
+    const studentText = answer.answer_text
+        ? answer.answer_text.replace(/\\n/g, '\n')
+        : (answer.orig_llm_answer_text ? answer.orig_llm_answer_text.replace(/\\n/g, '\n') : '');
+
+    const awardedPoints = (answer.sub_points_awarded ?? answer.orig_llm_sub_points_awarded);
+    const gradedPoints = Number.isFinite(Number(awardedPoints)) ? Number(awardedPoints) : null;
+    const maxPoints = subQuestion.max_sub_points ?? '?';
+
+    const contextSections = [
+        `Exam: ${examData.exam_name || 'Untitled Exam'}`,
+    ];
+
+    if (examData.grading_regulations) {
+        contextSections.push(`Grading regulations: ${examData.grading_regulations}`);
+    }
+
+    if (question.context_text) {
+        contextSections.push(`Question context: ${question.context_text}`);
+    }
+
+    if (subQuestion.sub_q_text_content) {
+        contextSections.push(`Prompt: ${subQuestion.sub_q_text_content}`);
+    }
+
+    if (modelExpectationLines.length > 0) {
+        contextSections.push(`Answer expectations:\n${modelExpectationLines.join('\n')}`);
+    }
+
+    if (studentText) {
+        contextSections.push(`Student answer (text):\n${studentText}`);
+    }
+
+    if (answer.answer_visual) {
+        contextSections.push(`Student answer visual URL: ${answer.answer_visual}`);
+    }
+
+    contextSections.push(
+        `Points awarded: ${gradedPoints !== null ? gradedPoints : 'Not awarded'} out of ${maxPoints}`,
+    );
+
+    if (answer.feedback_comment) {
+        contextSections.push(`Original feedback: ${answer.feedback_comment}`);
+    }
+
+    return {
+        contextText: contextSections.join('\n\n'),
+        questionLabel: `Question ${question.question_number || ''}`,
+        subQuestionLabel: subQuestion.sub_q_text_content || '',
+    };
+}
+
 /**
  * Render the exam questions, appendices, models, and student answers.
  * Also renders add-buttons:
@@ -139,6 +212,20 @@ function renderExam(questions) {
                         const feedbackHtml = ans.feedback_comment
                             ? `<div class="feedback-comment formatted-text" data-editable="feedback_comment" data-original-text="${ans.feedback_comment || ''}">${ans.feedback_comment}</div>`
                             : '';
+                        const followupMeta = createFollowupContext(currentExamData, q, sq, ans);
+                        const followupHtml = (ans.sub_points_awarded !== null || ans.feedback_comment)
+                            ? `<div class="feedback-followup" data-answer-id="${ans.id}"
+                                   data-context="${followupMeta ? encodeURIComponent(followupMeta.contextText) : ''}"
+                                   data-question-label="${followupMeta ? encodeURIComponent(followupMeta.questionLabel) : ''}"
+                                   data-sub-label="${followupMeta ? encodeURIComponent(followupMeta.subQuestionLabel) : ''}">
+                                  <div class="followup-history" aria-live="polite"></div>
+                                  <span class="followup-status sr-only" aria-live="polite"></span>
+                                  <div class="followup-input-row">
+                                    <textarea id="followup-input-${ans.id}" class="followup-input" rows="1" aria-label="Ask about the feedback or awarded points" placeholder="Ask about the feedback or awarded points..."></textarea>
+                                    <button type="button" class="followup-send-btn" data-answer-id="${ans.id}">Send</button>
+                                  </div>
+                                </div>`
+                            : '';
                         return `
               <div class="student-answer-item" data-answer-id="${ans.id}">
                 <button id="student-answer-edit-btn" class="edit-btn" data-edit-target="student_answer" data-answer-id="${ans.id}">${EDIT_ICON_SVG}</button>
@@ -146,6 +233,7 @@ function renderExam(questions) {
                 ${ans.answer_visual ? `<img src="${ans.answer_visual}" alt="Student answer visual" class="student-answer-visual">` : ''}
                 ${pointsHtml}
                 ${feedbackHtml}
+                ${followupHtml}
               </div>
             `;
                     }).join('');
@@ -259,6 +347,10 @@ function renderExam(questions) {
         ],
         throwOnError: false,
     });
+
+    if (window.followupSupport && typeof window.followupSupport.hydrate === 'function') {
+        window.followupSupport.hydrate();
+    }
 }
 
 /* ====== STAGING HELPERS (invoked by main.js event delegation) ====== */
