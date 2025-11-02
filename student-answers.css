@@ -136,7 +136,6 @@ body.single-student-view .add-student-btn {
     flex-direction: column;
     gap: 0.5rem;
     margin-bottom: 0.75rem;
-    border-radius: 10px 10px 0 0;
     scrollbar-width: none;
 }
 
@@ -206,14 +205,12 @@ body.single-student-view .add-student-btn {
     background-color: var(--color-light-blue-three);
     white-space: pre-wrap;
     border-radius: 10px 10px 0 10px;
-    margin-left: 10px;
 }
 
 .followup-message-model .followup-bubble {
     background-color: var(--color-light-blue-three);
     white-space: pre-wrap;
     border-radius: 10px 10px 10px 0;
-    margin-right: 10px;
 }
 
 .followup-message-model.is-error .followup-bubble {
