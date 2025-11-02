@@ -137,6 +137,7 @@ body.single-student-view .add-student-btn {
     gap: 0.5rem;
     margin-bottom: 0.75rem;
     scrollbar-width: none;
+    border-radius: 10px;
 }
 
 .feedback-followup .followup-history::-webkit-scrollbar {
