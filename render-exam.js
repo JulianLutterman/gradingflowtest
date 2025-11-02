@@ -218,15 +218,10 @@ function renderExam(questions) {
                                    data-context="${followupMeta ? encodeURIComponent(followupMeta.contextText) : ''}"
                                    data-question-label="${followupMeta ? encodeURIComponent(followupMeta.questionLabel) : ''}"
                                    data-sub-label="${followupMeta ? encodeURIComponent(followupMeta.subQuestionLabel) : ''}">
-                                  <div class="followup-header">
-                                    <span class="followup-title">Need more insight on this score?</span>
-                                    <span class="followup-status" aria-live="polite"></span>
-                                  </div>
-                                  <p class="followup-context-label"></p>
                                   <div class="followup-history" aria-live="polite"></div>
-                                  <label class="followup-label" for="followup-input-${ans.id}">Ask a follow-up question</label>
+                                  <span class="followup-status sr-only" aria-live="polite"></span>
                                   <div class="followup-input-row">
-                                    <textarea id="followup-input-${ans.id}" class="followup-input" rows="2" placeholder="Ask about the feedback or awarded points..."></textarea>
+                                    <textarea id="followup-input-${ans.id}" class="followup-input" rows="1" aria-label="Ask about the feedback or awarded points" placeholder="Ask about the feedback or awarded points..."></textarea>
                                     <button type="button" class="followup-send-btn" data-answer-id="${ans.id}">Send</button>
                                   </div>
                                 </div>`
