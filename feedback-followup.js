@@ -190,7 +190,19 @@ const GEMINI_STREAM_BASE_URL =
 
     const bubble = document.createElement('div');
     bubble.className = 'followup-bubble';
-    if (role === 'model') {
+    if (isStreaming) {
+      bubble.classList.add('is-streaming');
+      const thinking = document.createElement('div');
+      thinking.className = 'followup-thinking-indicator';
+      const spinner = document.createElement('div');
+      spinner.className = 'spinner followup-thinking-spinner';
+      const label = document.createElement('span');
+      label.className = 'followup-thinking-text';
+      label.textContent = 'Thinking…';
+      thinking.appendChild(spinner);
+      thinking.appendChild(label);
+      bubble.appendChild(thinking);
+    } else if (role === 'model') {
       renderMarkdownInto(bubble, text);
     } else {
       bubble.textContent = text;
@@ -261,11 +273,15 @@ const GEMINI_STREAM_BASE_URL =
 
     try {
       const fullText = await streamGeminiResponse(conversation, apiKey, (partial) => {
+        if (streamingBubble.classList.contains('is-streaming')) {
+          streamingBubble.classList.remove('is-streaming');
+        }
         renderMarkdownInto(streamingBubble, partial);
         historyEl.scrollTop = historyEl.scrollHeight;
       });
 
       renderMarkdownInto(streamingBubble, fullText);
+      streamingBubble.classList.remove('is-streaming');
       streamingBubble.parentElement.classList.remove('is-streaming');
       conversation.messages.push({
         role: 'model',
@@ -274,6 +290,7 @@ const GEMINI_STREAM_BASE_URL =
       setStatus(statusEl, 'Response ready.', { historyEl });
     } catch (error) {
       streamingBubble.parentElement.classList.add('is-error');
+      streamingBubble.classList.remove('is-streaming');
       streamingBubble.textContent = error.message || 'Unable to generate a response.';
       conversation.messages.pop();
       setStatus(statusEl, 'Gemini could not reply.', { isError: true, historyEl });

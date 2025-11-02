@@ -219,23 +219,29 @@ body.single-student-view .add-student-btn {
     background: rgba(227, 23, 10, 0.08);
 }
 
-.followup-message-model.is-streaming .followup-bubble {
-    position: relative;
+.followup-bubble.is-streaming {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
-.followup-message-model.is-streaming .followup-bubble::after {
-    content: '';
-    position: absolute;
-    inset: -1px;
-    border-radius: 12px;
-    border: 2px dashed rgba(51, 65, 149, 0.35);
-    animation: followupPulse 1.4s ease-in-out infinite;
+.followup-thinking-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
-@keyframes followupPulse {
-    0% { opacity: 0.2; }
-    50% { opacity: 0.6; }
-    100% { opacity: 0.2; }
+.followup-thinking-spinner {
+    width: 1rem;
+    height: 1rem;
+    border-width: 3px;
+    flex-shrink: 0;
+}
+
+.followup-thinking-text {
+    font-weight: 600;
+    color: var(--color-text-dark);
+    letter-spacing: 0.01em;
 }
 
 .followup-input-row {
