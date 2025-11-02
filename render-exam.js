@@ -222,7 +222,7 @@ function renderExam(questions) {
                                   <span class="followup-status sr-only" aria-live="polite"></span>
                                   <div class="followup-input-row">
                                     <textarea id="followup-input-${ans.id}" class="followup-input" rows="1" aria-label="Ask about the feedback or awarded points" placeholder="Ask about the feedback or awarded points..."></textarea>
-                                    <button type="button" class="followup-send-btn" data-answer-id="${ans.id}">Send</button>
+                                    <button type="button" class="followup-send-btn" data-answer-id="${ans.id}">Ask</button>
                                   </div>
                                 </div>`
                             : '';
