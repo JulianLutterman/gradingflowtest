@@ -224,6 +224,7 @@ const GEMINI_STREAM_BASE_URL =
 
   async function submitFollowup(answerId, ui) {
     const { block, textarea, sendBtn, historyEl, statusEl } = ui;
+    if (sendBtn.disabled) return;
     const question = textarea.value.trim();
     if (!question) return;
 
@@ -263,7 +264,6 @@ const GEMINI_STREAM_BASE_URL =
 
     const streamingBubble = appendHistoryMessage(historyEl, 'model', '', { isStreaming: true });
     sendBtn.disabled = true;
-    textarea.disabled = true;
     block.classList.add('is-streaming');
 
     conversation.messages.push({
@@ -296,7 +296,6 @@ const GEMINI_STREAM_BASE_URL =
       setStatus(statusEl, 'Gemini could not reply.', { isError: true, historyEl });
     } finally {
       sendBtn.disabled = false;
-      textarea.disabled = false;
       block.classList.remove('is-streaming');
       textarea.focus();
       setTimeout(() => setStatus(statusEl, '', { historyEl }), 4000);
