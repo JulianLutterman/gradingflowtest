@@ -4,7 +4,7 @@ import LoginPage from './pages/LoginPage.jsx';
 import ExamPage from './pages/ExamPage.jsx';
 import ScanPage from './pages/ScanPage.jsx';
 import MultiScanPage from './pages/MultiScanPage.jsx';
-import { AuthProvider } from './hooks/useAuth.js';
+import { AuthProvider } from './hooks/useAuth.jsx';
 
 function App() {
   return (

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import JSZip from 'jszip';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import Spinner from '../components/Spinner.jsx';
-import { useAuth } from '../hooks/useAuth.js';
+import { useAuth } from '../hooks/useAuth.jsx';
 import { supabase } from '../services/supabaseClient.js';
 import { sanitizeFilename } from '../utils/files.js';
 
