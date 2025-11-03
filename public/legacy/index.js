@@ -136,7 +136,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (error || !session) {
         // If there's an error or no session, redirect to login
-        window.location.href = 'login.html';
+        window.location.href = '/login';
         return; // Stop further execution
     }
 
@@ -149,7 +149,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Listen for sign-out events
 sb.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT' || !session) {
-        window.location.href = 'login.html';
+        window.location.href = '/login';
     }
 });
 
@@ -190,7 +190,7 @@ async function loadExams() {
         card.appendChild(deleteBtn);
 
         const link = document.createElement('a');
-        link.href = `exam.html?id=${exam.id}`;
+        link.href = `/exams/${exam.id}`;
         link.className = 'exam-card-link';
 
         const title = document.createElement('h3');

@@ -1,68 +1,12 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Exam Uploader</title>
-    <!-- Supabase JS Client -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- JSZip for handling zip files -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&display=swap" rel="stylesheet">
-
-    <link rel="stylesheet" href="index.css">
-</head>
-<body>
-
-    <!-- Main Application Section -->
-    <div id="app-section" class="container">
-        <div id="app-header">
-            <span id="user-email">Loading...</span>
-            <button id="logout-button">Logout</button>
-        </div>
-        <h2>Upload New Exam</h2>
-        <form id="exam-form">
-            <div class="form-group">
-                <label for="exam-name">Exam Name</label>
-                <input type="text" id="exam-name" placeholder="e.g., Physics Midterm 2024" required>
-            </div>
-
-            <div class="form-group">
-                <label for="exam-files">Exam File(s) (PDF/Images)</label>
-                <input type="file" id="exam-files" class="file-input-hidden" accept=".pdf,image/*" multiple required>
-                <label for="exam-files" class="file-input-label">Choose Files</label>
-                <span id="exam-file-display" class="file-name-display">No files chosen</span>
-            </div>
-            <button type="submit" id="submit-exam-button">
-                <div id="spinner-exam" class="spinner hidden"></div>
-                <span id="submit-exam-button-text">Process and Upload Exam</span>
-            </button>
-        </form>
-    </div>
-
-    <!-- Exam List Section -->
-    <div id="exam-list-section" class="container">
-        <h2>Your Exams</h2>
-        <div id="exam-cards-container">
-            <p>Loading exams...</p>
-        </div>
-    </div>
-
-    <div id="confirm-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
-        <div class="modal-content confirm-modal-content">
-            <button type="button" class="modal-close" id="confirm-modal-close" aria-label="Close confirmation dialog">×</button>
-            <h3 id="confirm-modal-title">Confirm Action</h3>
-            <p id="confirm-modal-text">Are you sure?</p>
-            <div class="confirm-modal-actions">
-                <button type="button" id="confirm-modal-cancel-btn" class="cancel-btn">Cancel</button>
-                <button type="button" id="confirm-modal-confirm-btn" class="save-btn danger">Confirm</button>
-            </div>
-        </div>
-    </div>
-
-</body>
-<script src="index.js"></script>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GradingFlow</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>

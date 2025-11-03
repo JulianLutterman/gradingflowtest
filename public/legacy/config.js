@@ -125,7 +125,7 @@ const GENERATE_SCAN_SESSION_URL = `${SUPABASE_URL}/functions/v1/generate-scan-se
 const PROCESS_SCANNED_SESSION_URL = `${SUPABASE_URL}/functions/v1/process-scanned-session`;
 const CREATE_SUBMISSION_SESSION_URL = `${SUPABASE_URL}/functions/v1/create-submission-session`;
 // Base URL for the mobile scanning page
-const SCAN_PAGE_BASE_URL = `${window.location.origin}/scan.html`;
+const SCAN_PAGE_BASE_URL = `${window.location.origin}/scan`;
 
 // --- SUPABASE CLIENT ---
 const { createClient } = supabase;
@@ -146,7 +146,7 @@ const DEFAULT_GRADING_BUTTON_TEXT = 'Grade New Submissions';
 const DEFAULT_APPENDIX_BUTTON_TEXT = 'Upload Appendix';
 const DEFAULT_MODEL_BUTTON_TEXT = 'Upload Answer Model';
 const DEFAULT_SCAN_BUTTON_TEXT = 'Scan Answers';
-const MULTI_SCAN_PAGE_BASE_URL = `${window.location.origin}/multi-scan.html`;
+const MULTI_SCAN_PAGE_BASE_URL = `${window.location.origin}/multi-scan`;
 
 const EDIT_ICON_SVG =
   `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#14110f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>`;
