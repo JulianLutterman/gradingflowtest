@@ -1,7 +1,48 @@
 // --- CONFIGURATION ---
-const SUPABASE_URL = 'https://uagiatfoiwusxafxskvp.supabase.co';
-const SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhZ2lhdGZvaXd1c3hhZnhza3ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyODc0NjYsImV4cCI6MjA2NDg2MzQ2Nn0.b0wIEHgENkhzkp3qHAotqbLTq7BwsqgM7b0ksAl3h1U';
+function readRuntimeValue(...keys) {
+  for (const key of keys) {
+    if (!key) continue;
+
+    if (typeof window !== 'undefined') {
+      const fromWindow = window[key] ?? window[`__${key}__`];
+      if (typeof fromWindow === 'string' && fromWindow.trim()) {
+        return fromWindow.trim();
+      }
+      if (window.__ENV__ && typeof window.__ENV__[key] === 'string' && window.__ENV__[key].trim()) {
+        return window.__ENV__[key].trim();
+      }
+    }
+
+    if (typeof globalThis !== 'undefined') {
+      const fromGlobal = globalThis[key] ?? globalThis[`__${key}__`];
+      if (typeof fromGlobal === 'string' && fromGlobal.trim()) {
+        return fromGlobal.trim();
+      }
+    }
+
+    if (typeof process !== 'undefined' && process.env) {
+      const fromProcess = process.env[key];
+      if (typeof fromProcess === 'string' && fromProcess.trim()) {
+        return fromProcess.trim();
+      }
+    }
+  }
+
+  return '';
+}
+
+const SUPABASE_URL = readRuntimeValue('SUPABASE_URL', 'VITE_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL');
+const SUPABASE_ANON_KEY = readRuntimeValue(
+  'SUPABASE_ANON_KEY',
+  'VITE_SUPABASE_ANON_KEY',
+  'NEXT_PUBLIC_SUPABASE_ANON_KEY'
+);
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.warn(
+    'Supabase credentials are not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY before building the app.'
+  );
+}
 const APPENDIX_GCF_URL = 'https://add-appendix-232485517114.europe-west1.run.app';
 const MODEL_GCF_URL = 'https://add-model-232485517114.europe-west1.run.app';
 const STUDENT_ANSWERS_GCF_URL = 'https://add-student-answers-232485517114.europe-west1.run.app';
@@ -130,6 +171,18 @@ const SCAN_PAGE_BASE_URL = `${window.location.origin}/scan`;
 // --- SUPABASE CLIENT ---
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+if (typeof window !== 'undefined') {
+  window.SUPABASE_URL = SUPABASE_URL;
+  window.SUPABASE_ANON_KEY = SUPABASE_ANON_KEY;
+  window.sb = sb;
+}
+
+if (typeof globalThis !== 'undefined') {
+  globalThis.SUPABASE_URL = SUPABASE_URL;
+  globalThis.SUPABASE_ANON_KEY = SUPABASE_ANON_KEY;
+  globalThis.sb = sb;
+}
 
 // Global state
 let currentScanSessionToken = null;
