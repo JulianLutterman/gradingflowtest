@@ -1,7 +1,48 @@
 // --- CONFIGURATION ---
-const SUPABASE_URL = 'https://uagiatfoiwusxafxskvp.supabase.co';
-const SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhZ2lhdGZvaXd1c3hhZnhza3ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyODc0NjYsImV4cCI6MjA2NDg2MzQ2Nn0.b0wIEHgENkhzkp3qHAotqbLTq7BwsqgM7b0ksAl3h1U';
+function readRuntimeValue(...keys) {
+  for (const key of keys) {
+    if (!key) continue;
+
+    if (typeof window !== 'undefined') {
+      const fromWindow = window[key] ?? window[`__${key}__`];
+      if (typeof fromWindow === 'string' && fromWindow.trim()) {
+        return fromWindow.trim();
+      }
+      if (window.__ENV__ && typeof window.__ENV__[key] === 'string' && window.__ENV__[key].trim()) {
+        return window.__ENV__[key].trim();
+      }
+    }
+
+    if (typeof globalThis !== 'undefined') {
+      const fromGlobal = globalThis[key] ?? globalThis[`__${key}__`];
+      if (typeof fromGlobal === 'string' && fromGlobal.trim()) {
+        return fromGlobal.trim();
+      }
+    }
+
+    if (typeof process !== 'undefined' && process.env) {
+      const fromProcess = process.env[key];
+      if (typeof fromProcess === 'string' && fromProcess.trim()) {
+        return fromProcess.trim();
+      }
+    }
+  }
+
+  return '';
+}
+
+const SUPABASE_URL = readRuntimeValue('SUPABASE_URL', 'VITE_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL');
+const SUPABASE_ANON_KEY = readRuntimeValue(
+  'SUPABASE_ANON_KEY',
+  'VITE_SUPABASE_ANON_KEY',
+  'NEXT_PUBLIC_SUPABASE_ANON_KEY'
+);
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.warn(
+    'Supabase credentials are not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY before building the app.'
+  );
+}
 const APPENDIX_GCF_URL = 'https://add-appendix-232485517114.europe-west1.run.app';
 const MODEL_GCF_URL = 'https://add-model-232485517114.europe-west1.run.app';
 const STUDENT_ANSWERS_GCF_URL = 'https://add-student-answers-232485517114.europe-west1.run.app';
@@ -125,11 +166,23 @@ const GENERATE_SCAN_SESSION_URL = `${SUPABASE_URL}/functions/v1/generate-scan-se
 const PROCESS_SCANNED_SESSION_URL = `${SUPABASE_URL}/functions/v1/process-scanned-session`;
 const CREATE_SUBMISSION_SESSION_URL = `${SUPABASE_URL}/functions/v1/create-submission-session`;
 // Base URL for the mobile scanning page
-const SCAN_PAGE_BASE_URL = `${window.location.origin}/scan.html`;
+const SCAN_PAGE_BASE_URL = `${window.location.origin}/scan`;
 
 // --- SUPABASE CLIENT ---
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+if (typeof window !== 'undefined') {
+  window.SUPABASE_URL = SUPABASE_URL;
+  window.SUPABASE_ANON_KEY = SUPABASE_ANON_KEY;
+  window.sb = sb;
+}
+
+if (typeof globalThis !== 'undefined') {
+  globalThis.SUPABASE_URL = SUPABASE_URL;
+  globalThis.SUPABASE_ANON_KEY = SUPABASE_ANON_KEY;
+  globalThis.sb = sb;
+}
 
 // Global state
 let currentScanSessionToken = null;
@@ -146,7 +199,7 @@ const DEFAULT_GRADING_BUTTON_TEXT = 'Grade New Submissions';
 const DEFAULT_APPENDIX_BUTTON_TEXT = 'Upload Appendix';
 const DEFAULT_MODEL_BUTTON_TEXT = 'Upload Answer Model';
 const DEFAULT_SCAN_BUTTON_TEXT = 'Scan Answers';
-const MULTI_SCAN_PAGE_BASE_URL = `${window.location.origin}/multi-scan.html`;
+const MULTI_SCAN_PAGE_BASE_URL = `${window.location.origin}/multi-scan`;
 
 const EDIT_ICON_SVG =
   `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#14110f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>`;

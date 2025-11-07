@@ -1,11 +1,16 @@
 // --- CONFIGURATION ---
-const SUPABASE_URL = 'https://uagiatfoiwusxafxskvp.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhZ2lhdGZvaXd1c3hhZnhza3ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyODc0NjYsImV4cCI6MjA2NDg2MzQ2Nn0.b0wIEHgENkhzkp3qHAotqbLTq7BwsqgM7b0ksAl3h1U';
 const GCF_URL = 'https://exam-structurer-232485517114.europe-west1.run.app';
 const STORAGE_BUCKET = 'exam-visuals';
 
 // --- SUPABASE CLIENT ---
 const { createClient } = supabase;
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  throw new Error(
+    'Supabase credentials are not configured. Please ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set.'
+  );
+}
+
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // --- DOM ELEMENTS ---
@@ -136,7 +141,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (error || !session) {
         // If there's an error or no session, redirect to login
-        window.location.href = 'login.html';
+        window.location.href = '/login';
         return; // Stop further execution
     }
 
@@ -149,7 +154,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Listen for sign-out events
 sb.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT' || !session) {
-        window.location.href = 'login.html';
+        window.location.href = '/login';
     }
 });
 
@@ -190,7 +195,7 @@ async function loadExams() {
         card.appendChild(deleteBtn);
 
         const link = document.createElement('a');
-        link.href = `exam.html?id=${exam.id}`;
+        link.href = `/exams/${exam.id}`;
         link.className = 'exam-card-link';
 
         const title = document.createElement('h3');

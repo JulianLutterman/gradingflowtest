@@ -1,9 +1,12 @@
 // --- CONFIGURATION ---
-const SUPABASE_URL = 'https://uagiatfoiwusxafxskvp.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhZ2lhdGZvaXd1c3hhZnhza3ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyODc0NjYsImV4cCI6MjA2NDg2MzQ2Nn0.b0wIEHgENkhzkp3qHAotqbLTq7BwsqgM7b0ksAl3h1U';
-
 // --- SUPABASE CLIENT ---
 const { createClient } = supabase;
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    throw new Error(
+        'Supabase credentials are not configured. Please ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set.'
+    );
+}
+
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // --- DOM ELEMENTS ---
@@ -55,7 +58,7 @@ loginForm.addEventListener('submit', async (e) => {
         alert(`Login Error: ${error.message}`);
     } else {
         loginForm.reset();
-        window.location.href = 'index.html'; // Redirect on successful login
+        window.location.href = '/'; // Redirect on successful login
     }
 });
 
@@ -64,7 +67,7 @@ loginForm.addEventListener('submit', async (e) => {
 sb.auth.onAuthStateChange((event, session) => {
     if (session) {
         // If user is logged in, redirect to the main app
-        window.location.href = 'index.html';
+        window.location.href = '/';
     }
 });
 
@@ -72,6 +75,6 @@ sb.auth.onAuthStateChange((event, session) => {
 document.addEventListener('DOMContentLoaded', async () => {
     const { data: { session } } = await sb.auth.getSession();
     if (session) {
-        window.location.href = 'index.html';
+        window.location.href = '/';
     }
 });

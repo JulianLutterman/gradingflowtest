@@ -73,6 +73,20 @@ body {
     margin-bottom: 2rem;
 }
 
+.status-log {
+    list-style: decimal inside;
+    padding: 0;
+    margin: 1rem 0 0 0;
+    display: grid;
+    gap: 0.5rem;
+}
+
+.status-log li {
+    background-color: rgba(255, 255, 255, 0.6);
+    border-radius: 12px;
+    padding: 0.5rem 0.75rem;
+}
+
 h2 {
     text-align: center;
     color: #222;
