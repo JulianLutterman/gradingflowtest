@@ -351,7 +351,7 @@
                 try {
                     const { error } = await sb.rpc('delete_exam_cascade', { p_exam_id: examId });
                     if (error) throw error;
-                    window.location.href = 'index.html';
+                    window.location.href = 'app.html';
                 } catch (deleteError) {
                     console.error('Failed to delete exam:', deleteError);
                     alert('Failed to delete the exam. Please try again.');

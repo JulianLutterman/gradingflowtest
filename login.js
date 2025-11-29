@@ -55,7 +55,7 @@ loginForm.addEventListener('submit', async (e) => {
         alert(`Login Error: ${error.message}`);
     } else {
         loginForm.reset();
-        window.location.href = 'index.html'; // Redirect on successful login
+        window.location.href = 'app.html'; // Redirect on successful login
     }
 });
 
@@ -64,7 +64,7 @@ loginForm.addEventListener('submit', async (e) => {
 sb.auth.onAuthStateChange((event, session) => {
     if (session) {
         // If user is logged in, redirect to the main app
-        window.location.href = 'index.html';
+        window.location.href = 'app.html';
     }
 });
 
@@ -72,6 +72,6 @@ sb.auth.onAuthStateChange((event, session) => {
 document.addEventListener('DOMContentLoaded', async () => {
     const { data: { session } } = await sb.auth.getSession();
     if (session) {
-        window.location.href = 'index.html';
+        window.location.href = 'app.html';
     }
 });
